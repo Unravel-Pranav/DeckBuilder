@@ -41,6 +41,18 @@ const newSectionDesc = ref('')
 const editingSection = ref<string | null>(null)
 const editName = ref('')
 
+// Layout selector for adding slides
+const showLayoutDialog = ref(false)
+const pendingSectionId = ref<string | null>(null)
+const layoutOptions: { id: LayoutType; label: string; description: string }[] = [
+  { id: 'chart-commentary', label: 'Chart + Commentary', description: 'Chart on the left with text commentary on the right' },
+  { id: 'table-commentary', label: 'Table + Commentary', description: 'Data table with supporting commentary' },
+  { id: 'full-chart', label: 'Full Chart', description: 'Full-width chart without commentary' },
+  { id: 'full-table', label: 'Full Table', description: 'Full-width data table' },
+  { id: 'mixed', label: 'Mixed', description: 'Multiple charts and tables on one slide' },
+  { id: 'commentary-only', label: 'Commentary Only', description: 'Text-only slide for insights or summaries' },
+]
+
 function toggleExpand(sectionId: string) {
   if (expandedSections.value.has(sectionId)) {
     expandedSections.value.delete(sectionId)
@@ -70,8 +82,17 @@ function addSection() {
   showAddDialog.value = false
 }
 
-function addSlideToSection(sectionId: string) {
-  slidesStore.addSlide(sectionId, 'chart-commentary' as LayoutType)
+function openLayoutSelector(sectionId: string) {
+  pendingSectionId.value = sectionId
+  showLayoutDialog.value = true
+}
+
+function addSlideWithLayout(layout: LayoutType) {
+  if (pendingSectionId.value) {
+    slidesStore.addSlide(pendingSectionId.value, layout)
+  }
+  showLayoutDialog.value = false
+  pendingSectionId.value = null
 }
 
 function onSectionDragEnd(event: SortableEvent) {
@@ -267,7 +288,7 @@ const layoutLabels: Record<string, string> = {
                   <!-- Add slide button -->
                   <button
                     class="flex items-center gap-2 w-full py-2 px-3 mt-2 rounded-lg border border-dashed border-zinc-800 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all text-sm"
-                    @click="addSlideToSection(section.id)"
+                    @click="openLayoutSelector(section.id)"
                   >
                     <Plus :size="14" :stroke-width="1.5" />
                     Add Slide
@@ -328,6 +349,37 @@ const layoutLabels: Record<string, string> = {
             @click="addSection"
           >
             Add Section
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Layout Selector Dialog -->
+    <Dialog v-model:open="showLayoutDialog">
+      <DialogContent class="bg-[#12121A] border-[rgba(255,255,255,0.08)] rounded-xl max-w-lg">
+        <DialogHeader>
+          <DialogTitle class="font-display tracking-tight">Choose Slide Layout</DialogTitle>
+        </DialogHeader>
+        <div class="grid grid-cols-2 gap-3 py-2">
+          <button
+            v-for="layout in layoutOptions"
+            :key="layout.id"
+            class="p-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-200 text-left group"
+            @click="addSlideWithLayout(layout.id)"
+          >
+            <h4 class="text-sm font-medium text-zinc-300 group-hover:text-amber-500 transition-colors mb-1">
+              {{ layout.label }}
+            </h4>
+            <p class="text-[10px] text-zinc-600 leading-relaxed">{{ layout.description }}</p>
+          </button>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            class="border-[rgba(255,255,255,0.15)] rounded-lg"
+            @click="showLayoutDialog = false"
+          >
+            Cancel
           </Button>
         </DialogFooter>
       </DialogContent>

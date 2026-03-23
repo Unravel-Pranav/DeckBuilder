@@ -65,6 +65,7 @@ from app.api.v1.section_controller import router as section_router  # noqa: E402
 from app.api.v1.ai_controller import router as ai_router  # noqa: E402
 from app.api.v1.structure_controller import router as structure_router  # noqa: E402
 from app.api.v1.generation_controller import router as generation_router  # noqa: E402
+from app.api.v1.ppt_templates_controller import router as ppt_templates_router  # noqa: E402
 
 app.include_router(health_router, tags=["health"])
 app.include_router(template_router, prefix="/api/v1/templates", tags=["templates"])
@@ -73,3 +74,5 @@ app.include_router(section_router, prefix="/api/v1/sections", tags=["sections"])
 app.include_router(ai_router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(structure_router, prefix="/api/v1/structure", tags=["structure"])
 app.include_router(generation_router, prefix="/api/v1/generation", tags=["generation"])
+app.include_router(ppt_templates_router, prefix="/api/v1/ppt-templates", tags=["ppt-templates"])
+

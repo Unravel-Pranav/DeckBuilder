@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { useUiStore } from '@/stores/ui'
+import { usePresentationStore } from '@/stores/presentation'
+import { transformToBackendFormat, generatePPT, downloadFile } from '@/lib/api'
 import { mockSections } from '@/lib/mockData'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
@@ -24,10 +26,12 @@ import {
 const router = useRouter()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
+const presentationStore = usePresentationStore()
 
 const currentSlideIndex = ref(0)
 const isGenerating = ref(false)
 const generateProgress = ref(0)
+const errorMessage = ref<string | null>(null)
 
 onMounted(() => {
   if (slidesStore.sections.length === 0) {
@@ -60,20 +64,52 @@ function editSlide() {
   }
 }
 
-async function generatePPT() {
-  isGenerating.value = true
-  generateProgress.value = 0
-
-  const steps = 10
-  for (let i = 0; i <= steps; i++) {
-    await new Promise((r) => setTimeout(r, 400))
-    generateProgress.value = Math.round((i / steps) * 100)
+async function generatePPTAction() {
+  if (!presentationStore.currentPresentation) {
+    // For demo/dev purposes, if no presentation is set, we might want to create one
+    if (slidesStore.sections.length > 0) {
+        presentationStore.createPresentation("Manual Presentation")
+    } else {
+        errorMessage.value = "No presentation data available."
+        return
+    }
   }
+  
+  isGenerating.value = true
+  generateProgress.value = 10
+  errorMessage.value = null
 
-  isGenerating.value = false
-  uiStore.completeStep('preview')
-  uiStore.setCurrentStep('output')
-  router.push('/output')
+  try {
+    // 1. Transform data
+    const payload = transformToBackendFormat(
+      presentationStore.currentPresentation!, 
+      slidesStore.sections
+    )
+    console.log('Sending payload to backend:', payload)
+    generateProgress.value = 30
+
+    // 2. Call backend
+    const result = await generatePPT(payload)
+    generateProgress.value = 80
+
+    if (result.success && result.file_id) {
+      // 3. Trigger download
+      downloadFile(result.file_id, result.filename)
+      generateProgress.value = 100
+      
+      // 4. Update UI state
+      uiStore.completeStep('preview')
+      uiStore.setCurrentStep('output')
+      router.push('/output')
+    } else {
+      throw new Error(result.message || 'Failed to generate PPT')
+    }
+  } catch (err: any) {
+    console.error('Generation failed:', err)
+    errorMessage.value = err.message || 'An unexpected error occurred'
+  } finally {
+    isGenerating.value = false
+  }
 }
 
 const layoutIcons: Record<string, typeof BarChart3> = {
@@ -93,6 +129,11 @@ const layoutIcons: Record<string, typeof BarChart3> = {
       <!-- Slide viewer -->
       <div class="flex-1 flex items-center justify-center p-8">
         <div v-if="currentSlide" class="w-full max-w-4xl">
+          <!-- Error alert -->
+          <div v-if="errorMessage" class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-xs text-center">
+            {{ errorMessage }}
+          </div>
+
           <!-- Slide card -->
           <div
             class="aspect-[16/9] rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,15,0.8)] p-8 flex flex-col shadow-xl"
@@ -219,7 +260,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
         <Button
           class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-12 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98] text-sm"
           :disabled="isGenerating"
-          @click="generatePPT"
+          @click="generatePPTAction"
         >
           <template v-if="isGenerating">
             <Loader2 :size="16" class="mr-2 animate-spin" />
