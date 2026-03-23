@@ -1,0 +1,150 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useSlidesStore } from '@/stores/slides'
+import { useUiStore } from '@/stores/ui'
+import { mockSections } from '@/lib/mockData'
+import SlideListPanel from '@/components/builder/SlideListPanel.vue'
+import LayoutSelector from '@/components/builder/LayoutSelector.vue'
+import TemplateSelector from '@/components/builder/TemplateSelector.vue'
+import SlideCanvas from '@/components/builder/SlideCanvas.vue'
+import TemplateSelectorPanel from '@/components/builder/TemplateSelectorPanel.vue'
+import DataInputPanel from '@/components/builder/DataInputPanel.vue'
+import CommentaryPanel from '@/components/builder/CommentaryPanel.vue'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  ArrowRight,
+  Database,
+  MessageSquare,
+  LayoutTemplate,
+  PanelRightOpen,
+  PanelRightClose,
+} from 'lucide-vue-next'
+
+const rightTab = ref<string>('templates')
+const rightPanelOpen = ref(true)
+
+const router = useRouter()
+const slidesStore = useSlidesStore()
+const uiStore = useUiStore()
+
+onMounted(() => {
+  if (slidesStore.sections.length === 0) {
+    slidesStore.setSections(mockSections)
+  }
+  if (!slidesStore.activeSlideId && slidesStore.allSlides.length > 0) {
+    slidesStore.setActiveSlide(slidesStore.allSlides[0].id)
+  }
+})
+
+function handleContinue() {
+  uiStore.completeStep('builder')
+  uiStore.setCurrentStep('preview')
+  router.push('/preview')
+}
+</script>
+
+<template>
+  <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <!-- Left panel: Slide list -->
+    <div class="w-56 flex-shrink-0 hidden lg:block">
+      <SlideListPanel />
+    </div>
+
+    <!-- Center: Canvas (takes remaining space) -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <LayoutSelector />
+      <TemplateSelector />
+      <SlideCanvas />
+
+      <!-- Continue bar -->
+      <div class="px-6 py-3 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+        <!-- Right panel toggle -->
+        <button
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200"
+          :class="rightPanelOpen ? 'text-amber-500 bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'"
+          @click="rightPanelOpen = !rightPanelOpen"
+        >
+          <PanelRightClose v-if="rightPanelOpen" :size="14" :stroke-width="1.5" />
+          <PanelRightOpen v-else :size="14" :stroke-width="1.5" />
+          {{ rightPanelOpen ? 'Hide Panel' : 'Show Panel' }}
+        </button>
+
+        <Button
+          class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-9 px-6 rounded-lg shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-sm"
+          @click="handleContinue"
+        >
+          Preview & Generate
+          <ArrowRight :size="16" :stroke-width="2" class="ml-1.5" />
+        </Button>
+      </div>
+    </div>
+
+    <!-- Right panel: Templates + Data + Commentary (collapsible) -->
+    <Transition name="slide-panel">
+      <div
+        v-if="rightPanelOpen"
+        class="w-80 flex-shrink-0 flex flex-col border-l border-[rgba(255,255,255,0.08)]"
+        style="background: rgba(18, 18, 26, 0.95)"
+      >
+        <Tabs
+          v-model="rightTab"
+          class="flex flex-col h-full"
+        >
+          <TabsList class="w-full grid grid-cols-3 bg-white/[0.03] rounded-none border-b border-[rgba(255,255,255,0.06)] h-auto p-0">
+            <TabsTrigger
+              value="templates"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-zinc-500"
+            >
+              <LayoutTemplate :size="12" :stroke-width="1.5" />
+              Templates
+            </TabsTrigger>
+            <TabsTrigger
+              value="data"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-zinc-500"
+            >
+              <Database :size="12" :stroke-width="1.5" />
+              Data
+            </TabsTrigger>
+            <TabsTrigger
+              value="commentary"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-zinc-500"
+            >
+              <MessageSquare :size="12" :stroke-width="1.5" />
+              Text
+            </TabsTrigger>
+          </TabsList>
+
+          <ScrollArea class="flex-1">
+            <div class="p-4">
+              <TabsContent value="templates" class="mt-0">
+                <TemplateSelectorPanel />
+              </TabsContent>
+              <TabsContent value="data" class="mt-0">
+                <DataInputPanel />
+              </TabsContent>
+              <TabsContent value="commentary" class="mt-0">
+                <CommentaryPanel />
+              </TabsContent>
+            </div>
+          </ScrollArea>
+        </Tabs>
+      </div>
+    </Transition>
+  </div>
+</template>
+
+<style scoped>
+.slide-panel-enter-active,
+.slide-panel-leave-active {
+  transition: all 250ms ease-out;
+}
+.slide-panel-enter-from,
+.slide-panel-leave-to {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+</style>

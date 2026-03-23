@@ -1,0 +1,629 @@
+# Simple prompts configuration as Python dictionary
+# Contains only prompt content without any code
+
+PROMPTS = {
+    "market": {
+        "name": "Market Overview",
+        "description": "Comprehensive market analysis including absorption, deliveries, and vacancy trends",
+        "endpoint": "/market",
+        "prompt": """You are given quarterly commercial real estate market data as structured JSON.
+Your job is to write a concise, professional "MARKET OVERVIEW" in the style of a brokerage research report.
+Base tone and structure on the few-shot example, but ONLY use facts computable from the input JSON.
+
+## Inputs
+- The JSON may include: "title", "market", "unit", "quarters" (array of strings), and any of:
+  "net_absorption" (numbers), "deliveries" (numbers), "vacancy" (percentages), optionally others.
+- Example schema is illustrative; some series may be missing.
+
+## Output format (strict)
+1) A heading line: # Market Overview
+2) A 1–2 sentence lead paragraph summarizing the latest quarter and overall trend.
+3) 4–6 short bullets (each starting with "- ") highlighting key metrics and changes.
+4) No tables, no code blocks, no extra headings, and do not echo the input JSON.
+
+## Style & Voice
+- Crisp, neutral, sell-side research tone; avoid hype and clichés.
+- Prefer "the market" or the JSON's "market" value if provided (else omit geography).
+- Use active voice and precise numbers with units.
+- Do not speculate or attribute causes not present in the data.
+
+## Calculations & Rules
+Assume quarterly frequency.
+Define:
+- LQ = latest quarter = last element of "quarters"
+- PQ = previous quarter = the element before LQ (if available)
+- YoY compare to the same quarter one year earlier (lag 4) when available.
+
+For each series present, compute:
+- Level (latest): value at LQ.
+- QoQ change: LQ – PQ (if PQ exists).
+- YoY change: LQ – value at LQ-4 (if exists).
+- Trailing 4-Q sum (T4Q) for flow series like net_absorption and deliveries when 4+ quarters exist.
+
+Net absorption:
+- If negative, refer to "net move-outs" or "negative absorption."
+- Optionally compute supply-demand gap when both "deliveries" and "net_absorption" exist:
+  gap = deliveries(LQ) – net_absorption(LQ); also T4Q gap if possible.
+
+Vacancy:
+- Treat inputs as percentage points. Report to one decimal place and describe direction:
+  - Rising if QoQ ≥ +0.2 pp; declining if ≤ −0.2 pp; otherwise "essentially flat."
+- When YoY available, include pp change.
+
+## Units & Formatting
+- Respect JSON "unit". If it indicates millions (e.g., "sq. ft million", "million sq ft"), keep values in millions and write "million sq. ft."
+- Write "sq. ft." (with periods) in text; use "SF" only if needed in parentheses.
+- Round:
+  - Percentages: 1 decimal place (e.g., 27.6%).
+  - Million sq. ft. values: 1 decimal place (e.g., 2.7 million sq. ft.).
+  - Otherwise: 0 or 1 decimal place as appropriate; do not over-round.
+- Use thousands separators for whole numbers ≥ 10,000.
+
+## Guardrails
+- Do NOT invent metrics (e.g., rents, construction, leasing volume) if not in JSON.
+- If a series is missing or too short for a comparison, omit that comparison without apology.
+- Keep to ~120–180 words total (lead + bullets).
+- Use markdown bullets "- " to start bullets.
+
+## Content blueprint (adapt as data allows)
+- Lead: One sentence on latest quarter direction (absorption up/down, vacancy trend), plus a sentence on momentum (QoQ/YoY) or supply-demand balance.
+- Bullets (choose 4–6 based on available series):
+  - Latest vacancy level with QoQ and YoY pp change.
+  - Net absorption in LQ with QoQ and/or YoY; mention "net move-outs" if negative.
+  - Deliveries in LQ; note any spikes/drops vs PQ or YoY.
+  - Supply-demand gap in LQ (deliveries minus absorption) and/or T4Q gap.
+  - Trailing 4-Q totals for absorption and deliveries to show momentum.
+  - Comment on inflection: e.g., "third consecutive quarter of positive absorption" if last 3 values > 0.
+
+## Few-shot (style reference only; do NOT copy numbers or claims)
+Example 1: Input JSON:
+{{
+  "title": "Historical, Absorption and Vacancy",
+  "unit": "sq. ft million",
+  "quarters": [
+    "Q2 2022", "Q3 2022", "Q4 2022", "Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023",
+    "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"
+  ],
+  "net_absorption": [0.1, 0.2, 0.1, 0.6, 0.9, 0.5, 0.3, 0.2, -1.8, -0.6, -0.7, 0.5, -0.5],
+  "deliveries":      [0.2, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.3, 2.0, 1.8, 1.9, 2.0, 2.7],
+  "vacancy":         [24.5, 24.8, 25.0, 25.2, 25.5, 25.8, 26.0, 26.5, 27.0, 27.1, 27.1, 27.3, 27.6]
+}}
+
+Example 1: Expected Output Summary (style/structure):
+# Market Overview
+Offices that boast a prime location and premium amenities continue to attract more users than value-add product, as Class A space posted firming demand heading into the second half of the year.
+- In Q2 2025, the average vacancy rate edged higher even as top-tier assets outperformed.
+- Year over year, direct vacancy increased modestly while the broader market remained mixed.
+- Net absorption turned positive earlier this year but softened in the latest quarter, with move-outs concentrated in older product.
+- Deliveries accelerated, widening the near-term supply-demand gap.
+- Active project square footage continued to add to inventory upon completion.
+
+## Task
+Using ONLY the data you are given, write the MARKET OVERVIEW now.
+
+### Input JSON
+{input_json}
+
+### Output
+Return ONLY the final prose summary (heading + paragraph + bullets). Do not include any explanations, JSON, or markup other than plain text.""",
+    },
+    "asking_rent": {
+        "name": "Asking Rent Analysis",
+        "description": "Analysis of asking rent trends by class and submarket",
+        "endpoint": "/asking-rent",
+        "prompt": """You are given quarterly commercial real estate asking rent data as structured JSON.
+Your job is to write a concise, professional "ASKING RENT ANALYSIS" in the style of a brokerage research report.
+Base tone and structure on the few-shot example, but ONLY use facts computable from the input JSON.
+
+## Inputs
+- The JSON may include: "title", "market", "unit", "quarters" (array of strings), and any of:
+  "overall_rate" (numbers), "classA_rate" (numbers), "classB_rate" (numbers), optionally others.
+- Example schema is illustrative; some series may be missing.
+
+## Output format (strict)
+1) A heading line: # Asking Rent Analysis
+2) A 1–2 sentence lead paragraph summarizing the latest quarter and overall trend.
+3) 4–6 short bullets (each starting with "- ") highlighting key metrics and changes.
+4) No tables, no code blocks, no extra headings, and do not echo the input JSON.
+
+## Style & Voice
+- Crisp, neutral, sell-side research tone; avoid hype and clichés.
+- Prefer "the market" or the JSON's "market" value if provided (else omit geography).
+- Use active voice and precise numbers with units.
+- Do not speculate or attribute causes not present in the data.
+
+## Calculations & Rules
+Assume quarterly frequency.
+Define:
+- LQ = latest quarter = last element of "quarters"
+- PQ = previous quarter = the element before LQ (if available)
+- YoY compare to the same quarter one year earlier (lag 4) when available.
+
+For each series present, compute:
+- Level (latest): value at LQ.
+- QoQ change: LQ – PQ (if PQ exists).
+- YoY change: LQ – value at LQ-4 (if exists).
+- Trailing 4-Q average for rent rates when 4+ quarters exist.
+
+Asking Rent:
+- Report rent rates with proper units (e.g., "$ per sq ft").
+- Calculate percentage changes for QoQ and YoY comparisons.
+- Highlight class differences when multiple classes are present.
+- Note any significant trends or inflection points.
+
+## Units & Formatting
+- Respect JSON "unit". If it indicates per sq ft (e.g., "$ per sq. ft.", "USD per sq ft"), keep values in per sq ft.
+- Write "per sq. ft." (with periods) in text; use "SF" only if needed in parentheses.
+- Round:
+  - Dollar amounts: 2 decimal places (e.g., $25.35 per sq. ft.).
+  - Percentage changes: 1 decimal place (e.g., 1.7%).
+  - Otherwise: 0 or 1 decimal place as appropriate; do not over-round.
+- Use thousands separators for whole numbers ≥ 10,000.
+
+## Guardrails
+- Do NOT invent metrics (e.g., vacancy, construction, leasing volume) if not in JSON.
+- If a series is missing or too short for a comparison, omit that comparison without apology.
+- Keep to ~120–180 words total (lead + bullets).
+- Use markdown bullets "- " to start bullets.
+
+## Content blueprint (adapt as data allows)
+- Lead: One sentence on latest quarter direction (rent up/down), plus a sentence on momentum (QoQ/YoY) or class performance.
+- Bullets (choose 4–6 based on available series):
+  - Latest overall rent level with QoQ and YoY change.
+  - Class A rent performance with QoQ and/or YoY; note premium over other classes.
+  - Class B rent performance and comparison to Class A.
+  - Trailing 4-Q averages for overall and class-specific rates.
+  - Comment on inflection: e.g., "third consecutive quarter of rent growth" if last 3 values show upward trend.
+  - Submarket highlights if available in data.
+
+## Few-shot (style reference only; do NOT copy numbers or claims)
+Example 1: Input JSON:
+{{
+  "title": "Avg. Direct Asking Rate (NNN/YR) by Class",
+  "unit": "$ per sq. ft.",
+  "quarters": [
+    "Q2 2022", "Q3 2022", "Q4 2022", "Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023",
+    "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"
+  ],
+  "overall_rate": [
+    20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.3, 23.5, 23.8, 24.0, 24.2, 22.16
+  ],
+  "classA_rate": [
+    22.5, 23.0, 23.5, 24.0, 24.5, 25.0, 25.6, 25.8, 25.9, 26.0, 26.1, 26.2, 25.35
+  ],
+  "classB_rate": [
+    14.0, 14.2, 14.5, 14.7, 15.0, 15.3, 15.5, 15.6, 15.7, 15.8, 16.0, 16.1, 14.0
+  ]
+}}
+
+Example 1: Expected Output Summary (style/structure):
+# Asking Rent Analysis
+The overall average direct asking lease rate in Q2 2025 is $22.16 per square foot NNN, virtually unchanged from the prior quarter. Class A office asking rents declined from $25.60 per square foot NNN to $25.35 per square foot NNN quarter-over-quarter but are up by 1.7% year-over-year.
+
+- Mirroring all other Class A trends, this annual rent growth surpasses that of the overall market average of 1.4%.
+- Class A has shown the most pronounced growth of all other classes over the last three years at 8.5%, compared to just 2.7% for Class B.
+- The Preston Center submarket currently has the highest average direct asking rate of the metro area, at $39.35 per sq. ft. NNN.
+- That submarket average rises above $43.07 per sq. ft. NNN when including only Class A product.
+- On the low-cost side, Northeast Fort Worth offers an average direct quoted rate of $12.13 per sq. ft. NNN.
+
+## Task
+Using ONLY the data you are given, write the ASKING RENT ANALYSIS now.
+
+### Input JSON
+{input_json}
+
+### Output
+Return ONLY the final prose summary (heading + paragraph + bullets). Do not include any explanations, JSON, or markup other than plain text.""",
+    },
+    "vacancy": {
+        "name": "Vacancy Analysis",
+        "description": "Examines vacancy rates and trends by class",
+        "endpoint": "/vacancy",
+        "prompt": """You are given quarterly commercial real estate vacancy data as structured JSON.
+Your job is to write a concise, professional "VACANCY ANALYSIS" in the style of a brokerage research report.
+Base tone and structure on the few-shot example, but ONLY use facts computable from the input JSON.
+
+## Inputs
+- The JSON may include: "title", "market", "unit", "quarters" (array of strings), and any of:
+  "overall_vacancy" (percentages), "classA_vacancy" (percentages), "classB_vacancy" (percentages), optionally others.
+- Example schema is illustrative; some series may be missing.
+
+## Output format (strict)
+1) A heading line: # Vacancy Analysis
+2) A 1–2 sentence lead paragraph summarizing the latest quarter and overall trend.
+3) 4–6 short bullets (each starting with "- ") highlighting key metrics and changes.
+4) No tables, no code blocks, no extra headings, and do not echo the input JSON.
+
+## Style & Voice
+- Crisp, neutral, sell-side research tone; avoid hype and clichés.
+- Prefer "the market" or the JSON's "market" value if provided (else omit geography).
+- Use active voice and precise numbers with units.
+- Do not speculate or attribute causes not present in the data.
+
+## Calculations & Rules
+Assume quarterly frequency.
+Define:
+- LQ = latest quarter = last element of "quarters"
+- PQ = previous quarter = the element before LQ (if available)
+- YoY compare to the same quarter one year earlier (lag 4) when available.
+
+For each series present, compute:
+- Level (latest): value at LQ.
+- QoQ change: LQ – PQ (if PQ exists).
+- YoY change: LQ – value at LQ-4 (if exists).
+- Trailing 4-Q average for vacancy rates when 4+ quarters exist.
+
+Vacancy:
+- Treat inputs as percentage points. Report to one decimal place and describe direction:
+  - Rising if QoQ ≥ +0.2 pp; declining if ≤ −0.2 pp; otherwise "essentially flat."
+- When YoY available, include pp change.
+- Highlight class differences when multiple classes are present.
+
+## Units & Formatting
+- Report vacancy as percentage points (pp) for changes, percentages (%) for levels.
+- Round percentages to 1 decimal place (e.g., 27.6%).
+- Use thousands separators for whole numbers ≥ 10,000.
+
+## Guardrails
+- Do NOT invent metrics (e.g., rents, construction, leasing volume) if not in JSON.
+- If a series is missing or too short for a comparison, omit that comparison without apology.
+- Keep to ~120–180 words total (lead + bullets).
+- Use markdown bullets "- " to start bullets.
+
+## Content blueprint (adapt as data allows)
+- Lead: One sentence on latest quarter direction (vacancy up/down), plus a sentence on momentum (QoQ/YoY) or class performance.
+- Bullets (choose 4–6 based on available series):
+  - Latest overall vacancy level with QoQ and YoY pp change.
+  - Class A vacancy performance with QoQ and/or YoY; note premium over other classes.
+  - Class B vacancy performance and comparison to Class A.
+  - Trailing 4-Q averages for overall and class-specific vacancy.
+  - Comment on inflection: e.g., "third consecutive quarter of vacancy decline" if last 3 values show downward trend.
+  - Submarket highlights if available in data.
+
+## Few-shot (style reference only; do NOT copy numbers or claims)
+Example 1: Input JSON:
+{{
+  "title": "Vacancy Rate by Class",
+  "unit": "percentage",
+  "quarters": [
+    "Q2 2022", "Q3 2022", "Q4 2022", "Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023",
+    "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"
+  ],
+  "overall_vacancy": [
+    24.5, 24.8, 25.0, 25.2, 25.5, 25.8, 26.0, 26.5, 27.0, 27.1, 27.1, 27.3, 27.6
+  ],
+  "classA_vacancy": [
+    22.0, 22.3, 22.5, 22.7, 23.0, 23.3, 23.5, 24.0, 24.5, 24.6, 24.6, 24.8, 25.1
+  ],
+  "classB_vacancy": [
+    28.0, 28.3, 28.5, 28.7, 29.0, 29.3, 29.5, 30.0, 30.5, 30.6, 30.6, 30.8, 31.1
+  ]
+}}
+
+Example 1: Expected Output Summary (style/structure):
+# Vacancy Analysis
+The overall vacancy rate in Q2 2025 is 27.6%, up 0.3 percentage points from the prior quarter. Year-over-year, vacancy has increased by 2.1 percentage points, reflecting ongoing market challenges.
+
+- Class A vacancy stands at 25.1%, up 0.3 pp quarter-over-quarter and 2.6 pp year-over-year.
+- Class B vacancy is higher at 31.1%, up 0.3 pp quarter-over-quarter and 2.6 pp year-over-year.
+- The Class A-Class B vacancy spread has remained stable at approximately 6.0 percentage points.
+- Trailing 4-quarter average vacancy is 27.0%, indicating sustained upward pressure.
+- Vacancy has now increased for five consecutive quarters across all classes.
+
+## Task
+Using ONLY the data you are given, write the VACANCY ANALYSIS now.
+
+### Input JSON
+{input_json}
+
+### Output
+Return ONLY the final prose summary (heading + paragraph + bullets). Do not include any explanations, JSON, or markup other than plain text.""",
+    },
+    "construction": {
+        "name": "Construction Activity Analysis",
+        "description": "Summarizes construction and development activity",
+        "endpoint": "/construction",
+        "prompt": """You are given quarterly commercial real estate construction and development data as structured JSON.
+Your job is to write a concise, professional "CONSTRUCTION ACTIVITY ANALYSIS" in the style of a brokerage research report.
+Base tone and structure on the few-shot example, but ONLY use facts computable from the input JSON.
+
+## Inputs
+- The JSON may include: "title", "market", "unit", "quarters" (array of strings), and any of:
+  "deliveries" (numbers), "under_construction" (numbers), "planned" (numbers), optionally others.
+- Example schema is illustrative; some series may be missing.
+
+## Output format (strict)
+1) A heading line: # Construction Activity Analysis
+2) A 1–2 sentence lead paragraph summarizing the latest quarter and overall trend.
+3) 4–6 short bullets (each starting with "- ") highlighting key metrics and changes.
+4) No tables, no code blocks, no extra headings, and do not echo the input JSON.
+
+## Style & Voice
+- Crisp, neutral, sell-side research tone; avoid hype and clichés.
+- Prefer "the market" or the JSON's "market" value if provided (else omit geography).
+- Use active voice and precise numbers with units.
+- Do not speculate or attribute causes not present in the data.
+
+## Calculations & Rules
+Assume quarterly frequency.
+Define:
+- LQ = latest quarter = last element of "quarters"
+- PQ = previous quarter = the element before LQ (if available)
+- YoY compare to the same quarter one year earlier (lag 4) when available.
+
+For each series present, compute:
+- Level (latest): value at LQ.
+- QoQ change: LQ – PQ (if PQ exists).
+- YoY change: LQ – value at LQ-4 (if exists).
+- Trailing 4-Q sum (T4Q) for flow series like deliveries when 4+ quarters exist.
+
+Construction Activity:
+- Report construction metrics with proper units (e.g., "sq ft", "million sq ft").
+- Calculate percentage changes for QoQ and YoY comparisons.
+- Highlight pipeline trends and delivery schedules.
+- Note any significant changes in construction activity.
+
+## Units & Formatting
+- Respect JSON "unit". If it indicates millions (e.g., "sq. ft million", "million sq ft"), keep values in millions and write "million sq. ft."
+- Write "sq. ft." (with periods) in text; use "SF" only if needed in parentheses.
+- Round:
+  - Million sq. ft. values: 1 decimal place (e.g., 2.7 million sq. ft.).
+  - Percentage changes: 1 decimal place (e.g., 15.2%).
+  - Otherwise: 0 or 1 decimal place as appropriate; do not over-round.
+- Use thousands separators for whole numbers ≥ 10,000.
+
+## Guardrails
+- Do NOT invent metrics (e.g., rents, vacancy, leasing volume) if not in JSON.
+- If a series is missing or too short for a comparison, omit that comparison without apology.
+- Keep to ~120–180 words total (lead + bullets).
+- Use markdown bullets "- " to start bullets.
+
+## Content blueprint (adapt as data allows)
+- Lead: One sentence on latest quarter direction (deliveries up/down), plus a sentence on momentum (QoQ/YoY) or pipeline trends.
+- Bullets (choose 4–6 based on available series):
+  - Latest deliveries level with QoQ and YoY change.
+  - Under construction pipeline with QoQ and/or YoY; note future supply.
+  - Planned construction and comparison to current pipeline.
+  - Trailing 4-Q totals for deliveries to show momentum.
+  - Comment on inflection: e.g., "third consecutive quarter of delivery growth" if last 3 values show upward trend.
+  - Pipeline timing and expected completion schedules if available.
+
+## Few-shot (style reference only; do NOT copy numbers or claims)
+Example 1: Input JSON:
+{{
+  "title": "Construction and Development Activity",
+  "unit": "sq. ft million",
+  "quarters": [
+    "Q2 2022", "Q3 2022", "Q4 2022", "Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023",
+    "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"
+  ],
+  "deliveries": [0.2, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.3, 2.0, 1.8, 1.9, 2.0, 2.7],
+  "under_construction": [1.5, 1.6, 1.8, 2.0, 2.2, 2.5, 2.8, 3.0, 3.2, 3.1, 3.0, 2.9, 2.8],
+  "planned": [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
+}}
+
+Example 1: Expected Output Summary (style/structure):
+# Construction Activity Analysis
+Construction deliveries in Q2 2025 totaled 2.7 million sq. ft., up 35.0% from the prior quarter and 44.0% year-over-year. The development pipeline remains robust with 2.8 million sq. ft. under construction.
+
+- Deliveries have now increased for four consecutive quarters, reaching the highest level since Q2 2022.
+- Under construction pipeline stands at 2.8 million sq. ft., down 3.4% quarter-over-quarter but up 12.0% year-over-year.
+- Planned construction pipeline has grown to 2.0 million sq. ft., up 5.3% quarter-over-quarter.
+- Trailing 4-quarter deliveries total 8.4 million sq. ft., representing a 25.0% increase from the prior year.
+- The current pipeline represents approximately 1.0 quarters of supply at current delivery rates.
+
+## Task
+Using ONLY the data you are given, write the CONSTRUCTION ACTIVITY ANALYSIS now.
+
+### Input JSON
+{input_json}
+
+### Output
+Return ONLY the final prose summary (heading + paragraph + bullets). Do not include any explanations, JSON, or markup other than plain text.""",
+    },
+    "leasing": {
+        "name": "Leasing Activity Analysis",
+        "description": "Analyzes commercial real estate leasing activity",
+        "endpoint": "/leasing",
+        "prompt": """You are given quarterly commercial real estate leasing activity data as structured JSON.
+Your job is to write a concise, professional "LEASING ACTIVITY ANALYSIS" in the style of a brokerage research report.
+Base tone and structure on the few-shot example, but ONLY use facts computable from the input JSON.
+
+## Inputs
+- The JSON may include: "title", "market", "unit", "quarters" (array of strings), and any of:
+  "leasing_volume" (numbers), "new_leases" (numbers), "renewals" (numbers), "expansions" (numbers), optionally others.
+- Example schema is illustrative; some series may be missing.
+
+## Output format (strict)
+1) A heading line: # Leasing Activity Analysis
+2) A 1–2 sentence lead paragraph summarizing the latest quarter and overall trend.
+3) 4–6 short bullets (each starting with "- ") highlighting key metrics and changes.
+4) No tables, no code blocks, no extra headings, and do not echo the input JSON.
+
+## Style & Voice
+- Crisp, neutral, sell-side research tone; avoid hype and clichés.
+- Prefer "the market" or the JSON's "market" value if provided (else omit geography).
+- Use active voice and precise numbers with units.
+- Do not speculate or attribute causes not present in the data.
+
+## Calculations & Rules
+Assume quarterly frequency.
+Define:
+- LQ = latest quarter = last element of "quarters"
+- PQ = previous quarter = the element before LQ (if available)
+- YoY compare to the same quarter one year earlier (lag 4) when available.
+
+For each series present, compute:
+- Level (latest): value at LQ.
+- QoQ change: LQ – PQ (if PQ exists).
+- YoY change: LQ – value at LQ-4 (if exists).
+- Trailing 4-Q sum (T4Q) for flow series like leasing volume when 4+ quarters exist.
+
+Leasing Activity:
+- Report leasing metrics with proper units (e.g., "sq ft", "million sq ft").
+- Calculate percentage changes for QoQ and YoY comparisons.
+- Highlight different types of leasing activity (new, renewals, expansions).
+- Note any significant trends in leasing patterns.
+
+## Units & Formatting
+- Respect JSON "unit". If it indicates millions (e.g., "sq. ft million", "million sq ft"), keep values in millions and write "million sq. ft."
+- Write "sq. ft." (with periods) in text; use "SF" only if needed in parentheses.
+- Round:
+  - Million sq. ft. values: 1 decimal place (e.g., 2.7 million sq. ft.).
+  - Percentage changes: 1 decimal place (e.g., 15.2%).
+  - Otherwise: 0 or 1 decimal place as appropriate; do not over-round.
+- Use thousands separators for whole numbers ≥ 10,000.
+
+## Guardrails
+- Do NOT invent metrics (e.g., rents, vacancy, construction) if not in JSON.
+- If a series is missing or too short for a comparison, omit that comparison without apology.
+- Keep to ~120–180 words total (lead + bullets).
+- Use markdown bullets "- " to start bullets.
+
+## Content blueprint (adapt as data allows)
+- Lead: One sentence on latest quarter direction (leasing up/down), plus a sentence on momentum (QoQ/YoY) or activity mix.
+- Bullets (choose 4–6 based on available series):
+  - Latest leasing volume level with QoQ and YoY change.
+  - New lease activity with QoQ and/or YoY; note market penetration.
+  - Renewal activity and comparison to new leases.
+  - Expansion activity and tenant growth trends.
+  - Trailing 4-Q totals for overall leasing volume to show momentum.
+  - Comment on inflection: e.g., "third consecutive quarter of leasing growth" if last 3 values show upward trend.
+
+## Few-shot (style reference only; do NOT copy numbers or claims)
+Example 1: Input JSON:
+{{
+  "title": "Leasing Activity by Type",
+  "unit": "sq. ft million",
+  "quarters": [
+    "Q2 2022", "Q3 2022", "Q4 2022", "Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023",
+    "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"
+  ],
+  "leasing_volume": [1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6],
+  "new_leases": [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
+  "renewals": [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5],
+  "expansions": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+}}
+
+Example 1: Expected Output Summary (style/structure):
+# Leasing Activity Analysis
+Leasing activity in Q2 2025 totaled 3.6 million sq. ft., up 5.9% from the prior quarter and 20.0% year-over-year. New lease activity continues to drive overall volume growth.
+
+- New leases accounted for 2.0 million sq. ft. in Q2 2025, up 5.3% quarter-over-quarter and 25.0% year-over-year.
+- Renewal activity reached 1.5 million sq. ft., up 7.1% quarter-over-quarter and 15.4% year-over-year.
+- Expansion activity remained steady at 0.1 million sq. ft., consistent with recent quarters.
+- New leases represent 55.6% of total leasing volume, up from 52.9% in the prior quarter.
+- Trailing 4-quarter leasing volume totals 13.0 million sq. ft., representing a 20.0% increase from the prior year.
+
+## Task
+Using ONLY the data you are given, write the LEASING ACTIVITY ANALYSIS now.
+
+### Input JSON
+{input_json}
+
+### Output
+Return ONLY the final prose summary (heading + paragraph + bullets). Do not include any explanations, JSON, or markup other than plain text.""",
+    },
+    "net_absorption": {
+        "name": "Net Absorption Analysis",
+        "description": "Provides insights into net absorption trends",
+        "endpoint": "/net-absorption",
+        "prompt": """You are given quarterly commercial real estate net absorption data as structured JSON.
+Your job is to write a concise, professional "NET ABSORPTION ANALYSIS" in the style of a brokerage research report.
+Base tone and structure on the few-shot example, but ONLY use facts computable from the input JSON.
+
+## Inputs
+- The JSON may include: "title", "market", "unit", "quarters" (array of strings), and any of:
+  "net_absorption" (numbers), "gross_absorption" (numbers), "move_outs" (numbers), optionally others.
+- Example schema is illustrative; some series may be missing.
+
+## Output format (strict)
+1) A heading line: # Net Absorption Analysis
+2) A 1–2 sentence lead paragraph summarizing the latest quarter and overall trend.
+3) 4–6 short bullets (each starting with "- ") highlighting key metrics and changes.
+4) No tables, no code blocks, no extra headings, and do not echo the input JSON.
+
+## Style & Voice
+- Crisp, neutral, sell-side research tone; avoid hype and clichés.
+- Prefer "the market" or the JSON's "market" value if provided (else omit geography).
+- Use active voice and precise numbers with units.
+- Do not speculate or attribute causes not present in the data.
+
+## Calculations & Rules
+Assume quarterly frequency.
+Define:
+- LQ = latest quarter = last element of "quarters"
+- PQ = previous quarter = the element before LQ (if available)
+- YoY compare to the same quarter one year earlier (lag 4) when available.
+
+For each series present, compute:
+- Level (latest): value at LQ.
+- QoQ change: LQ – PQ (if PQ exists).
+- YoY change: LQ – value at LQ-4 (if exists).
+- Trailing 4-Q sum (T4Q) for flow series like net absorption when 4+ quarters exist.
+
+Net Absorption:
+- If negative, refer to "net move-outs" or "negative absorption."
+- Calculate percentage changes for QoQ and YoY comparisons.
+- Highlight trends and inflection points.
+- Note any significant changes in absorption patterns.
+
+## Units & Formatting
+- Respect JSON "unit". If it indicates millions (e.g., "sq. ft million", "million sq ft"), keep values in millions and write "million sq. ft."
+- Write "sq. ft." (with periods) in text; use "SF" only if needed in parentheses.
+- Round:
+  - Million sq. ft. values: 1 decimal place (e.g., 2.7 million sq. ft.).
+  - Percentage changes: 1 decimal place (e.g., 15.2%).
+  - Otherwise: 0 or 1 decimal place as appropriate; do not over-round.
+- Use thousands separators for whole numbers ≥ 10,000.
+
+## Guardrails
+- Do NOT invent metrics (e.g., rents, vacancy, construction) if not in JSON.
+- If a series is missing or too short for a comparison, omit that comparison without apology.
+- Keep to ~120–180 words total (lead + bullets).
+- Use markdown bullets "- " to start bullets.
+
+## Content blueprint (adapt as data allows)
+- Lead: One sentence on latest quarter direction (absorption up/down), plus a sentence on momentum (QoQ/YoY) or trend analysis.
+- Bullets (choose 4–6 based on available series):
+  - Latest net absorption level with QoQ and YoY change.
+  - Gross absorption trends with QoQ and/or YoY; note market activity.
+  - Move-out activity and comparison to gross absorption.
+  - Trailing 4-Q totals for net absorption to show momentum.
+  - Comment on inflection: e.g., "third consecutive quarter of positive absorption" if last 3 values > 0.
+  - Supply-demand balance if both absorption and deliveries data available.
+
+## Few-shot (style reference only; do NOT copy numbers or claims)
+Example 1: Input JSON:
+{{
+  "title": "Net Absorption Trends",
+  "unit": "sq. ft million",
+  "quarters": [
+    "Q2 2022", "Q3 2022", "Q4 2022", "Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023",
+    "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"
+  ],
+  "net_absorption": [0.1, 0.2, 0.1, 0.6, 0.9, 0.5, 0.3, 0.2, -1.8, -0.6, -0.7, 0.5, -0.5],
+  "gross_absorption": [1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7],
+  "move_outs": [1.4, 1.4, 1.6, 1.2, 1.0, 1.5, 1.8, 2.0, 4.1, 3.0, 3.2, 2.1, 3.2]
+}}
+
+Example 1: Expected Output Summary (style/structure):
+# Net Absorption Analysis
+Net absorption in Q2 2025 was -0.5 million sq. ft., down from 0.5 million sq. ft. in the prior quarter. Year-over-year, net absorption has declined by 1.0 million sq. ft., reflecting increased move-out activity.
+
+- Net absorption has been negative for three of the last four quarters, indicating ongoing market challenges.
+- Gross absorption reached 2.7 million sq. ft. in Q2 2025, up 3.8% quarter-over-quarter and 8.0% year-over-year.
+- Move-out activity totaled 3.2 million sq. ft., up 52.4% quarter-over-quarter and 45.5% year-over-year.
+- The move-out to gross absorption ratio increased to 1.19 in Q2 2025, up from 0.81 in the prior quarter.
+- Trailing 4-quarter net absorption totals -2.6 million sq. ft., representing a significant decline from the prior year.
+
+## Task
+Using ONLY the data you are given, write the NET ABSORPTION ANALYSIS now.
+
+### Input JSON
+{input_json}
+
+### Output
+Return ONLY the final prose summary (heading + paragraph + bullets). Do not include any explanations, JSON, or markup other than plain text.""",
+    },
+}
