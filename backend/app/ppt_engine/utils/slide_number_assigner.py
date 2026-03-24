@@ -603,7 +603,47 @@ def assign_slide_numbers(json_data: Dict[str, Any]) -> Dict[str, Any]:
     
     # Final step: Ensure all elements meet minimum dimension requirements
     data = _ensure_minimum_dimensions_compliance(data)
-    
+
+    data = _apply_title_only_first_slide_slide_bump(data)
+
+    return data
+
+
+def _apply_title_only_first_slide_slide_bump(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    When report.title_only_first_slide is True, reserve slide 1 for the cover/title
+    template only: shift every element's slide_number by +1 and remap layouts that
+    were assigned for the first-slide KPI row (base_slide) so content starts on
+    slide 2 with a normal grid/full-width layout.
+    """
+    report = data.get("report") or {}
+    if not report.get("title_only_first_slide"):
+        return data
+
+    property_sub_type = (
+        (report.get("property_sub_type") or DEFAULT_PROPERTY_SUB_TYPE).strip().lower()
+    )
+
+    for section in data.get("sections", []):
+        for el in section.get("elements", []):
+            if not el.get("selected", True):
+                continue
+            cfg = el.setdefault("config", {})
+            sn = cfg.get("slide_number")
+            if sn is not None:
+                cfg["slide_number"] = int(sn) + 1
+            # base_slide is for the KPI/cover slide; content on slide 2+ must not stay base_slide
+            if cfg.get("slide_number", 0) >= 2 and cfg.get("layout") == "base_slide":
+                if property_sub_type == "figures":
+                    cfg["layout"] = "grid_2x2"
+                elif property_sub_type == "submarket":
+                    cfg["layout"] = "grid"
+                else:
+                    cfg["layout"] = "full_width"
+
+    print(
+        "\n📌 title_only_first_slide: shifted all content to slide 2+ (slide 1 = title cover only)"
+    )
     return data
 
 

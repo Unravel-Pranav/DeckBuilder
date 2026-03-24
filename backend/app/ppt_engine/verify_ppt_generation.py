@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import random
@@ -16,16 +15,18 @@ from app.ppt_engine.ppt_helpers_utils.services.frontend_json_processor import Fr
 from app.ppt_engine.ppt_helpers_utils.services.presentation_generator import PresentationGenerator
 
 def create_sample_json():
-    """Create a sample JSON for a comprehensive 9-page PPT generation"""
+    """Create sample JSON: title-only first slide plus one section per chart/table type with distinct data."""
     return {
         "report": {
             "id": 1,
             "name": "Comprehensive Market Analysis 2025",
-            "template_name": "first_slide_base", # This will be randomized in verify_generation
+            "template_name": "first_slide_base",  # Randomized in verify_generation
             "property_type": "Industrial",
             "property_sub_type": "figures",
             "defined_markets": ["Chicago", "Dallas", "Empire State"],
-            "quarter": "2025 Q1"
+            "quarter": "2025 Q1",
+            # Reserve slide 1 for cover/title placeholders only (no charts); see slide_number_assigner
+            "title_only_first_slide": True,
         },
         "sections": [
             {
@@ -54,14 +55,16 @@ def create_sample_json():
                         "display_order": 1,
                         "config": {
                             "chart_type": "Line - Single axis",
-                            "chart_name": "Quarterly Net Absorption",
+                            "chart_name": "Quarterly Net Absorption (MSF)",
                             "chart_data": [
+                                {"quarter": "2023 Q3", "absorption": 3.1},
+                                {"quarter": "2023 Q4", "absorption": 3.6},
                                 {"quarter": "2024 Q1", "absorption": 4.2},
                                 {"quarter": "2024 Q2", "absorption": 3.8},
                                 {"quarter": "2024 Q3", "absorption": 4.5},
                                 {"quarter": "2024 Q4", "absorption": 5.1},
-                                {"quarter": "2025 Q1", "absorption": 4.7}
-                            ]
+                                {"quarter": "2025 Q1", "absorption": 4.7},
+                            ],
                         }
                     }
                 ]
@@ -82,11 +85,14 @@ def create_sample_json():
                         "display_order": 0,
                         "config": {
                             "chart_type": "Bar Chart",
+                            "chart_name": "SF Mix by Use",
                             "chart_data": [
-                                {"Category": "Warehouse", "Value": 65},
-                                {"Category": "Distribution", "Value": 25},
-                                {"Category": "Flex", "Value": 10}
-                            ]
+                                {"Category": "Bulk Warehouse", "Value": 38},
+                                {"Category": "Last-mile / Urban", "Value": 22},
+                                {"Category": "Distribution", "Value": 18},
+                                {"Category": "Flex/R&D", "Value": 12},
+                                {"Category": "Cold Storage", "Value": 10},
+                            ],
                         }
                     },
                     {
@@ -97,11 +103,13 @@ def create_sample_json():
                         "display_order": 1,
                         "config": {
                             "chart_type": "Pie Chart",
+                            "chart_name": "Inventory by Class",
                             "chart_data": [
-                                {"Type": "Class A", "Value": 45},
-                                {"Type": "Class B", "Value": 35},
-                                {"Type": "Class C", "Value": 20}
-                            ]
+                                {"Type": "Class A", "Value": 42},
+                                {"Type": "Class B", "Value": 33},
+                                {"Type": "Class C", "Value": 18},
+                                {"Type": "Unclassified", "Value": 7},
+                            ],
                         }
                     },
                     {
@@ -112,11 +120,13 @@ def create_sample_json():
                         "display_order": 2,
                         "config": {
                             "chart_type": "Donut Chart",
+                            "chart_name": "Leasing Volume by Segment",
                             "chart_data": [
-                                {"Segment": "Logistics", "Value": 55},
-                                {"Segment": "Light Mfg", "Value": 30},
-                                {"Segment": "R&D", "Value": 15}
-                            ]
+                                {"Segment": "Logistics / 3PL", "Value": 48},
+                                {"Segment": "Light Manufacturing", "Value": 27},
+                                {"Segment": "R&D / Lab", "Value": 14},
+                                {"Segment": "Other Industrial", "Value": 11},
+                            ],
                         }
                     },
                     {
@@ -127,12 +137,14 @@ def create_sample_json():
                         "display_order": 3,
                         "config": {
                             "chart_type": "Stacked bar",
+                            "chart_name": "Availability: Direct vs Sublease (MSF)",
                             "chart_data": [
-                                {"Market": "North", "Direct": 8, "Sublease": 2},
-                                {"Market": "South", "Direct": 6, "Sublease": 3},
-                                {"Market": "East", "Direct": 7, "Sublease": 1},
-                                {"Market": "West", "Direct": 9, "Sublease": 4}
-                            ]
+                                {"Market": "North", "Direct": 820, "Sublease": 140},
+                                {"Market": "South", "Direct": 610, "Sublease": 210},
+                                {"Market": "East", "Direct": 705, "Sublease": 95},
+                                {"Market": "West", "Direct": 890, "Sublease": 260},
+                                {"Market": "Central", "Direct": 540, "Sublease": 120},
+                            ],
                         }
                     }
                 ]
@@ -153,12 +165,15 @@ def create_sample_json():
                         "display_order": 0,
                         "config": {
                             "chart_type": "Horizontal Bar",
+                            "chart_name": "YoY Rent Growth by Region (%)",
                             "chart_data": [
                                 {"Region": "Northeast", "Growth": 5.2},
+                                {"Region": "Mid-Atlantic", "Growth": 4.4},
                                 {"Region": "Midwest", "Growth": 3.8},
                                 {"Region": "South", "Growth": 6.1},
-                                {"Region": "West", "Growth": 4.9}
-                            ]
+                                {"Region": "Mountain", "Growth": 5.0},
+                                {"Region": "West", "Growth": 4.9},
+                            ],
                         }
                     },
                     {
@@ -169,12 +184,14 @@ def create_sample_json():
                         "display_order": 1,
                         "config": {
                             "chart_type": "Line - Multi axis",
+                            "chart_name": "Asking Rate vs Leasing Volume",
                             "chart_data": [
-                                {"quarter": "Q1", "Rate": 12.5, "Volume": 450},
-                                {"quarter": "Q2", "Rate": 12.8, "Volume": 420},
-                                {"quarter": "Q3", "Rate": 13.2, "Volume": 480},
-                                {"quarter": "Q4", "Rate": 13.1, "Volume": 510}
-                            ]
+                                {"quarter": "2024 Q1", "Rate": 12.1, "Volume": 430},
+                                {"quarter": "2024 Q2", "Rate": 12.5, "Volume": 450},
+                                {"quarter": "2024 Q3", "Rate": 12.8, "Volume": 420},
+                                {"quarter": "2024 Q4", "Rate": 13.2, "Volume": 480},
+                                {"quarter": "2025 Q1", "Rate": 13.1, "Volume": 510},
+                            ],
                         }
                     }
                 ]
@@ -235,11 +252,13 @@ def create_sample_json():
                         "display_order": 0,
                         "config": {
                             "chart_type": "Combo - Single Bar + Line",
+                            "chart_name": "Leasing Volume vs Cap Rate",
                             "chart_data": [
-                                {"category": "A", "bar": 100, "line": 85},
-                                {"category": "B", "bar": 120, "line": 95},
-                                {"category": "C", "bar": 90, "line": 110}
-                            ]
+                                {"category": "Chicago", "bar": 118, "line": 5.4},
+                                {"category": "Dallas", "bar": 96, "line": 5.8},
+                                {"category": "Atlanta", "bar": 104, "line": 5.6},
+                                {"category": "Phoenix", "bar": 88, "line": 6.1},
+                            ],
                         }
                     },
                     {
@@ -250,11 +269,12 @@ def create_sample_json():
                         "display_order": 1,
                         "config": {
                             "chart_type": "Combo - Double Bar + Line",
+                            "chart_name": "New Supply vs Net Absorption + Vacancy",
                             "chart_data": [
-                                {"category": "A", "bar1": 40, "bar2": 60, "line": 50},
-                                {"category": "B", "bar1": 55, "bar2": 45, "line": 65},
-                                {"category": "C", "bar1": 70, "bar2": 30, "line": 40}
-                            ]
+                                {"category": "2023", "bar1": 42, "bar2": 38, "line": 5.1},
+                                {"category": "2024", "bar1": 55, "bar2": 44, "line": 5.4},
+                                {"category": "2025 E", "bar1": 48, "bar2": 41, "line": 5.7},
+                            ],
                         }
                     },
                     {
@@ -265,11 +285,13 @@ def create_sample_json():
                         "display_order": 2,
                         "config": {
                             "chart_type": "Combo - Stacked Bar + Line",
+                            "chart_name": "Direct vs Sublease Stack + Asking Rent Index",
                             "chart_data": [
-                                {"category": "Q1", "s1": 30, "s2": 40, "line": 60},
-                                {"category": "Q2", "s1": 35, "s2": 45, "line": 75},
-                                {"category": "Q3", "s1": 40, "s2": 30, "line": 70}
-                            ]
+                                {"category": "2024 Q1", "s1": 320, "s2": 90, "line": 100},
+                                {"category": "2024 Q2", "s1": 340, "s2": 110, "line": 102},
+                                {"category": "2024 Q3", "s1": 360, "s2": 95, "line": 105},
+                                {"category": "2024 Q4", "s1": 375, "s2": 125, "line": 108},
+                            ],
                         }
                     },
                     {
@@ -280,11 +302,13 @@ def create_sample_json():
                         "display_order": 3,
                         "config": {
                             "chart_type": "Combo - Area + Bar",
+                            "chart_name": "Trailing Construction Pipeline vs Deliveries",
                             "chart_data": [
-                                {"category": "Jan", "area": 80, "bar": 60},
-                                {"category": "Feb", "area": 95, "bar": 75},
-                                {"category": "Mar", "area": 85, "bar": 90}
-                            ]
+                                {"category": "Jan", "area": 72, "bar": 58},
+                                {"category": "Feb", "area": 88, "bar": 64},
+                                {"category": "Mar", "area": 91, "bar": 70},
+                                {"category": "Apr", "area": 85, "bar": 90},
+                            ],
                         }
                     }
                 ]
@@ -305,11 +329,13 @@ def create_sample_json():
                         "display_order": 0,
                         "config": {
                             "chart_type": "Single Column Stacked Chart",
+                            "chart_name": "Allocation by Risk Profile",
                             "chart_data": [
-                                {"Component": "Core", "Value": 55},
-                                {"Component": "Value-Add", "Value": 30},
-                                {"Component": "Opportunistic", "Value": 15}
-                            ]
+                                {"Component": "Core / Core+", "Value": 48},
+                                {"Component": "Value-Add", "Value": 28},
+                                {"Component": "Opportunistic", "Value": 14},
+                                {"Component": "Development", "Value": 10},
+                            ],
                         }
                     },
                     {
@@ -377,8 +403,8 @@ def create_sample_json():
     }
 
 def verify_generation():
-    """Run the verification process with 9-page PPT and random front page"""
-    print("🚀 Starting Comprehensive PPT Generation Verification (9 Pages)...")
+    """Run verification: title-only cover slide, then content (random first-slide template)."""
+    print("🚀 Starting PPT verification (title cover + full chart/table fixture)...")
     
     # 1. Setup paths
     templates_dir = current_dir / "ppt_helpers_utils" / "individual_templates"
@@ -401,6 +427,8 @@ def verify_generation():
     # 4. Create sample data and inject selected template
     json_data = create_sample_json()
     json_data["report"]["template_name"] = selected_template
+
+    metadata = processor.extract_presentation_metadata(json_data)
     
     # 5. Parse JSON into Sections
     print("📄 Parsing complex JSON data...")
@@ -416,8 +444,10 @@ def verify_generation():
     try:
         final_path = generator.generate_presentation(
             sections=sections,
-            title=json_data["report"]["name"],
-            output_filename=output_filename
+            title=metadata["title"],
+            author=metadata.get("author", "CBRE Research"),
+            output_filename=output_filename,
+            metadata=metadata,
         )
         print(f"✅ PRESENTATION COMPLETE: {final_path}")
         
@@ -429,11 +459,18 @@ def verify_generation():
         
         print(f"📊 ACTUAL SLIDE COUNT: {slide_count}")
         print(f"📊 FILE SIZE: {file_size / 1024:.2f} KB")
-        
-        if slide_count >= 9:
-            print("✨ SUCCESS! The presentation contains all expected slides.")
+
+        # Title-only slide 1 + eight content sections (some sections share a slide; others split).
+        expected_min_slides = 9
+        if slide_count >= expected_min_slides:
+            print(
+                f"✨ SUCCESS! At least {expected_min_slides} slides (title cover + full fixture)."
+            )
         else:
-            print(f"❌ ERROR: Only {slide_count} slides were generated. Something is wrong!")
+            print(
+                f"❌ ERROR: {slide_count} slides; expected at least {expected_min_slides} "
+                "(1 title cover + content)."
+            )
             
     except Exception as e:
         print(f"❌ ERROR during generation: {e}")
