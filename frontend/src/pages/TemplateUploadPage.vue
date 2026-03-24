@@ -25,7 +25,7 @@ import {
   Link,
   CheckCircle2,
 } from 'lucide-vue-next'
-import type { UploadedTemplate, TemplatePlaceholder } from '@/types'
+import type { UploadedTemplate } from '@/types'
 
 const router = useRouter()
 const uiStore = useUiStore()
@@ -257,7 +257,7 @@ function handleContinue() {
               <span class="text-xs text-zinc-400 flex-1 truncate">{{ ph.shapeLabel }}</span>
               <Select
                 :model-value="ph.boundField ?? ''"
-                @update:model-value="bindField(ph.id, $event)"
+                @update:model-value="bindField(ph.id, $event as string)"
               >
                 <SelectTrigger class="w-40 h-8 text-xs bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.06)] rounded-lg">
                   <SelectValue placeholder="Select field" />

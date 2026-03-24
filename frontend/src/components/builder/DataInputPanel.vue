@@ -14,15 +14,73 @@ import {
   AlertCircle,
   AlertTriangle,
   Copy,
+  BarChart3,
+  PieChart,
+  Table2,
+  TrendingUp,
 } from 'lucide-vue-next'
+
+const iconMap: Record<string, any> = {
+  BarChart3,
+  PieChart,
+  Table2,
+  TrendingUp,
+}
 
 const slidesStore = useSlidesStore()
 
 const jsonInput = ref('')
+const csvInput = ref('')
 const validationErrors = ref<string[]>([])
 const validationWarnings = ref<string[]>([])
 const validationState = ref<'idle' | 'valid' | 'invalid' | 'schema-error'>('idle')
 const activeTab = ref<'json' | 'csv'>('json')
+
+// New: Common Data Patterns
+const dataPatterns = [
+  { id: 'revenue', icon: 'BarChart3', label: 'Quarterly Revenue (Chart)', data: { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Revenue ($M)' } },
+  { id: 'market-share', icon: 'PieChart', label: 'Market Share (Pie)', data: { labels: ['Company A', 'Company B', 'Others'], values: [45, 30, 25] } },
+  { id: 'financials', icon: 'Table2', label: 'Financial Summary (Table)', data: { headers: ['Metric', 'Current', '% Change'], rows: [['Revenue', '$45.2M', '+12%'], ['EBITDA', '$18.1M', '+8%'], ['Net Margin', '40%', '+2pp']] } },
+  { id: 'user-growth', icon: 'TrendingUp', label: 'Monthly Users (Line)', data: { x_axis: ['Jan', 'Feb', 'Mar', 'Apr'], y_axis: [5000, 6200, 7500, 9100], label: 'Active Users' } },
+]
+
+function parseCSV(csv: string) {
+  const delimiter = csv.includes('\t') ? '\t' : ','
+  const lines = csv.trim().split('\n')
+  if (lines.length < 2) return null
+  const headers = lines[0].split(delimiter).map((h) => h.trim())
+  const rows = lines.slice(1).map((line) => line.split(delimiter).map((c) => c.trim()))
+  return { headers, rows }
+}
+
+function convertCSVToChart(csv: any) {
+  if (csv.headers.length >= 2) {
+    const x_axis = csv.rows.map((r: any) => r[0])
+    const y_values = csv.rows.map((r: any) => parseFloat(r[1]) || 0)
+    return { x_axis, y_axis: y_values, label: csv.headers[1] || 'Value' }
+  }
+  return null
+}
+
+function processCSVInput() {
+  const csv = parseCSV(csvInput.value)
+  if (!csv) {
+    validationErrors.value = ['Invalid CSV format (requires at least a header row and one data row)']
+    return
+  }
+
+  // Strategy: If 2 columns, likely a Chart (Category, Value). If more, likely a Table.
+  if (csv.headers.length === 2) {
+    const chartData = convertCSVToChart(csv)
+    if (chartData) {
+      jsonInput.value = JSON.stringify(chartData, null, 2)
+      activeTab.value = 'json'
+    }
+  } else {
+    jsonInput.value = JSON.stringify(csv, null, 2)
+    activeTab.value = 'json'
+  }
+}
 
 const dominantType = computed<'chart' | 'table' | 'text'>(() => {
   const slide = slidesStore.activeSlide
@@ -159,7 +217,23 @@ function copySchema() {
     </div>
 
     <!-- JSON input -->
-    <div v-if="activeTab === 'json'" class="space-y-3">
+    <div v-if="activeTab === 'json'" class="space-y-4">
+      <!-- Quick Patterns -->
+      <div class="space-y-2">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 px-1">Quick Templates</span>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="pattern in dataPatterns"
+            :key="pattern.id"
+            class="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-[rgba(255,255,255,0.06)] hover:bg-white/[0.06] hover:border-amber-500/30 transition-all text-left group"
+            @click="jsonInput = JSON.stringify(pattern.data, null, 2)"
+          >
+            <component :is="iconMap[pattern.icon]" :size="12" :stroke-width="1.5" class="text-zinc-500 group-hover:text-amber-500" />
+            <span class="text-[10px] text-zinc-400 group-hover:text-zinc-200 truncate">{{ pattern.label }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Schema prompt -->
       <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
         <div class="flex items-center justify-between mb-2">
@@ -228,11 +302,31 @@ function copySchema() {
     </div>
 
     <!-- CSV upload -->
-    <div v-else class="space-y-3">
-      <div class="border border-dashed border-zinc-800 hover:border-amber-500/30 rounded-xl p-8 text-center transition-all duration-300 cursor-pointer">
-        <Upload :size="24" :stroke-width="1.5" class="mx-auto mb-3 text-zinc-600" />
-        <p class="text-sm text-zinc-500">Drop a CSV file here or click to browse</p>
-        <p class="text-[11px] text-zinc-700 mt-1">Coming soon — use JSON input for now</p>
+    <div v-else class="space-y-4">
+      <div class="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3">
+        <p class="text-[10px] text-amber-500">
+          <strong>Tip:</strong> Paste your spreadsheet data below. Two columns (Name, Value) will be mapped to a Chart. Three or more will be mapped to a Table.
+        </p>
+      </div>
+
+      <Textarea
+        v-model="csvInput"
+        rows="8"
+        class="font-mono text-xs bg-[rgba(10,10,15,0.6)] border-[rgba(255,255,255,0.06)] rounded-lg resize-none placeholder:text-zinc-700"
+        placeholder="Month,Revenue&#10;Jan,100&#10;Feb,150&#10;Mar,200"
+      />
+
+      <Button
+        :disabled="!csvInput.trim()"
+        class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
+        @click="processCSVInput"
+      >
+        Transform to Data
+      </Button>
+
+      <div class="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)] text-center">
+        <Upload :size="24" :stroke-width="1.5" class="mx-auto mb-2 text-zinc-700 opacity-50" />
+        <p class="text-[10px] text-zinc-600">File upload integration coming soon</p>
       </div>
     </div>
   </div>

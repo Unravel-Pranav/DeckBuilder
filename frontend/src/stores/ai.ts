@@ -3,8 +3,6 @@ import { ref } from 'vue'
 import type {
   AiRecommendation,
   SectionRecommendation,
-  PresentationIntent,
-  SlideComponent,
 } from '@/types'
 
 export const useAiStore = defineStore('ai', () => {

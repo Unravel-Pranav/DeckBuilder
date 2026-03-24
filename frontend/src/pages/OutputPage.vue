@@ -19,7 +19,6 @@ import {
   FileText,
   Layers,
   Copy,
-  ExternalLink,
 } from 'lucide-vue-next'
 
 const router = useRouter()

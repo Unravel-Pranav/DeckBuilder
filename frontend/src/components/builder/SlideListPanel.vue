@@ -22,7 +22,7 @@ import {
   Square,
   Presentation,
 } from 'lucide-vue-next'
-import type { LayoutType, SlideTemplate, SlidePreviewData } from '@/types'
+import type { LayoutType, SlideTemplate, SlidePreviewData, SlideComponent } from '@/types'
 
 const slidesStore = useSlidesStore()
 const templatesStore = useTemplatesStore()
@@ -69,11 +69,12 @@ function addFromTemplate(tmpl: SlideTemplate) {
   if (tmpl.defaultComponents?.length) {
     slidesStore.updateSlideComponents(
       slide.id,
-      tmpl.defaultComponents.map((c) => ({ ...c, id: crypto.randomUUID() })),
+      tmpl.defaultComponents.map((c) => ({ ...c, id: crypto.randomUUID() })) as SlideComponent[],
     )
   }
-  if (tmpl.defaultComponents?.find((c) => c.type === 'text')?.textContent) {
-    slide.commentary = tmpl.defaultComponents.find((c) => c.type === 'text')?.textContent ?? ''
+  const textComp = tmpl.defaultComponents?.find((c) => c.type === 'text')
+  if (textComp && 'data' in textComp && (textComp.data as any)?.content) {
+    slide.commentary = (textComp.data as any).content
     slide.commentarySource = 'manual'
   }
 

@@ -7,7 +7,7 @@ import type {
   LayoutType,
   ChartType,
 } from '@/types'
-import { chartTemplates, tableTemplates, textTemplates, slideTemplates } from './mockData'
+import { slideTemplates } from './mockData'
 
 /**
  * AI Pre-Build Step: Auto-generates fully populated slides
@@ -184,8 +184,10 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
 
   return acceptedSections.map((rec, sectionIndex) => {
     const slides: Slide[] = []
+    let contentSlidesGenerated = 0
 
-    if (sectionIndex === 0) {
+    // In custom mode, avoid auto-inserting title/closing placeholders.
+    if (sectionIndex === 0 && intent.type !== 'custom') {
       const titleTmpl = slideTemplates.find((t) => t.slideKind === 'title')
       if (titleTmpl?.defaultComponents) {
         slides.push({
@@ -223,16 +225,34 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
       }
     }
 
-    rec.suggestedTemplates.forEach((tmpl, i) => {
+    rec.suggestedTemplates.forEach((tmpl) => {
       slides.push(generateSlideFromTemplate(
         tmpl,
         rec.name,
         intent,
         slides.length,
       ))
+      contentSlidesGenerated += 1
     })
 
-    if (sectionIndex === totalSections - 1) {
+    // Ensure every section has at least one content slide.
+    // This prevents custom flows from ending up with title/closing-only output.
+    if (contentSlidesGenerated === 0) {
+      slides.push(generateSlideFromTemplate(
+        {
+          id: crypto.randomUUID(),
+          name: 'Custom Bar',
+          type: 'chart-heavy',
+          layout: 'chart-commentary',
+          previewDescription: 'Default chart slide for custom flow',
+        },
+        rec.name,
+        intent,
+        slides.length,
+      ))
+    }
+
+    if (sectionIndex === totalSections - 1 && intent.type !== 'custom') {
       const closingTmpl = slideTemplates.find((t) => t.slideKind === 'closing')
       if (closingTmpl?.defaultComponents) {
         slides.push({

@@ -4,7 +4,10 @@ Frontend JSON Processor
 Converts frontend JSON format to orchestrator format for PowerPoint generation
 """
 
+import json
 import os
+import re
+from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from app.utils.formatting import format_label, format_table_cell_value, get_latest_complete_quarter
 
@@ -133,6 +136,7 @@ class FrontendJSONProcessor:
             "": "table",  # Default table type
             "table": "table",
         }
+        self.last_assigned_json_path: Optional[str] = None
 
     def parse_frontend_json(self, json_data: Dict[str, Any]) -> List[Section]:
         """
@@ -253,6 +257,7 @@ class FrontendJSONProcessor:
         json_data = self._assign_slide_numbers_with_blocks(
             json_data, all_blocks_by_element_id
         )
+        self._export_final_assigned_json(json_data)
 
         # STEP 3: Update blocks with assigned slide numbers from JSON
         print("\n🔄 STEP 3: Updating blocks with assigned slide numbers...")
@@ -289,6 +294,38 @@ class FrontendJSONProcessor:
                             break
 
         return orchestrator_sections
+
+    def _export_final_assigned_json(self, json_data: Dict[str, Any]) -> None:
+        """Persist final slide-assigned JSON for debugging and traceability."""
+        try:
+            output_dir = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "output_ppt")
+            )
+            os.makedirs(output_dir, exist_ok=True)
+
+            report = json_data.get("report", {}) if isinstance(json_data, dict) else {}
+            raw_name = (
+                report.get("name")
+                or report.get("title")
+                or report.get("template_name")
+                or "presentation"
+            )
+            safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(raw_name)).strip("_")
+            if not safe_name:
+                safe_name = "presentation"
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = os.path.join(
+                output_dir, f"final_assigned_json_{safe_name}_{timestamp}.json"
+            )
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+            self.last_assigned_json_path = output_path
+            print(f"   🧾 Final assigned JSON exported: {output_path}")
+        except Exception as e:
+            print(f"   ⚠ Could not export final assigned JSON: {e}")
 
     def _extract_sections_from_slides(
         self, slides_dict: Dict[str, Any]

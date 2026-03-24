@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTemplatesStore } from '@/stores/templates'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -24,12 +23,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
-import type { SlideTemplate, ChartData, TableData, ChartType, SlidePreviewData } from '@/types'
+import type { SlideTemplate, ChartData, TableData, ChartType, SlidePreviewData, TemplateCategory } from '@/types'
 import type { FilterCategory } from '@/stores/templates'
 import {
   Search,
@@ -44,8 +38,6 @@ import {
   Eye,
   Copy,
   Trash2,
-  X,
-  Info,
   Sparkles,
   Grid3x3,
   List,
@@ -75,7 +67,7 @@ const selectedTemplate = ref<SlideTemplate | null>(null)
 // Create form state
 const newTemplate = ref({
   name: '',
-  category: 'chart' as 'chart' | 'table' | 'text',
+  category: 'chart' as TemplateCategory,
   chartType: 'bar' as ChartType,
   description: '',
   schemaHint: '',
@@ -163,6 +155,9 @@ function getBarHeights(data: number[]): number[] {
 function isCustom(id: string): boolean {
   return id.startsWith('custom-')
 }
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text)
+}
 
 function createTemplate() {
   const { name, category, chartType, description, schemaHint, dataJson } = newTemplate.value
@@ -189,7 +184,7 @@ function createTemplate() {
       schemaHint: schemaHint.trim() || 'Custom slide template',
       defaultLayout: 'commentary-only',
       defaultComponents: [
-        { type: 'text', textContent: dataJson.trim() || name },
+        { type: 'text', data: { content: dataJson.trim() || name }, config: { format: 'paragraph' } } as any,
       ],
     })
     newTemplate.value = { name: '', category: 'chart', chartType: 'bar', description: '', schemaHint: '', dataJson: '' }
@@ -762,7 +757,7 @@ function createTemplate() {
                 <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600">Schema Hint</p>
                 <button
                   class="text-[9px] text-zinc-600 hover:text-amber-500 transition-colors flex items-center gap-0.5"
-                  @click="navigator.clipboard.writeText(selectedTemplate!.schemaHint)"
+                  @click="copyToClipboard(selectedTemplate!.schemaHint)"
                 >
                   <Copy :size="8" :stroke-width="1.5" />
                   Copy

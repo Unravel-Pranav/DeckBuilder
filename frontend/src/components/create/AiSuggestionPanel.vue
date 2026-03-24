@@ -5,9 +5,6 @@ import GlassCard from '@/components/shared/GlassCard.vue'
 import {
   Sparkles,
   BarChart3,
-  PieChart,
-  TrendingUp,
-  Table2,
   FileText,
   Palette,
 } from 'lucide-vue-next'

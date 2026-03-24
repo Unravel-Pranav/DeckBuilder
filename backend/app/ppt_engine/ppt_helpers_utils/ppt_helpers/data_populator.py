@@ -824,9 +824,12 @@ class ChartDataPopulator:
                         get_element_dimensions(), "embedded_excel_update_mode", "auto"
                     )
                     chart_type = self._pending_excel_update.get("chart_type", "")
-                    is_combo = "combo" in str(chart_type).lower()
+                    chart_type_lower = str(chart_type).lower()
+                    is_combo = "combo" in chart_type_lower
+                    is_pie_or_donut = "pie" in chart_type_lower or "donut" in chart_type_lower
+                    
                     if mode in ("openxml", "auto") and (
-                        is_combo or mode == "openxml"
+                        is_combo or is_pie_or_donut or mode == "openxml"
                     ):
                         try:
                             self._update_embedded_excel(
@@ -859,13 +862,15 @@ class ChartDataPopulator:
                         get_element_dimensions(), "embedded_excel_update_mode", "auto"
                     )
 
-                    # Check if this is a combo chart that should skip replace_data
+                    # Check if this is a combo, pie, or donut chart that should skip replace_data
                     chart_type = self._pending_excel_update.get("chart_type", "")
-                    is_combo = "combo" in str(chart_type).lower()
+                    chart_type_lower = str(chart_type).lower()
+                    is_combo = "combo" in chart_type_lower
+                    is_pie_or_donut = "pie" in chart_type_lower or "donut" in chart_type_lower
 
-                    if is_combo:
+                    if is_combo or is_pie_or_donut:
                         print(
-                            "    ⚠️  Skipping replace_data() for combo chart - would destroy chart structure"
+                            f"    ⚠️  Skipping replace_data() for {chart_type} chart - would destroy chart structure or zero out data"
                         )
                         print(
                             "    ℹ️  Using python-pptx native API for axis titles and series names"
