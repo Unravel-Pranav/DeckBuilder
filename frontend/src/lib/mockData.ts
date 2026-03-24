@@ -260,7 +260,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "title": "...", "subtitle": "...", "author": "...", "date": "...", "company": "..." }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: 'Presentation Title\n\nSubtitle or tagline goes here\n\nAuthor Name · March 2026 · Company' },
+      { type: 'text', data: { content: 'Presentation Title\n\nSubtitle or tagline goes here\n\nAuthor Name · March 2026 · Company' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -283,7 +283,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "number": "01", "title": "...", "description": "..." }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: '01\n\nSection Title\n\nBrief description of what this section covers.' },
+      { type: 'text', data: { content: '01\n\nSection Title\n\nBrief description of what this section covers.' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -306,7 +306,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "items": [{ "number": "01", "title": "..." }, ...], "duration": "45 min" }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: 'Agenda\n\n01  Executive Summary\n02  Market Overview\n03  Financial Analysis\n04  Key Insights\n05  Next Steps' },
+      { type: 'text', data: { content: 'Agenda\n\n01  Executive Summary\n02  Market Overview\n03  Financial Analysis\n04  Key Insights\n05  Next Steps' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -330,7 +330,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "heading": "Thank You", "subtitle": "Questions?", "email": "...", "phone": "..." }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: 'Thank You\n\nQuestions & Discussion\n\nname@company.com · +1 (555) 123-4567' },
+      { type: 'text', data: { content: 'Thank You\n\nQuestions & Discussion\n\nname@company.com · +1 (555) 123-4567' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -357,7 +357,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "members": [{ "name": "...", "role": "...", "photo?": "url" }, ...] }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: 'Our Team\n\nJane Doe — CEO\nJohn Smith — CTO\nAlex Chen — CFO\nSam Lee — COO' },
+      { type: 'text', data: { content: 'Our Team\n\nJane Doe — CEO\nJohn Smith — CTO\nAlex Chen — CFO\nSam Lee — COO' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -384,7 +384,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "milestones": [{ "period": "Q1", "title": "...", "description": "..." }, ...] }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: 'Key Milestones\n\nQ1 — Research: Initial market research and validation\nQ2 — Prototype: Build MVP and run pilot tests\nQ3 — Launch: Public launch and marketing push\nQ4 — Scale: Expand to new markets' },
+      { type: 'text', data: { content: 'Key Milestones\n\nQ1 — Research: Initial market research and validation\nQ2 — Prototype: Build MVP and run pilot tests\nQ3 — Launch: Public launch and marketing push\nQ4 — Scale: Expand to new markets' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -409,7 +409,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "title": "A vs B", "optionA": { "name": "...", "pros": [...], "cons": [...] }, "optionB": {...}, "recommendation": "..." }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: 'Option A vs Option B\n\nOption A:\n✓ Lower cost\n✓ Faster deployment\n✗ Less scalable\n\nOption B:\n✓ More scalable\n✓ Better long-term value\n✗ Higher upfront cost\n\nRecommendation: Option B for long-term growth' },
+      { type: 'text', data: { content: 'Option A vs Option B\n\nOption A:\n✓ Lower cost\n✓ Faster deployment\n✗ Less scalable\n\nOption B:\n✓ More scalable\n✓ Better long-term value\n✗ Higher upfront cost\n\nRecommendation: Option B for long-term growth' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -431,7 +431,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "quote": "...", "attribution": "— Author Name" }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: '"Innovation distinguishes between a leader and a follower."\n\n— Steve Jobs' },
+      { type: 'text', data: { content: '"Innovation distinguishes between a leader and a follower."\n\n— Steve Jobs' }, config: { format: 'paragraph' } },
     ],
   },
   {
@@ -454,7 +454,7 @@ export const slideTemplates: SlideTemplate[] = [
     schemaHint: '{ "value": "$45.2M", "label": "Total Revenue", "context": "Up 23% YoY" }',
     defaultLayout: 'commentary-only',
     defaultComponents: [
-      { type: 'text', textContent: '$45.2M\n\nTotal Revenue\nUp 23% Year-over-Year · Exceeded target by $5.2M' },
+      { type: 'text', data: { content: '$45.2M\n\nTotal Revenue\nUp 23% Year-over-Year · Exceeded target by $5.2M' }, config: { format: 'paragraph' } },
     ],
   },
   {

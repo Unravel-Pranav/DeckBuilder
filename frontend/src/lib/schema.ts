@@ -1,4 +1,4 @@
-import type { ChartData, TableData, SlideComponent, DataSchema, ChartType } from '@/types'
+import type { ChartData, TableData, SlideComponent, ChartType } from '@/types'
 
 // ─── Data Type Detection ───
 

@@ -647,9 +647,6 @@ def _normalize_layout_preference(
     pref_lower = layout_preference.lower().strip()
     
     # Map common UI strings to layout types
-    # NOTE: "first slide (base with kpis)" is property_sub_type-aware:
-    # - For figures/submarket: uses grid_2x2 (elements trimmed to fit)
-    # - For snapshot and others: uses full_width (elements can overflow)
     preference_map = {
         "content (2x2 grid)": "grid_2x2",
         "grid 2x2": "grid_2x2",
@@ -663,15 +660,10 @@ def _normalize_layout_preference(
         "auto": None,  # Use default
     }
     
-    # Property_sub_type-aware mapping for "first slide (base with kpis)"
-    # Figures/Submarket: use grid_2x2 (elements are trimmed to fit in grid)
-    # Snapshot and others: use full_width (elements can overflow to next slide)
+    # "First Slide (Base with KPIs)" must map to base_slide so assignment
+    # and rendering both target the dedicated first-slide template.
     if pref_lower == "first slide (base with kpis)":
-        prop_lower = (property_sub_type or DEFAULT_PROPERTY_SUB_TYPE).lower().strip()
-        if prop_lower in ("figures", "submarket"):
-            return "grid_2x2"  # Grid layout - elements trimmed to fit
-        else:
-            return "full_width"  # Full width - elements can overflow
+        return "base_slide"
     
     # Check if preference maps to a layout type
     layout_type = preference_map.get(pref_lower)
@@ -1014,6 +1006,12 @@ def _can_section_share_slide(
     # Empty slide can always accept new sections
     if slide_state.elements_count == 0:
         return True, "empty slide"
+    
+    # 2. Slide 1 Special Rule: Do not allow sharing with new sections
+    # This ensures the first slide (which uses a special base template with KPIs)
+    # remains focused on the primary section's content and avoids "extra charts"
+    if slide_state.is_first_slide:
+        return False, "first slide does not allow sharing with new sections"
     
     # Layout compatibility check (REQUIRED for sharing - no hybrid layouts)
     if not slide_state.can_accept_layout(new_section_layout):
@@ -1380,6 +1378,7 @@ def _assign_section_elements(
                 elements_on_current_slide_list = []
                 cumulative_height = 0.0
                 is_first_slide = False
+                slide_capacity = layout.regular_slide_capacity
                 current_slide_layout = None  # Reset layout for new slide
                 
                 # Re-determine layout if transitioning from first slide to continuation slide
@@ -1434,9 +1433,27 @@ def _assign_section_elements(
     
     # For base_slide layout: elements are positioned horizontally (like grid), use capacity-based logic
     if forced_layout_type == "base_slide":
+        # Keep first base_slide focused on visual/KPI content.
+        # Commentary/text is deferred to continuation slides when visual elements exist.
+        prioritized_elements = selected_elements
+        if is_first_slide and current_slide == 1:
+            non_text_elements = [
+                e for e in selected_elements
+                if (e.get("element_type") or "").lower() not in {"commentary", "text", "title"}
+            ]
+            text_like_elements = [
+                e for e in selected_elements
+                if (e.get("element_type") or "").lower() in {"commentary", "text", "title"}
+            ]
+            if non_text_elements and text_like_elements:
+                prioritized_elements = non_text_elements + text_like_elements
+                print(
+                    f"   ℹ️  First base_slide: deferred {len(text_like_elements)} text/commentary block(s) after visual elements"
+                )
+
         # base_slide positions elements horizontally, so use capacity-based assignment
         # This is similar to grid layout but with different positioning
-        for elem_idx, element in enumerate(selected_elements):
+        for elem_idx, element in enumerate(prioritized_elements):
             element_type = element.get("element_type", "")
             element_label = element.get("label") or element.get("config", {}).get("chart_name") or f"Element {elem_idx}"
             
@@ -1464,6 +1481,7 @@ def _assign_section_elements(
                 elements_on_current_slide_list = [element]
                 cumulative_height = 0.0
                 is_first_slide = False
+                slide_capacity = layout.regular_slide_capacity
                 current_slide_layout = None  # Reset layout for new slide
                 
                 # Re-determine layout if transitioning from first slide to continuation slide
@@ -1473,15 +1491,15 @@ def _assign_section_elements(
                         property_sub_type=layout.property_sub_type or DEFAULT_PROPERTY_SUB_TYPE,
                         is_first_slide=False,
                         normalized_preference=None,  # Force criteria-based determination for continuation slides
-                        elements=selected_elements[elem_idx:],  # Remaining elements
+                        elements=prioritized_elements[elem_idx:],  # Remaining elements
                     )
                     print(f"   🔄 Transitioned from first slide to continuation slide - layout changed to: {forced_layout_type}")
                 
                 # Set layout for new slide
-                current_slide_layout = "base_slide"
+                current_slide_layout = forced_layout_type if forced_layout_type else "base_slide"
                 
                 element["config"]["slide_number"] = current_slide
-                element["config"]["layout"] = "base_slide"
+                element["config"]["layout"] = current_slide_layout
                 print(f"      [{current_slide}] {element_type} '{element_label}' (BASE_SLIDE - slot 1/{slide_capacity})")
         
         # Apply layout to remaining elements on current slide

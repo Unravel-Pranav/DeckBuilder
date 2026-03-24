@@ -8,7 +8,6 @@ import { transformToBackendFormat, generatePPT, downloadFile } from '@/lib/api'
 import { mockSections } from '@/lib/mockData'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   ArrowLeft,
@@ -16,7 +15,6 @@ import {
   Download,
   Edit3,
   Loader2,
-  CheckCircle2,
   BarChart3,
   Table2,
   FileText,

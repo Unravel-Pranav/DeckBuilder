@@ -27,7 +27,7 @@ import {
   FileText,
   PenLine,
 } from 'lucide-vue-next'
-import type { LayoutType, Slide } from '@/types'
+import type { LayoutType } from '@/types'
 
 const router = useRouter()
 const slidesStore = useSlidesStore()

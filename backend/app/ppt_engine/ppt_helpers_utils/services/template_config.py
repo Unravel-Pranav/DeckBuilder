@@ -1531,12 +1531,10 @@ def determine_layout_type_from_criteria(
 
     # Priority 4: Use default sequence from preference config
     if preference_config.default_sequence:
-        # For first slide, use property_sub_type specific rules
+        # For first slide, always use base_slide so the first-slide template
+        # (cover/header/KPI placeholders) is preserved and populated.
         if is_first_slide:
-            if property_sub_type in ("figures", "submarket"):
-                return "grid_2x2"  # First slide uses grid for these types
-            else:
-                return "full_width"  # Other types use full_width for first slide
+            return "base_slide"
         else:
             # For middle slides, use first layout in default sequence
             return preference_config.default_sequence[0]

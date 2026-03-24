@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
 import { chartTemplates, tableTemplates, textTemplates } from '@/lib/mockData'
-import type { SlideTemplate, ChartData, TableData, SlideComponent } from '@/types'
+import type { SlideTemplate, ChartData, TableData, SlideComponent, SlidePreviewData } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import {
   BarChart3,
@@ -44,12 +44,12 @@ const chartTypeIcons: Record<string, typeof BarChart3> = {
   scatter: BarChart3,
 }
 
-function isChartData(data: ChartData | TableData | string): data is ChartData {
-  return typeof data === 'object' && 'datasets' in data
+function isChartData(data: ChartData | TableData | string | SlidePreviewData): data is ChartData {
+  return typeof data === 'object' && data !== null && 'datasets' in data
 }
 
-function isTableData(data: ChartData | TableData | string): data is TableData {
-  return typeof data === 'object' && 'headers' in data
+function isTableData(data: ChartData | TableData | string | SlidePreviewData): data is TableData {
+  return typeof data === 'object' && data !== null && 'headers' in data
 }
 
 function applyTemplate(template: SlideTemplate) {
@@ -196,7 +196,7 @@ function getBarHeights(data: number[]): number[] {
               <div class="w-full space-y-1">
                 <div class="flex gap-1">
                   <div
-                    v-for="(h, i) in (tmpl.previewData as TableData).headers.slice(0, 3)"
+                    v-for="(_, i) in (tmpl.previewData as TableData).headers.slice(0, 3)"
                     :key="i"
                     class="flex-1 h-1.5 rounded-sm"
                     :style="{ backgroundColor: appliedTemplateIds.has(tmpl.id) ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.2)' }"

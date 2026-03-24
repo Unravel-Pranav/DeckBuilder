@@ -1047,9 +1047,11 @@ class PresentationGenerator:
         #     ])
         #     print(f"   Including market stats tables for Industrial property type")
 
-        # Add configured last slide template if present
+        # Add configured last slide template only when explicitly requested
+        # (avoid appending placeholder back slides by default).
         will_add_last_slide = False
-        if template_config.last_slide:
+        include_last_slide = bool((metadata or {}).get("include_last_slide", False))
+        if template_config.last_slide and include_last_slide:
             custom_template_files.append(
                 os.path.join(template_dir, template_config.last_slide)
             )

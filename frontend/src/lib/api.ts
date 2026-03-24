@@ -59,12 +59,28 @@ export function transformToBackendFormat(presentation: Presentation, sections: S
             }
           } else if (comp.type === 'text') {
             element.config = {
-              commentary_text: comp.data.content,
+              commentary_text: comp.data?.content || '',
             }
           }
 
           return element
         })
+
+        // Preserve slide-level commentary even when there is no explicit text component.
+        // This keeps user-entered text from being dropped in backend payloads.
+        const hasTextComponent = slide.components.some((c) => c.type === 'text')
+        if (!hasTextComponent && slide.commentary?.trim()) {
+          slideElements.push({
+            id: `${slide.id}-commentary`,
+            element_type: 'commentary',
+            label: slide.title,
+            display_order: slideIdx * 10 + slide.components.length,
+            config: {
+              commentary_text: slide.commentary.trim(),
+            },
+          })
+        }
+
         return [...acc, ...slideElements]
       }, [])
     }))

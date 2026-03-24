@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import { mockChartData, mockTableData } from '@/lib/mockData'
-import { ensureSafeRender, getSafeFallback } from '@/lib/schema'
 import type { ChartData, TableData } from '@/types'
 import {
   BarChart3,

@@ -11,6 +11,7 @@ import {
   PenLine,
   MessageSquare,
   Loader2,
+  Database,
 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
@@ -97,12 +98,26 @@ function applyManual() {
     <!-- Current commentary -->
     <div v-if="currentCommentary" class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
       <div class="flex items-center gap-2 mb-2">
-        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Current</span>
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Current Commentary</span>
         <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
           {{ slidesStore.activeSlide?.commentarySource }}
         </span>
       </div>
       <p class="text-xs text-zinc-400 leading-relaxed">{{ currentCommentary }}</p>
+    </div>
+
+    <!-- Data source preview (new) -->
+    <div v-if="dominantContext !== 'text' && dominantContext !== 'default'" class="p-3 rounded-lg bg-white/[0.01] border border-dashed border-zinc-800">
+      <div class="flex items-center gap-2 mb-2">
+        <Database :size="10" class="text-zinc-500" />
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Reference Data</span>
+      </div>
+      <div v-if="slidesStore.activeSlide?.components.some(c => c.type === 'chart')" class="text-[10px] text-zinc-500 font-mono">
+        {{ (slidesStore.activeSlide?.components.find(c => c.type === 'chart') as any)?.data.labels.join(', ') }} ...
+      </div>
+      <div v-else-if="slidesStore.activeSlide?.components.some(c => c.type === 'table')" class="text-[10px] text-zinc-500 font-mono">
+        {{ (slidesStore.activeSlide?.components.find(c => c.type === 'table') as any)?.data.headers.join(' | ') }}
+      </div>
     </div>
 
     <!-- AI Generate -->
