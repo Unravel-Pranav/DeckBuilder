@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useTemplatesStore } from '@/stores/templates'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
@@ -63,6 +63,10 @@ import {
 
 const templatesStore = useTemplatesStore()
 
+onMounted(() => {
+  templatesStore.loadBackendTemplates()
+})
+
 const viewMode = ref<'grid' | 'list'>('grid')
 const showDetailDialog = ref(false)
 const showCreateDialog = ref(false)
@@ -103,12 +107,36 @@ const slideKindIcons: Record<string, typeof BarChart3> = {
 
 const filterTabs: { id: FilterCategory; label: string; icon: typeof BarChart3 }[] = [
   { id: 'all', label: 'All', icon: LayoutTemplate },
+  { id: 'ppt', label: 'PPT Engine', icon: Presentation },
   { id: 'slide', label: 'Slides', icon: Presentation },
   { id: 'chart', label: 'Charts', icon: BarChart3 },
   { id: 'table', label: 'Tables', icon: Table2 },
   { id: 'text', label: 'Text', icon: FileText },
   { id: 'custom', label: 'My Templates', icon: Sparkles },
 ]
+
+const pptCategoryIcons: Record<string, typeof BarChart3> = {
+  chart: BarChart3,
+  table: Table2,
+  front_page: PanelTop,
+  last_page: CalendarCheck,
+  base: LayoutTemplate,
+  other: FileText,
+}
+
+const pptCategoryColors: Record<string, string> = {
+  chart: 'text-blue-400',
+  table: 'text-emerald-400',
+  front_page: 'text-amber-500',
+  last_page: 'text-purple-400',
+  base: 'text-zinc-400',
+  other: 'text-zinc-500',
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  return `${(bytes / 1024).toFixed(1)} KB`
+}
 
 function isChartData(data: ChartData | TableData | string | SlidePreviewData): data is ChartData {
   return typeof data === 'object' && 'datasets' in data
@@ -479,6 +507,72 @@ function createTemplate() {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Backend PPT Templates Section -->
+    <div v-if="(templatesStore.activeFilter === 'ppt' || templatesStore.activeFilter === 'all') && templatesStore.filteredPptTemplates.length > 0" class="mt-8">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
+          <Presentation :size="14" :stroke-width="1.5" class="text-amber-500" />
+        </div>
+        <h3 class="text-sm font-display font-semibold tracking-tight">Backend PPT Templates</h3>
+        <span class="text-[10px] font-mono text-zinc-600 bg-zinc-900/50 px-2 py-0.5 rounded-full">
+          {{ templatesStore.filteredPptTemplates.length }} templates
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div
+          v-for="tmpl in templatesStore.filteredPptTemplates"
+          :key="tmpl.filename"
+          class="group rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-amber-500/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 cursor-default overflow-hidden"
+          style="backdrop-filter: blur(8px)"
+        >
+          <!-- Icon area -->
+          <div class="h-20 bg-[rgba(10,10,15,0.5)] flex items-center justify-center relative">
+            <Badge
+              variant="secondary"
+              class="absolute top-2 left-2 text-[8px] bg-amber-500/15 text-amber-500 border-amber-500/20 rounded-full px-1.5"
+            >
+              .pptx
+            </Badge>
+            <component
+              :is="pptCategoryIcons[tmpl.category] ?? FileText"
+              :size="28"
+              :stroke-width="1"
+              :class="pptCategoryColors[tmpl.category] ?? 'text-zinc-500'"
+              style="opacity: 0.6"
+            />
+          </div>
+          <!-- Info -->
+          <div class="p-3">
+            <h4 class="text-xs font-medium text-zinc-300 truncate mb-0.5">{{ tmpl.name }}</h4>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <Badge variant="secondary" class="text-[8px] bg-white/5 text-zinc-500 border-none rounded-full px-1.5 capitalize">
+                {{ tmpl.category.replace('_', ' ') }}
+              </Badge>
+              <Badge v-if="tmpl.chart_type" variant="secondary" class="text-[8px] bg-blue-500/10 text-blue-400 border-none rounded-full px-1.5">
+                {{ tmpl.chart_type }}
+              </Badge>
+              <Badge v-if="tmpl.table_type" variant="secondary" class="text-[8px] bg-emerald-500/10 text-emerald-400 border-none rounded-full px-1.5">
+                {{ tmpl.table_type }}
+              </Badge>
+            </div>
+            <p class="text-[9px] font-mono text-zinc-700 mt-1.5">{{ tmpl.filename }} · {{ formatFileSize(tmpl.size) }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading state for backend templates -->
+    <div v-if="templatesStore.isLoadingBackend" class="mt-8 flex items-center justify-center py-8">
+      <div class="animate-spin w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full" />
+      <span class="ml-3 text-sm text-zinc-500">Loading backend templates...</span>
+    </div>
+
+    <!-- Backend error -->
+    <div v-if="templatesStore.backendError" class="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">
+      {{ templatesStore.backendError }} — Make sure the backend is running at localhost:8000
     </div>
 
     <!-- List view -->

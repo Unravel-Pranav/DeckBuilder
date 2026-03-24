@@ -21,14 +21,16 @@ class PptService:
             elements = [{"id": e.id, "element_type": e.element_type, "label": e.label, "selected": e.selected, "display_order": e.display_order, "config": e.config or {}} for e in section.elements]
             pipeline_sections.append({"id": section.id, "key": section.key, "name": section.name, "sectionname_alias": section.sectionname_alias, "display_order": section.display_order, "selected": section.selected, "layout_preference": section.layout_preference, "elements": elements})
         pipeline_input = {"report": {"id": report.id, "name": report.name, "property_type": report.property_type or "Office", "property_sub_type": report.property_sub_type or "Figures", "quarter": report.quarter or "", "division": report.division[0] if report.division else "", "publishing_group": report.publishing_group or "", "hero_fields": report.hero_fields or {}}, "sections": pipeline_sections}
+        return await self.generate_custom_ppt(pipeline_input)
+
+    async def generate_custom_ppt(self, json_data: dict) -> dict:
+        """Generate PPT from a custom JSON payload."""
+        logger.info("Generating custom PPT from JSON payload")
         try:
             from app.ppt_engine.pptx_builder import generate_presentation
-            file_info = await generate_presentation(pipeline_input)
-            logger.info("PPT generated: %s", file_info.get("filename"))
-            gen = GeneratedReportModel(report_id=report.id, status="Complete", file_path=file_info.get("file_path"))
-            self._session.add(gen)
-            report.status = "Complete"
+            file_info = await generate_presentation(json_data)
+            logger.info("Custom PPT generated: %s", file_info.get("filename"))
             return {"success": True, "message": "PPT generated", **file_info}
         except Exception as e:
-            logger.error("PPT generation failed: %s", e)
+            logger.error("Custom PPT generation failed: %s", e)
             return {"success": False, "message": str(e)}

@@ -25,9 +25,9 @@ from app.ppt_engine.ppt_helpers_utils.services.frontend_json_processor import Fr
 from app.ppt_engine.ppt_helpers_utils.services.presentation_generator import PresentationGenerator
 
 # Setup directories for PPT generation
-BACKEND_DIR = Path(__file__).parent.parent  # Points to src/hello
-TEMPLATES_DIR = BACKEND_DIR / "utils"/"ppt_helpers_utils"/"individual_templates"  # Using chart-type-based templates
-OUTPUT_DIR = BACKEND_DIR / "data"/"output_ppt"
+PPT_ENGINE_DIR = Path(__file__).parent  # Points to backend/app/ppt_engine
+TEMPLATES_DIR = PPT_ENGINE_DIR / "ppt_helpers_utils" / "individual_templates"  # chart-type-based templates
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "data" / "output_ppt"  # backend/data/output_ppt
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Initialize components (module-level singletons for performance)

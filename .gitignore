@@ -46,8 +46,11 @@ Desktop.ini
 ehthumbs.db
 
 # ─── PPT Engine Output ───
-data/output_ppt/
+**/data/output_ppt/
+backend/data/
 *.pptx
+*.json.tmp
+**/debug_pptx/
 
 # ─── Logs ───
 *.log
