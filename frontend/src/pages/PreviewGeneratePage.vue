@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { useUiStore } from '@/stores/ui'
 import { usePresentationStore } from '@/stores/presentation'
-import { transformToBackendFormat, generatePPT, downloadFile } from '@/lib/api'
+import { useDeckTemplateStore } from '@/stores/deckTemplate'
+import { transformToBackendFormat, generatePPT, downloadFile, deckTemplatePptDownloadUrl } from '@/lib/api'
 import { mockSections } from '@/lib/mockData'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ const router = useRouter()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
 const presentationStore = usePresentationStore()
+const deckTemplateStore = useDeckTemplateStore()
 
 const currentSlideIndex = ref(0)
 const isGenerating = ref(false)
@@ -62,6 +64,12 @@ function editSlide() {
   }
 }
 
+function openExportDeckFile() {
+  const id = deckTemplateStore.selectedTemplateId
+  if (id == null) return
+  window.open(deckTemplatePptDownloadUrl(id), '_blank', 'noopener,noreferrer')
+}
+
 async function generatePPTAction() {
   if (!presentationStore.currentPresentation) {
     // For demo/dev purposes, if no presentation is set, we might want to create one
@@ -80,8 +88,9 @@ async function generatePPTAction() {
   try {
     // 1. Transform data
     const payload = transformToBackendFormat(
-      presentationStore.currentPresentation!, 
-      slidesStore.sections
+      presentationStore.currentPresentation!,
+      slidesStore.sections,
+      deckTemplateStore.selectedTemplateId,
     )
     console.log('Sending payload to backend:', payload)
     generateProgress.value = 30
@@ -212,6 +221,32 @@ const layoutIcons: Record<string, typeof BarChart3> = {
 
       <ScrollArea class="flex-1">
         <div class="p-4 space-y-4">
+          <div class="rounded-lg border border-[rgba(255,255,255,0.08)] p-3 bg-[rgba(10,10,15,0.5)]">
+            <p class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
+              Export base deck
+            </p>
+            <template v-if="deckTemplateStore.selectedTemplateId != null">
+              <p class="text-xs text-zinc-300 truncate" :title="deckTemplateStore.selectedTemplateName ?? ''">
+                {{ deckTemplateStore.selectedTemplateName }}
+              </p>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <Button size="sm" variant="outline" class="h-8 text-xs" @click="openExportDeckFile">
+                  View .pptx
+                </Button>
+                <Button size="sm" variant="ghost" class="h-8 text-xs text-zinc-500" @click="deckTemplateStore.clearExportDeck()">
+                  Clear
+                </Button>
+              </div>
+            </template>
+            <template v-else>
+              <p class="text-xs text-zinc-500">
+                Built-in theme only. Upload a deck and it becomes the export base automatically, or pick one under Templates.
+              </p>
+              <Button size="sm" variant="outline" class="h-8 text-xs mt-2 w-full" @click="router.push('/templates')">
+                Manage decks
+              </Button>
+            </template>
+          </div>
           <!-- Stats -->
           <div class="grid grid-cols-2 gap-3">
             <GlassCard padding="p-3">

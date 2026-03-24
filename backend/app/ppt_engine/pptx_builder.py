@@ -212,16 +212,21 @@ class FileInfo(BaseModel):
 
 
 async def generate_presentation(
-    request: FrontendJSONRequest | dict
+    request: FrontendJSONRequest | dict,
+    *,
+    user_deck_path: str | None = None,
 ):
     """
     Generate PowerPoint presentation from frontend JSON without blocking the event loop.
+
+    user_deck_path: Optional absolute path to an uploaded template .pptx (slide masters + cover).
     """
-    return await asyncio.to_thread(_generate_presentation_sync, request)
+    return await asyncio.to_thread(_generate_presentation_sync, request, user_deck_path)
 
 
 def _generate_presentation_sync(
-    request: FrontendJSONRequest | dict
+    request: FrontendJSONRequest | dict,
+    user_deck_path: str | None = None,
 ):
     """
     Synchronous implementation that performs the heavy PPT generation work.
@@ -248,7 +253,10 @@ def _generate_presentation_sync(
         print(f"{'='*60}\n")
         
         # Extract metadata
-        metadata = json_processor.extract_presentation_metadata(json_data)
+        metadata = dict(json_processor.extract_presentation_metadata(json_data))
+        if user_deck_path:
+            metadata["user_deck_path"] = user_deck_path
+            print(f"📎 User deck template file: {user_deck_path}")
         print(f"📊 Presentation Metadata:")
         print(f"   Title: {metadata['title']}")
         print(f"   Author: {metadata['author']}")

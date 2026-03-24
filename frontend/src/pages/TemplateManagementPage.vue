@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTemplatesStore, type LibraryCategoryFilter } from '@/stores/templates'
+import { useDeckTemplateStore } from '@/stores/deckTemplate'
+import { fetchDeckTemplates, deckTemplatePptDownloadUrl, type DeckTemplate } from '@/lib/api'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -30,6 +32,11 @@ import {
 } from 'lucide-vue-next'
 
 const templatesStore = useTemplatesStore()
+const deckTemplateStore = useDeckTemplateStore()
+
+const savedDecks = ref<DeckTemplate[]>([])
+const savedDecksLoading = ref(false)
+const savedDecksError = ref<string | null>(null)
 
 const showDetailDialog = ref(false)
 const selectedBackendTemplate = ref<BackendTemplate | null>(null)
@@ -43,8 +50,30 @@ function copyToClipboard(text: string) {
   void navigator.clipboard.writeText(text)
 }
 
+async function loadSavedDecks() {
+  savedDecksLoading.value = true
+  savedDecksError.value = null
+  try {
+    const res = await fetchDeckTemplates()
+    savedDecks.value = res.items
+  } catch (e: unknown) {
+    savedDecksError.value = e instanceof Error ? e.message : 'Failed to load saved decks'
+  } finally {
+    savedDecksLoading.value = false
+  }
+}
+
+function viewSavedDeck(id: number) {
+  window.open(deckTemplatePptDownloadUrl(id), '_blank', 'noopener,noreferrer')
+}
+
+function useDeckForExports(t: DeckTemplate) {
+  deckTemplateStore.setExportDeck(t.id, t.name)
+}
+
 onMounted(() => {
   templatesStore.loadBackendTemplates()
+  void loadSavedDecks()
 })
 
 const viewMode = ref<'grid' | 'list'>('grid')
@@ -448,6 +477,55 @@ function pptLinePoints(data: number[], heightScale = 1): string {
         {{ templatesStore.backendError }} — ensure the API is reachable (e.g. localhost:8000).
       </div>
     </template>
+
+    <GlassCard class="mt-10" padding="p-6">
+      <div class="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h3 class="text-lg font-display font-semibold tracking-tight text-zinc-200">
+            Your presentation decks
+          </h3>
+          <p class="text-xs text-zinc-500 mt-1 max-w-xl">
+            Templates saved in the database with an uploaded .pptx. View the file in PowerPoint or the browser;
+            choose one as the base (cover and theme) for generated exports from Preview.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          class="border-[rgba(255,255,255,0.12)] text-zinc-300 shrink-0 text-xs h-8"
+          :disabled="savedDecksLoading"
+          @click="loadSavedDecks"
+        >
+          Refresh
+        </Button>
+      </div>
+      <div v-if="savedDecksLoading" class="text-sm text-zinc-500 py-6">Loading…</div>
+      <p v-else-if="savedDecksError" class="text-sm text-red-400">{{ savedDecksError }}</p>
+      <div v-else-if="savedDecks.length === 0" class="text-sm text-zinc-500 py-4">
+        No rows yet. Upload a .pptx under Upload PPT (or seed the database).
+      </div>
+      <ul v-else class="space-y-2">
+        <li
+          v-for="t in savedDecks"
+          :key="t.id"
+          class="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.05)]"
+        >
+          <span class="text-sm text-zinc-300 flex-1 min-w-[12rem]">{{ t.name }}</span>
+          <Badge variant="secondary" class="text-[9px] capitalize">{{ t.ppt_status }}</Badge>
+          <Button variant="outline" class="h-8 text-xs" @click="viewSavedDeck(t.id)">View .pptx</Button>
+          <Button
+            class="h-8 text-xs bg-amber-500/90 text-[#0A0A0F] hover:bg-amber-400"
+            :disabled="t.ppt_status !== 'Attached'"
+            @click="useDeckForExports(t)"
+          >
+            Use for exports
+          </Button>
+          <span
+            v-if="deckTemplateStore.selectedTemplateId === t.id"
+            class="text-[10px] text-emerald-500 w-full sm:w-auto"
+          >Active for Preview</span>
+        </li>
+      </ul>
+    </GlassCard>
 
     <!-- Template detail (backend .pptx metadata + preview) -->
     <Dialog v-model:open="showDetailDialog">
