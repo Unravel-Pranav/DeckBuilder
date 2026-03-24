@@ -91,7 +91,7 @@ function navigateTo(routePath: string) {
       >
         <LayoutTemplate :size="18" :stroke-width="1.5" />
         <Transition name="fade">
-          <span v-if="!uiStore.sidebarCollapsed" class="whitespace-nowrap">Template Library</span>
+          <span v-if="!uiStore.sidebarCollapsed" class="whitespace-nowrap">Templates</span>
         </Transition>
       </button>
     </div>

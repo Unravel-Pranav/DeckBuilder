@@ -6,6 +6,10 @@ import os
 from pathlib import Path
 from fastapi import APIRouter
 
+from app.ppt_engine.ppt_helpers_utils.services.ppt_template_registry import (
+    is_registered_ppt_template,
+)
+
 router = APIRouter()
 
 # Path to the individual_templates directory
@@ -95,6 +99,8 @@ async def list_ppt_templates():
     
     templates = []
     for f in sorted(TEMPLATES_DIR.glob("*.pptx")):
+        if not is_registered_ppt_template(f.name):
+            continue
         info = _categorize_template(f.name)
         info["size"] = f.stat().st_size
         templates.append(info)
@@ -123,6 +129,8 @@ async def list_template_categories():
     
     templates = []
     for f in sorted(TEMPLATES_DIR.glob("*.pptx")):
+        if not is_registered_ppt_template(f.name):
+            continue
         templates.append(_categorize_template(f.name))
     
     summary: dict = {}

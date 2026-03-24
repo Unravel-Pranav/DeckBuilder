@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { SlideTemplate, TemplateCategory } from '@/types'
+import type { SlideTemplate } from '@/types'
 import { chartTemplates, tableTemplates, textTemplates, slideTemplates } from '@/lib/mockData'
 import { fetchPptTemplates, type BackendTemplate } from '@/lib/api'
 
-export type FilterCategory = 'all' | TemplateCategory | 'custom' | 'ppt'
+/** Category filter for the /templates page (backend .pptx library only). */
+export type LibraryCategoryFilter = 'all' | BackendTemplate['category']
 
 export const useTemplatesStore = defineStore('templates', () => {
   const builtInTemplates = ref<SlideTemplate[]>([
@@ -18,44 +19,19 @@ export const useTemplatesStore = defineStore('templates', () => {
   const isLoadingBackend = ref(false)
   const backendError = ref<string | null>(null)
   const searchQuery = ref('')
-  const activeFilter = ref<FilterCategory>('all')
+  const libraryCategoryFilter = ref<LibraryCategoryFilter>('all')
 
   const allTemplates = computed(() => [
     ...builtInTemplates.value,
     ...customTemplates.value,
   ])
 
-  const filteredTemplates = computed(() => {
-    let list: SlideTemplate[]
-    if (activeFilter.value === 'custom') {
-      list = customTemplates.value
-    } else if (activeFilter.value === 'all') {
-      list = allTemplates.value
-    } else if (activeFilter.value === 'ppt') {
-      // PPT filter shows nothing in the slide templates list — shown separately
-      list = []
-    } else {
-      list = allTemplates.value.filter((t) => t.category === activeFilter.value)
-    }
-
-    if (searchQuery.value.trim()) {
-      const q = searchQuery.value.toLowerCase()
-      list = list.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          (t.chartType && t.chartType.includes(q)) ||
-          (t.slideKind && t.slideKind.includes(q)),
-      )
-    }
-
-    return list
-  })
-
-  const filteredPptTemplates = computed(() => {
-    if (activeFilter.value !== 'ppt' && activeFilter.value !== 'all') return []
-    
+  /** Backend PPT engine templates for TemplateManagementPage (search + category). */
+  const filteredLibraryTemplates = computed(() => {
     let list = backendPptTemplates.value
+    if (libraryCategoryFilter.value !== 'all') {
+      list = list.filter((t) => t.category === libraryCategoryFilter.value)
+    }
     if (searchQuery.value.trim()) {
       const q = searchQuery.value.toLowerCase()
       list = list.filter(
@@ -69,18 +45,25 @@ export const useTemplatesStore = defineStore('templates', () => {
     return list
   })
 
-  const templateCounts = computed(() => ({
-    all: allTemplates.value.length + backendPptTemplates.value.length,
-    chart: allTemplates.value.filter((t) => t.category === 'chart').length,
-    table: allTemplates.value.filter((t) => t.category === 'table').length,
-    text: allTemplates.value.filter((t) => t.category === 'text').length,
-    slide: allTemplates.value.filter((t) => t.category === 'slide').length,
-    custom: customTemplates.value.length,
-    ppt: backendPptTemplates.value.length,
-  }))
+  const libraryCategoryCounts = computed(() => {
+    const list = backendPptTemplates.value
+    const counts: Record<LibraryCategoryFilter, number> = {
+      all: list.length,
+      chart: 0,
+      table: 0,
+      front_page: 0,
+      last_page: 0,
+      base: 0,
+      other: 0,
+    }
+    for (const t of list) {
+      counts[t.category]++
+    }
+    return counts
+  })
 
   async function loadBackendTemplates() {
-    if (backendPptTemplates.value.length > 0) return // Already loaded
+    if (backendPptTemplates.value.length > 0) return
     isLoadingBackend.value = true
     backendError.value = null
     try {
@@ -123,8 +106,8 @@ export const useTemplatesStore = defineStore('templates', () => {
     })
   }
 
-  function setFilter(filter: FilterCategory) {
-    activeFilter.value = filter
+  function setLibraryCategoryFilter(filter: LibraryCategoryFilter) {
+    libraryCategoryFilter.value = filter
   }
 
   function setSearch(query: string) {
@@ -138,18 +121,17 @@ export const useTemplatesStore = defineStore('templates', () => {
     isLoadingBackend,
     backendError,
     searchQuery,
-    activeFilter,
+    libraryCategoryFilter,
     allTemplates,
-    filteredTemplates,
-    filteredPptTemplates,
-    templateCounts,
+    filteredLibraryTemplates,
+    libraryCategoryCounts,
     loadBackendTemplates,
     getSlideTemplates,
     getComponentTemplates,
     addCustomTemplate,
     removeCustomTemplate,
     duplicateTemplate,
-    setFilter,
+    setLibraryCategoryFilter,
     setSearch,
   }
 })
