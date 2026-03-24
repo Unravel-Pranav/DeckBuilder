@@ -15,6 +15,10 @@ from app.ppt_engine.ppt_helpers_utils.services.presentation_generator import Pre
 
 def create_custom_json():
     """
+    Local dev fixture JSON for exercising chart/table layouts (PresentationGenerator).
+
+    User deck templates are attached via `POST /api/v1/templates/{id}/ppt` in this repo.
+
     Creates a custom JSON structure as requested:
     - Slide 1: Front Page (default)
     - Slide 2: 4 graphs/charts

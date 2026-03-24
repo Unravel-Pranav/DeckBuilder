@@ -47,6 +47,7 @@ ehthumbs.db
 
 # ─── PPT Engine Output ───
 **/data/output_ppt/
+**/ppt_helpers_utils/output_ppt/
 backend/data/
 *.pptx
 *.json.tmp

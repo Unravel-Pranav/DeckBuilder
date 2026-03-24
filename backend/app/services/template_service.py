@@ -1,10 +1,26 @@
 """TemplateService — business logic for templates."""
 from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.exceptions import NotFoundException
+
+from app.core.config import settings
+from app.core.exceptions import NotFoundException, ValidationException
+from app.core.paths import backend_root
 from app.models import TemplateModel, TemplateSectionModel, TemplateSectionElementModel
 from app.repositories.template_repository import TemplateRepository
-from app.schemas.template_schema import TemplateCreate, TemplateUpdate, TemplateResponse, TemplateListResponse
+from app.schemas.template_schema import (
+    TemplateCreate,
+    TemplateListResponse,
+    TemplateResponse,
+    TemplateUpdate,
+)
+from app.services.template_ppt_validation import (
+    TemplatePptValidationError,
+    validate_template_deck_bytes,
+)
 from app.utils.logger import logger
 
 class TemplateService:
@@ -49,3 +65,46 @@ class TemplateService:
 
     async def delete_template(self, template_id: int) -> bool:
         return await self._repo.delete_by_id(template_id)
+
+    async def attach_template_ppt(
+        self, template_id: int, *, filename: str, content: bytes
+    ) -> TemplateModel:
+        """Validate deck bytes, write to disk, update template row."""
+        suffix = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+        if suffix != "pptx":
+            raise ValidationException(
+                "Only .pptx files are supported for template decks."
+            )
+        try:
+            validate_template_deck_bytes(content, suffix=suffix)
+        except TemplatePptValidationError as err:
+            raise ValidationException(str(err)) from err
+
+        model = await self._repo.get_by_id(template_id)
+        if not model:
+            raise NotFoundException("Template", template_id)
+
+        deck_dir = backend_root() / settings.template_decks_dir
+        deck_dir.mkdir(parents=True, exist_ok=True)
+        dest = deck_dir / f"{template_id}.pptx"
+        dest.write_bytes(content)
+
+        rel_key = f"{settings.template_decks_dir}/{template_id}.pptx".replace("\\", "/")
+        model.ppt_status = "Attached"
+        model.ppt_s3_key = rel_key
+        model.ppt_url = f"/api/v1/templates/{template_id}/ppt/download"
+        model.ppt_attached_time = datetime.utcnow()
+        model.last_modified = datetime.utcnow()
+        await self._session.flush()
+        await self._session.refresh(model)
+        logger.info("Attached template pptx template_id=%s path=%s", template_id, dest)
+        return model
+
+    def resolve_template_ppt_path(self, template: TemplateModel) -> Path | None:
+        """Return absolute path to stored .pptx if marked attached and file exists."""
+        if not template.ppt_s3_key or template.ppt_status != "Attached":
+            return None
+        path = (backend_root() / Path(template.ppt_s3_key.replace("\\", "/"))).resolve()
+        if not path.is_file():
+            return None
+        return path

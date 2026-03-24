@@ -2,12 +2,18 @@ import type { Section, Slide, SlideComponent, Presentation, ChartDataset } from 
 
 /**
  * Transforms frontend presentation data to the format expected by the backend PPT engine.
+ * @param deckTemplateId — DB `templates.id` with an attached .pptx; used as base deck for export.
  */
-export function transformToBackendFormat(presentation: Presentation, sections: Section[]) {
+export function transformToBackendFormat(
+  presentation: Presentation,
+  sections: Section[],
+  deckTemplateId?: number | null,
+) {
   return {
     report: {
       id: presentation.id,
       name: presentation.name,
+      ...(deckTemplateId != null ? { template_id: deckTemplateId } : {}),
       property_type: presentation.intent.type === 'business' ? 'Office' : 'Industrial', // Mapping for demo
       property_sub_type: 'figures', // Default for demo
       quarter: '2025 Q1', // Default for demo
@@ -99,7 +105,24 @@ function mapChartType(type: string): string {
   return map[type] || 'Bar Chart'
 }
 
-const API_BASE_URL = 'http://localhost:8000/api/v1'
+const envApi = import.meta.env.VITE_API_BASE_URL as string | undefined
+export const API_BASE_URL = envApi ?? 'http://localhost:8000/api/v1'
+
+/** FastAPI often returns `detail` as a string or a validation error list. */
+export function formatFastApiDetail(detail: unknown): string | null {
+  if (detail == null) return null
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (item && typeof item === 'object' && 'msg' in item) {
+        return String((item as { msg: string }).msg)
+      }
+      return JSON.stringify(item)
+    })
+    return parts.join(' ')
+  }
+  return null
+}
 
 export async function generatePPT(payload: any) {
   const response = await fetch(`${API_BASE_URL}/generation/generate-custom`, {
@@ -155,6 +178,61 @@ export async function fetchPptTemplates(): Promise<BackendTemplatesResponse> {
   const response = await fetch(`${API_BASE_URL}/ppt-templates/`)
   if (!response.ok) {
     throw new Error('Failed to fetch PPT templates')
+  }
+  return await response.json()
+}
+
+/** DB template row (reusable presentation structure) from DeckBuilder API. */
+export interface DeckTemplate {
+  id: number
+  name: string
+  base_type: string
+  is_default: boolean
+  attended: boolean
+  ppt_status: string
+  ppt_attached_time: string | null
+  ppt_url: string | null
+  created_at: string
+  last_modified: string
+}
+
+export interface DeckTemplateListResponse {
+  total_count: number
+  items: DeckTemplate[]
+}
+
+export async function fetchDeckTemplates(): Promise<DeckTemplateListResponse> {
+  const response = await fetch(`${API_BASE_URL}/templates`)
+  if (!response.ok) {
+    throw new Error('Failed to fetch templates')
+  }
+  return await response.json()
+}
+
+export function deckTemplatePptDownloadUrl(templateId: number): string {
+  return `${API_BASE_URL}/templates/${templateId}/ppt/download`
+}
+
+export async function uploadDeckTemplatePpt(
+  templateId: number,
+  file: File,
+): Promise<DeckTemplate> {
+  const body = new FormData()
+  body.append('file', file)
+  const response = await fetch(`${API_BASE_URL}/templates/${templateId}/ppt`, {
+    method: 'POST',
+    body,
+  })
+  if (!response.ok) {
+    let message = `Failed to upload template PPT (${response.status})`
+    try {
+      const err = (await response.json()) as { detail?: unknown }
+      const d = formatFastApiDetail(err?.detail)
+      if (d) message = d
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message)
   }
   return await response.json()
 }
