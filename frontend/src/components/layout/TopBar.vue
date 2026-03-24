@@ -16,7 +16,7 @@ const pageTitle = computed(() => {
     recommendations: 'AI Recommendations',
     sections: 'Section Manager',
     builder: 'Slide Builder',
-    templates: 'Template Library',
+    templates: 'Templates',
     'template-upload': 'Upload Template',
     preview: 'Preview & Generate',
     output: 'Your Presentation',

@@ -1,20 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useTemplatesStore } from '@/stores/templates'
+import { useTemplatesStore, type LibraryCategoryFilter } from '@/stores/templates'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -23,88 +14,49 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
-import type { SlideTemplate, ChartData, TableData, ChartType, SlidePreviewData, TemplateCategory } from '@/types'
-import type { FilterCategory } from '@/stores/templates'
+import type { BackendTemplate } from '@/lib/api'
 import {
   Search,
-  Plus,
   Upload,
   BarChart3,
-  TrendingUp,
-  PieChart,
   Table2,
   FileText,
   LayoutTemplate,
-  Eye,
-  Copy,
-  Trash2,
-  Sparkles,
   Grid3x3,
   List,
-  Presentation,
   PanelTop,
-  SplitSquareVertical,
   CalendarCheck,
-  Users,
-  Clock,
-  Columns2,
-  Quote,
-  Hash,
-  Square,
+  Copy,
 } from 'lucide-vue-next'
 
 const templatesStore = useTemplatesStore()
+
+const showDetailDialog = ref(false)
+const selectedBackendTemplate = ref<BackendTemplate | null>(null)
+
+function openTemplateDetail(tmpl: BackendTemplate) {
+  selectedBackendTemplate.value = tmpl
+  showDetailDialog.value = true
+}
+
+function copyToClipboard(text: string) {
+  void navigator.clipboard.writeText(text)
+}
 
 onMounted(() => {
   templatesStore.loadBackendTemplates()
 })
 
 const viewMode = ref<'grid' | 'list'>('grid')
-const showDetailDialog = ref(false)
-const showCreateDialog = ref(false)
-const selectedTemplate = ref<SlideTemplate | null>(null)
 
-// Create form state
-const newTemplate = ref({
-  name: '',
-  category: 'chart' as TemplateCategory,
-  chartType: 'bar' as ChartType,
-  description: '',
-  schemaHint: '',
-  dataJson: '',
-})
-
-const chartTypeIcons: Record<string, typeof BarChart3> = {
-  bar: BarChart3,
-  line: TrendingUp,
-  pie: PieChart,
-  doughnut: PieChart,
-  area: TrendingUp,
-  scatter: BarChart3,
-}
-
-const slideKindIcons: Record<string, typeof BarChart3> = {
-  title: PanelTop,
-  'section-divider': SplitSquareVertical,
-  closing: CalendarCheck,
-  agenda: FileText,
-  team: Users,
-  timeline: Clock,
-  comparison: Columns2,
-  quote: Quote,
-  kpi: Hash,
-  content: FileText,
-  blank: Square,
-}
-
-const filterTabs: { id: FilterCategory; label: string; icon: typeof BarChart3 }[] = [
+const libraryFilterTabs: { id: LibraryCategoryFilter; label: string; icon: typeof BarChart3 }[] = [
   { id: 'all', label: 'All', icon: LayoutTemplate },
-  { id: 'ppt', label: 'PPT Engine', icon: Presentation },
-  { id: 'slide', label: 'Slides', icon: Presentation },
   { id: 'chart', label: 'Charts', icon: BarChart3 },
   { id: 'table', label: 'Tables', icon: Table2 },
-  { id: 'text', label: 'Text', icon: FileText },
-  { id: 'custom', label: 'My Templates', icon: Sparkles },
+  { id: 'front_page', label: 'Cover', icon: PanelTop },
+  { id: 'base', label: 'Slide base', icon: LayoutTemplate },
+  { id: 'last_page', label: 'Closing', icon: CalendarCheck },
+  { id: 'other', label: 'Other', icon: FileText },
 ]
 
 const pptCategoryIcons: Record<string, typeof BarChart3> = {
@@ -130,115 +82,34 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`
 }
 
-function isChartData(data: ChartData | TableData | string | SlidePreviewData): data is ChartData {
-  return typeof data === 'object' && 'datasets' in data
-}
-
-function isTableData(data: ChartData | TableData | string | SlidePreviewData): data is TableData {
-  return typeof data === 'object' && 'headers' in data
-}
-
-function isSlidePreviewData(data: ChartData | TableData | string | SlidePreviewData): data is SlidePreviewData {
-  return typeof data === 'object' && 'elements' in data
-}
-
-function viewTemplate(tmpl: SlideTemplate) {
-  selectedTemplate.value = tmpl
-  showDetailDialog.value = true
-}
-
 function getBarHeights(data: number[]): number[] {
   const max = Math.max(...data)
   return data.map((v) => (max > 0 ? (v / max) * 100 : 0))
 }
 
-function isCustom(id: string): boolean {
-  return id.startsWith('custom-')
+type PptPreviewKind = 'bar' | 'line' | 'pie' | 'horizontal' | 'slide-shell' | 'table' | 'generic'
+
+function pptPreviewKind(tmpl: BackendTemplate): PptPreviewKind {
+  const c = tmpl.category
+  if (c === 'table') return 'table'
+  if (c === 'front_page' || c === 'last_page' || c === 'base') return 'slide-shell'
+  if (c !== 'chart') return 'generic'
+  const ct = (tmpl.chart_type || '').toLowerCase()
+  if (ct.includes('pie') || ct.includes('donut')) return 'pie'
+  if (ct.includes('horizontal')) return 'horizontal'
+  if (ct.includes('line') || ct.includes('combo')) return 'line'
+  return 'bar'
 }
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text)
-}
 
-function createTemplate() {
-  const { name, category, chartType, description, schemaHint, dataJson } = newTemplate.value
-  if (!name.trim() || !description.trim()) return
+const pptDemoBarData = [40, 65, 45, 80, 55, 70]
+const pptDemoLineData = [12, 28, 22, 45, 38, 62]
 
-  let previewData: ChartData | TableData | string | SlidePreviewData = ''
-
-  if (category === 'slide') {
-    const slideKind = (newTemplate.value as any).slideKind ?? 'content'
-    previewData = {
-      title: name,
-      elements: [
-        { type: 'heading', label: name, x: 10, y: 30, w: 80, h: 12 },
-        { type: 'subheading', label: description, x: 10, y: 48, w: 60, h: 6 },
-        { type: 'accent-bar', label: '', x: 10, y: 58, w: 20, h: 1 },
-      ],
-    } as SlidePreviewData
-    templatesStore.addCustomTemplate({
-      name: name.trim(),
-      category: 'slide',
-      slideKind,
-      description: description.trim(),
-      previewData,
-      schemaHint: schemaHint.trim() || 'Custom slide template',
-      defaultLayout: 'commentary-only',
-      defaultComponents: [
-        { type: 'text', data: { content: dataJson.trim() || name }, config: { format: 'paragraph' } } as any,
-      ],
-    })
-    newTemplate.value = { name: '', category: 'chart', chartType: 'bar', description: '', schemaHint: '', dataJson: '' }
-    showCreateDialog.value = false
-    return
-  } else if (category === 'chart') {
-    try {
-      const parsed = JSON.parse(dataJson)
-      previewData = {
-        type: chartType,
-        labels: parsed.x_axis ?? parsed.labels ?? ['A', 'B', 'C'],
-        datasets: [{
-          label: parsed.label ?? name,
-          data: parsed.y_axis ?? parsed.values ?? [30, 50, 40],
-          ...(chartType === 'pie' || chartType === 'doughnut'
-            ? { backgroundColor: ['#F59E0B', '#FBBF24', '#D97706'] }
-            : { borderColor: '#F59E0B' }),
-        }],
-      } as ChartData
-    } catch {
-      previewData = {
-        type: chartType,
-        labels: ['A', 'B', 'C', 'D'],
-        datasets: [{ label: name, data: [30, 50, 40, 60] }],
-      } as ChartData
-    }
-  } else if (category === 'table') {
-    try {
-      const parsed = JSON.parse(dataJson)
-      previewData = {
-        headers: parsed.headers ?? ['Col 1', 'Col 2', 'Col 3'],
-        rows: parsed.rows ?? [['--', '--', '--']],
-      } as TableData
-    } catch {
-      previewData = {
-        headers: ['Column 1', 'Column 2', 'Column 3'],
-        rows: [['Data', 'Data', 'Data']],
-      } as TableData
-    }
-  } else {
-    previewData = dataJson.trim() || 'Custom text template content'
-  }
-
-  templatesStore.addCustomTemplate({
-    name: name.trim(),
-    category,
-    chartType: category === 'chart' ? chartType : undefined,
-    description: description.trim(),
-    previewData,
-    schemaHint: schemaHint.trim() || 'Custom schema',
-  })
-
-  newTemplate.value = { name: '', category: 'chart', chartType: 'bar', description: '', schemaHint: '', dataJson: '' }
-  showCreateDialog.value = false
+function pptLinePoints(data: number[], heightScale = 1): string {
+  const max = Math.max(...data)
+  if (max <= 0) return ''
+  return data
+    .map((v, i) => `${(i / Math.max(data.length - 1, 1)) * 120},${50 - (v / max) * 44 * heightScale}`)
+    .join(' ')
 }
 </script>
 
@@ -252,11 +123,11 @@ function createTemplate() {
             <LayoutTemplate :size="16" :stroke-width="1.5" class="text-amber-500" />
           </div>
           <h2 class="text-2xl md:text-3xl font-display font-bold tracking-tight">
-            Template Library
+            Templates
           </h2>
         </div>
         <p class="text-sm text-zinc-500 ml-10">
-          Browse, create, and manage slide templates for your presentations.
+          PowerPoint layouts registered with the PPT engine (server).
         </p>
       </div>
 
@@ -269,277 +140,206 @@ function createTemplate() {
           <Upload :size="14" :stroke-width="1.5" class="mr-1.5" />
           Upload PPT
         </Button>
-        <Button
-          class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium rounded-lg h-9 text-sm shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
-          @click="showCreateDialog = true"
-        >
-          <Plus :size="14" :stroke-width="2" class="mr-1.5" />
-          Create Template
-        </Button>
       </div>
     </div>
 
-    <!-- Stats bar -->
-    <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-8">
-      <GlassCard
-        v-for="tab in filterTabs"
-        :key="tab.id"
-        :highlighted="templatesStore.activeFilter === tab.id"
-        hoverable
-        padding="p-3"
-        @click="templatesStore.setFilter(tab.id)"
-      >
-        <div class="flex items-center gap-2">
-          <component :is="tab.icon" :size="14" :stroke-width="1.5" :class="templatesStore.activeFilter === tab.id ? 'text-amber-500' : 'text-zinc-500'" />
-          <span class="text-xs font-medium" :class="templatesStore.activeFilter === tab.id ? 'text-amber-500' : 'text-zinc-400'">
-            {{ tab.label }}
-          </span>
-        </div>
-        <p class="text-xl font-display font-bold mt-1" :class="templatesStore.activeFilter === tab.id ? 'text-amber-500' : 'text-zinc-300'">
-          {{ templatesStore.templateCounts[tab.id] }}
-        </p>
-      </GlassCard>
+    <!-- Loading -->
+    <div v-if="templatesStore.isLoadingBackend" class="flex flex-col items-center justify-center py-20">
+      <div class="animate-spin w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full" />
+      <span class="mt-4 text-sm text-zinc-500">Loading templates…</span>
     </div>
 
-    <!-- Search + View toggle -->
-    <div class="flex items-center gap-3 mb-6">
-      <div class="relative flex-1">
-        <Search :size="16" :stroke-width="1.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
-        <Input
-          :model-value="templatesStore.searchQuery"
-          placeholder="Search templates by name, type, or description..."
-          class="pl-10 h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-xl placeholder:text-zinc-600 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-          @update:model-value="templatesStore.setSearch($event as string)"
-        />
-      </div>
-      <div class="flex rounded-lg border border-[rgba(255,255,255,0.08)] overflow-hidden">
-        <button
-          class="p-2 transition-colors"
-          :class="viewMode === 'grid' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-600 hover:text-zinc-400'"
-          @click="viewMode = 'grid'"
+    <template v-else>
+      <!-- Category filters -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+        <GlassCard
+          v-for="tab in libraryFilterTabs"
+          :key="tab.id"
+          :highlighted="templatesStore.libraryCategoryFilter === tab.id"
+          hoverable
+          padding="p-3"
+          @click="templatesStore.setLibraryCategoryFilter(tab.id)"
         >
-          <Grid3x3 :size="16" :stroke-width="1.5" />
-        </button>
-        <button
-          class="p-2 transition-colors"
-          :class="viewMode === 'list' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-600 hover:text-zinc-400'"
-          @click="viewMode = 'list'"
-        >
-          <List :size="16" :stroke-width="1.5" />
-        </button>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <EmptyState
-      v-if="templatesStore.filteredTemplates.length === 0"
-      :icon="LayoutTemplate"
-      title="No templates found"
-      :description="templatesStore.searchQuery ? 'Try a different search term.' : 'Create your first custom template.'"
-    >
-      <Button
-        class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium rounded-xl"
-        @click="showCreateDialog = true"
-      >
-        <Plus :size="16" class="mr-1.5" />
-        Create Template
-      </Button>
-    </EmptyState>
-
-    <!-- Grid view -->
-    <div
-      v-else-if="viewMode === 'grid'"
-      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-    >
-      <div
-        v-for="tmpl in templatesStore.filteredTemplates"
-        :key="tmpl.id"
-        class="group rounded-xl border p-0 overflow-hidden transition-all duration-300 cursor-pointer"
-        :class="isCustom(tmpl.id)
-          ? 'border-amber-500/15 bg-[rgba(26,26,36,0.6)] hover:border-amber-500/30 hover:shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-          : 'border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-[rgba(255,255,255,0.15)]'"
-        style="backdrop-filter: blur(8px)"
-        @click="viewTemplate(tmpl)"
-      >
-        <!-- Preview area -->
-        <div class="h-28 bg-[rgba(10,10,15,0.5)] flex items-center justify-center p-4 relative">
-          <!-- Custom badge -->
-          <Badge
-            v-if="isCustom(tmpl.id)"
-            variant="secondary"
-            class="absolute top-2 left-2 text-[8px] bg-amber-500/15 text-amber-500 border-amber-500/20 rounded-full px-1.5"
-          >
-            Custom
-          </Badge>
-
-          <!-- Actions overlay -->
-          <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              class="p-1.5 rounded-lg bg-[rgba(26,26,36,0.8)] text-zinc-400 hover:text-amber-500 transition-colors"
-              title="Duplicate"
-              @click.stop="templatesStore.duplicateTemplate(tmpl.id)"
+          <div class="flex items-center gap-2">
+            <component
+              :is="tab.icon"
+              :size="14"
+              :stroke-width="1.5"
+              :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-zinc-500'"
+            />
+            <span
+              class="text-xs font-medium truncate"
+              :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-zinc-400'"
             >
-              <Copy :size="12" :stroke-width="1.5" />
-            </button>
-            <button
-              v-if="isCustom(tmpl.id)"
-              class="p-1.5 rounded-lg bg-[rgba(26,26,36,0.8)] text-zinc-400 hover:text-red-400 transition-colors"
-              title="Delete"
-              @click.stop="templatesStore.removeCustomTemplate(tmpl.id)"
-            >
-              <Trash2 :size="12" :stroke-width="1.5" />
-            </button>
+              {{ tab.label }}
+            </span>
           </div>
+          <p
+            class="text-xl font-display font-bold mt-1"
+            :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-zinc-300'"
+          >
+            {{ templatesStore.libraryCategoryCounts[tab.id] }}
+          </p>
+        </GlassCard>
+      </div>
 
-          <!-- Chart preview -->
-          <template v-if="tmpl.category === 'chart' && isChartData(tmpl.previewData)">
-            <template v-if="tmpl.chartType === 'bar'">
-              <div class="flex items-end gap-1 w-full h-full px-2">
+      <!-- Search + view -->
+      <div class="flex items-center gap-3 mb-6">
+        <div class="relative flex-1">
+          <Search :size="16" :stroke-width="1.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+          <Input
+            :model-value="templatesStore.searchQuery"
+            placeholder="Search by name, filename, or chart/table type…"
+            class="pl-10 h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-xl placeholder:text-zinc-600 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
+            @update:model-value="templatesStore.setSearch($event as string)"
+          />
+        </div>
+        <div class="flex rounded-lg border border-[rgba(255,255,255,0.08)] overflow-hidden">
+          <button
+            class="p-2 transition-colors"
+            :class="viewMode === 'grid' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-600 hover:text-zinc-400'"
+            @click="viewMode = 'grid'"
+          >
+            <Grid3x3 :size="16" :stroke-width="1.5" />
+          </button>
+          <button
+            class="p-2 transition-colors"
+            :class="viewMode === 'list' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-600 hover:text-zinc-400'"
+            @click="viewMode = 'list'"
+          >
+            <List :size="16" :stroke-width="1.5" />
+          </button>
+        </div>
+      </div>
+
+      <EmptyState
+        v-if="templatesStore.filteredLibraryTemplates.length === 0"
+        :icon="LayoutTemplate"
+        title="No templates found"
+        :description="
+          templatesStore.searchQuery
+            ? 'Try a different search term.'
+            : templatesStore.backendPptTemplates.length === 0
+              ? 'The server returned no templates. Is the API running?'
+              : 'Nothing matches this category filter.'
+        "
+      />
+
+      <!-- Grid -->
+      <div
+        v-else-if="viewMode === 'grid'"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+      >
+        <div
+          v-for="tmpl in templatesStore.filteredLibraryTemplates"
+          :key="tmpl.filename"
+          class="group rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-amber-500/20 transition-all duration-300 overflow-hidden cursor-pointer hover:shadow-[0_0_20px_rgba(245,158,11,0.06)] active:scale-[0.99]"
+          style="backdrop-filter: blur(8px)"
+          role="button"
+          tabindex="0"
+          @click="openTemplateDetail(tmpl)"
+          @keydown.enter.prevent="openTemplateDetail(tmpl)"
+        >
+          <div class="h-28 bg-[rgba(10,10,15,0.5)] flex items-center justify-center p-3 relative overflow-hidden">
+            <Badge
+              variant="secondary"
+              class="absolute top-2 left-2 z-10 text-[8px] bg-amber-500/15 text-amber-500 border-amber-500/20 rounded-full px-1.5"
+            >
+              .pptx
+            </Badge>
+            <template v-if="pptPreviewKind(tmpl) === 'bar'">
+              <div class="flex items-end gap-1 w-full h-full px-1 pt-2">
                 <div
-                  v-for="(val, i) in getBarHeights(tmpl.previewData.datasets[0].data)"
+                  v-for="(val, i) in getBarHeights(pptDemoBarData)"
                   :key="i"
                   class="flex-1 rounded-t transition-all"
                   :style="{ height: `${val}%`, backgroundColor: 'rgba(245, 158, 11, 0.5)', minHeight: '4px' }"
                 />
               </div>
             </template>
-            <template v-else-if="tmpl.chartType === 'line' || tmpl.chartType === 'area'">
+            <template v-else-if="pptPreviewKind(tmpl) === 'line'">
               <svg class="w-full h-full" viewBox="0 0 120 50" preserveAspectRatio="none">
                 <polyline
-                  v-if="tmpl.chartType === 'area'"
-                  fill="rgba(245,158,11,0.1)"
-                  stroke="none"
-                  :points="`0,50 ${tmpl.previewData.datasets[0].data.map((v, i) => `${(i / (tmpl.previewData as ChartData).datasets[0].data.length - 1) * 120},${50 - (v / Math.max(...(tmpl.previewData as ChartData).datasets[0].data)) * 44}`).join(' ')} 120,50`"
-                />
-                <polyline
-                  v-for="(ds, dsi) in tmpl.previewData.datasets"
-                  :key="dsi"
                   fill="none"
-                  :stroke="dsi === 0 ? '#F59E0B' : '#71717A'"
+                  stroke="#F59E0B"
                   stroke-width="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  :points="ds.data.map((v, i) => `${(i / (ds.data.length - 1)) * 120},${50 - (v / Math.max(...ds.data)) * 44}`).join(' ')"
-                  opacity="0.7"
+                  :points="pptLinePoints(pptDemoLineData, 1)"
+                  opacity="0.85"
+                />
+                <polyline
+                  fill="none"
+                  stroke="#71717A"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  :points="pptLinePoints(pptDemoLineData, 0.72)"
+                  opacity="0.6"
                 />
               </svg>
             </template>
-            <template v-else>
-              <div
-                class="w-20 h-20 rounded-full"
-                :style="{
-                  background: `conic-gradient(#F59E0B 0% ${tmpl.previewData.datasets[0].data[0]}%, #FBBF24 ${tmpl.previewData.datasets[0].data[0]}% ${tmpl.previewData.datasets[0].data[0] + (tmpl.previewData.datasets[0].data[1] ?? 0)}%, #D97706 ${tmpl.previewData.datasets[0].data[0] + (tmpl.previewData.datasets[0].data[1] ?? 0)}% 100%)`,
-                  opacity: 0.6,
-                }"
-              >
-                <div v-if="tmpl.chartType === 'doughnut'" class="w-10 h-10 rounded-full bg-[rgba(10,10,15,0.9)] mt-5 ml-5" />
+            <template v-else-if="pptPreviewKind(tmpl) === 'pie'">
+              <div class="relative w-16 h-16 flex items-center justify-center">
+                <div
+                  class="w-14 h-14 rounded-full"
+                  :style="{
+                    background: 'conic-gradient(#F59E0B 0% 42%, #FBBF24 42% 72%, #D97706 72% 100%)',
+                    opacity: 0.75,
+                  }"
+                />
+                <div
+                  v-if="(tmpl.chart_type || '').toLowerCase().includes('donut')"
+                  class="absolute w-7 h-7 rounded-full bg-[rgba(10,10,15,0.92)]"
+                />
               </div>
             </template>
-          </template>
-
-          <!-- Table preview -->
-          <template v-else-if="tmpl.category === 'table' && isTableData(tmpl.previewData)">
-            <div class="w-full space-y-1.5 px-2">
-              <div class="flex gap-1.5">
-                <div v-for="i in Math.min((tmpl.previewData as TableData).headers.length, 4)" :key="i" class="flex-1 h-2 rounded-sm bg-amber-500/30" />
+            <template v-else-if="pptPreviewKind(tmpl) === 'horizontal'">
+              <div class="flex flex-col justify-center gap-1.5 w-full h-full px-2 py-1">
+                <div v-for="row in 4" :key="row" class="flex items-center gap-2">
+                  <div class="h-2 flex-1 rounded-sm bg-zinc-800/80" />
+                  <div
+                    class="h-2 rounded-sm bg-amber-500/50"
+                    :style="{ width: `${[55, 72, 48, 65][row - 1]}%` }"
+                  />
+                </div>
               </div>
-              <div v-for="r in Math.min((tmpl.previewData as TableData).rows.length, 3)" :key="r" class="flex gap-1.5">
-                <div v-for="c in Math.min((tmpl.previewData as TableData).headers.length, 4)" :key="c" class="flex-1 h-1.5 rounded-sm bg-zinc-800" />
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'table'">
+              <div class="w-full space-y-1.5 px-1">
+                <div class="flex gap-1.5">
+                  <div v-for="i in 4" :key="i" class="flex-1 h-2 rounded-sm bg-amber-500/30" />
+                </div>
+                <div v-for="r in 3" :key="r" class="flex gap-1.5">
+                  <div v-for="c in 4" :key="c" class="flex-1 h-1.5 rounded-sm bg-zinc-800" />
+                </div>
               </div>
-            </div>
-          </template>
 
-          <!-- Slide preview -->
-          <template v-else-if="tmpl.category === 'slide' && isSlidePreviewData(tmpl.previewData)">
-            <div class="w-full h-full relative">
-              <div
-                v-for="(el, ei) in (tmpl.previewData as SlidePreviewData).elements.slice(0, 6)"
-                :key="ei"
-                class="absolute rounded-sm"
-                :class="
-                  el.type === 'heading' ? 'bg-amber-500/25' :
-                  el.type === 'subheading' ? 'bg-amber-500/15' :
-                  el.type === 'accent-bar' ? 'bg-amber-500/40' :
-                  el.type === 'divider' ? 'bg-zinc-600' :
-                  el.type === 'image-placeholder' ? 'bg-zinc-700/40 border border-dashed border-zinc-700' :
-                  'bg-zinc-800'
-                "
-                :style="{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%` }"
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'slide-shell'">
+              <div class="w-full h-full relative rounded-sm">
+                <div class="absolute top-[8%] left-[6%] right-[6%] h-[8%] rounded-sm bg-amber-500/20" />
+                <div class="absolute top-[22%] left-[6%] w-[55%] h-[4%] rounded-sm bg-zinc-700/80" />
+                <div class="absolute top-[32%] left-[6%] w-[40%] h-[3%] rounded-sm bg-zinc-800/90" />
+                <div
+                  v-if="tmpl.category === 'base'"
+                  class="absolute bottom-[12%] left-[6%] right-[6%] top-[42%] rounded border border-dashed border-zinc-700/60 bg-zinc-900/30"
+                />
+                <div
+                  v-else
+                  class="absolute bottom-[18%] left-[6%] right-[30%] h-[20%] rounded-sm bg-zinc-800/50"
+                />
+              </div>
+            </template>
+            <template v-else>
+              <component
+                :is="pptCategoryIcons[tmpl.category] ?? FileText"
+                :size="28"
+                :stroke-width="1"
+                :class="pptCategoryColors[tmpl.category] ?? 'text-zinc-500'"
+                style="opacity: 0.6"
               />
-            </div>
-          </template>
-
-          <!-- Text preview -->
-          <template v-else>
-            <div class="w-full space-y-1.5 px-2">
-              <div class="h-2 w-4/5 rounded-sm bg-amber-500/20" />
-              <div class="h-1.5 w-full rounded-sm bg-zinc-800" />
-              <div class="h-1.5 w-3/4 rounded-sm bg-zinc-800" />
-              <div class="h-1.5 w-5/6 rounded-sm bg-zinc-800" />
-            </div>
-          </template>
-        </div>
-
-        <!-- Card info -->
-        <div class="p-3">
-          <div class="flex items-center gap-2 mb-1">
-            <h4 class="text-xs font-medium text-zinc-300 truncate flex-1">{{ tmpl.name }}</h4>
-            <Badge
-              variant="secondary"
-              class="text-[8px] bg-white/5 text-zinc-500 border-none rounded-full px-1.5 flex-shrink-0"
-            >
-              {{ tmpl.category }}
-            </Badge>
+            </template>
           </div>
-          <p class="text-[10px] text-zinc-600 line-clamp-2">{{ tmpl.description }}</p>
-          <div v-if="tmpl.chartType" class="mt-1.5 flex items-center gap-1">
-            <component :is="chartTypeIcons[tmpl.chartType] ?? BarChart3" :size="10" :stroke-width="1.5" class="text-zinc-600" />
-            <span class="text-[9px] font-mono text-zinc-600 capitalize">{{ tmpl.chartType }}</span>
-          </div>
-          <div v-else-if="tmpl.slideKind" class="mt-1.5 flex items-center gap-1">
-            <component :is="slideKindIcons[tmpl.slideKind] ?? Presentation" :size="10" :stroke-width="1.5" class="text-zinc-600" />
-            <span class="text-[9px] font-mono text-zinc-600 capitalize">{{ tmpl.slideKind.replace('-', ' ') }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Backend PPT Templates Section -->
-    <div v-if="(templatesStore.activeFilter === 'ppt' || templatesStore.activeFilter === 'all') && templatesStore.filteredPptTemplates.length > 0" class="mt-8">
-      <div class="flex items-center gap-2 mb-4">
-        <div class="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
-          <Presentation :size="14" :stroke-width="1.5" class="text-amber-500" />
-        </div>
-        <h3 class="text-sm font-display font-semibold tracking-tight">Backend PPT Templates</h3>
-        <span class="text-[10px] font-mono text-zinc-600 bg-zinc-900/50 px-2 py-0.5 rounded-full">
-          {{ templatesStore.filteredPptTemplates.length }} templates
-        </span>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        <div
-          v-for="tmpl in templatesStore.filteredPptTemplates"
-          :key="tmpl.filename"
-          class="group rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-amber-500/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 cursor-default overflow-hidden"
-          style="backdrop-filter: blur(8px)"
-        >
-          <!-- Icon area -->
-          <div class="h-20 bg-[rgba(10,10,15,0.5)] flex items-center justify-center relative">
-            <Badge
-              variant="secondary"
-              class="absolute top-2 left-2 text-[8px] bg-amber-500/15 text-amber-500 border-amber-500/20 rounded-full px-1.5"
-            >
-              .pptx
-            </Badge>
-            <component
-              :is="pptCategoryIcons[tmpl.category] ?? FileText"
-              :size="28"
-              :stroke-width="1"
-              :class="pptCategoryColors[tmpl.category] ?? 'text-zinc-500'"
-              style="opacity: 0.6"
-            />
-          </div>
-          <!-- Info -->
           <div class="p-3">
             <h4 class="text-xs font-medium text-zinc-300 truncate mb-0.5">{{ tmpl.name }}</h4>
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -557,368 +357,258 @@ function createTemplate() {
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Loading state for backend templates -->
-    <div v-if="templatesStore.isLoadingBackend" class="mt-8 flex items-center justify-center py-8">
-      <div class="animate-spin w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full" />
-      <span class="ml-3 text-sm text-zinc-500">Loading backend templates...</span>
-    </div>
-
-    <!-- Backend error -->
-    <div v-if="templatesStore.backendError" class="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">
-      {{ templatesStore.backendError }} — Make sure the backend is running at localhost:8000
-    </div>
-
-    <!-- List view -->
-    <div v-else class="space-y-2">
-      <div
-        v-for="tmpl in templatesStore.filteredTemplates"
-        :key="tmpl.id"
-        class="group flex items-center gap-4 px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
-        :class="isCustom(tmpl.id)
-          ? 'border-amber-500/15 bg-[rgba(26,26,36,0.6)] hover:border-amber-500/30'
-          : 'border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-[rgba(255,255,255,0.15)]'"
-        style="backdrop-filter: blur(8px)"
-        @click="viewTemplate(tmpl)"
-      >
-        <!-- Icon -->
+      <!-- List -->
+      <div v-else class="space-y-2">
         <div
-          class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-          :class="isCustom(tmpl.id) ? 'bg-amber-500/15' : 'bg-white/5'"
+          v-for="tmpl in templatesStore.filteredLibraryTemplates"
+          :key="tmpl.filename"
+          class="flex items-center gap-4 px-4 py-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] cursor-pointer hover:border-amber-500/25 transition-colors"
+          style="backdrop-filter: blur(8px)"
+          role="button"
+          tabindex="0"
+          @click="openTemplateDetail(tmpl)"
+          @keydown.enter.prevent="openTemplateDetail(tmpl)"
         >
-          <component
-            :is="tmpl.chartType ? (chartTypeIcons[tmpl.chartType] ?? BarChart3) : tmpl.slideKind ? (slideKindIcons[tmpl.slideKind] ?? Presentation) : (tmpl.category === 'table' ? Table2 : FileText)"
-            :size="18"
-            :stroke-width="1.5"
-            :class="isCustom(tmpl.id) ? 'text-amber-500' : 'text-zinc-500'"
-          />
-        </div>
-
-        <!-- Info -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <h4 class="text-sm font-medium text-zinc-300 truncate">{{ tmpl.name }}</h4>
-            <Badge v-if="isCustom(tmpl.id)" variant="secondary" class="text-[8px] bg-amber-500/15 text-amber-500 border-amber-500/20 rounded-full px-1.5">
-              Custom
-            </Badge>
+          <div class="w-28 h-16 rounded-lg bg-[rgba(10,10,15,0.5)] flex items-center justify-center overflow-hidden flex-shrink-0 relative p-1.5">
+            <template v-if="pptPreviewKind(tmpl) === 'bar'">
+              <div class="flex items-end gap-0.5 w-full h-full">
+                <div
+                  v-for="(val, i) in getBarHeights(pptDemoBarData)"
+                  :key="i"
+                  class="flex-1 rounded-t"
+                  :style="{ height: `${val * 0.85}%`, backgroundColor: 'rgba(245, 158, 11, 0.5)', minHeight: '3px' }"
+                />
+              </div>
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'line'">
+              <svg class="w-full h-full" viewBox="0 0 120 50" preserveAspectRatio="none">
+                <polyline
+                  fill="none"
+                  stroke="#F59E0B"
+                  stroke-width="2"
+                  :points="pptLinePoints(pptDemoLineData, 1)"
+                  opacity="0.85"
+                />
+              </svg>
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'pie'">
+              <div
+                class="w-10 h-10 rounded-full"
+                :style="{
+                  background: 'conic-gradient(#F59E0B 0% 42%, #FBBF24 42% 100%)',
+                  opacity: 0.75,
+                }"
+              />
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'horizontal'">
+              <div class="flex flex-col gap-1 w-full justify-center">
+                <div v-for="row in 3" :key="row" class="flex gap-1 items-center">
+                  <div class="h-1 flex-1 rounded-sm bg-zinc-800" />
+                  <div class="h-1 w-1/2 rounded-sm bg-amber-500/50" />
+                </div>
+              </div>
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'table'">
+              <div class="w-full space-y-1">
+                <div class="flex gap-1">
+                  <div v-for="i in 3" :key="i" class="flex-1 h-1.5 rounded-sm bg-amber-500/30" />
+                </div>
+                <div v-for="r in 2" :key="r" class="flex gap-1">
+                  <div v-for="c in 3" :key="c" class="flex-1 h-1 rounded-sm bg-zinc-800" />
+                </div>
+              </div>
+            </template>
+            <template v-else-if="pptPreviewKind(tmpl) === 'slide-shell'">
+              <div class="w-full h-full relative">
+                <div class="absolute inset-0 top-0 h-[20%] rounded-sm bg-amber-500/20" />
+                <div class="absolute bottom-1 left-0 right-0 h-[35%] rounded-sm bg-zinc-800/40" />
+              </div>
+            </template>
+            <component
+              v-else
+              :is="pptCategoryIcons[tmpl.category] ?? FileText"
+              :size="22"
+              :stroke-width="1"
+              :class="pptCategoryColors[tmpl.category] ?? 'text-zinc-500'"
+              class="opacity-60"
+            />
           </div>
-          <p class="text-xs text-zinc-600 truncate">{{ tmpl.description }}</p>
-        </div>
-
-        <!-- Meta -->
-        <Badge variant="secondary" class="text-[9px] bg-white/5 text-zinc-500 border-none rounded-full px-2 capitalize flex-shrink-0">
-          {{ tmpl.category }}
-        </Badge>
-        <Badge v-if="tmpl.chartType" variant="secondary" class="text-[9px] bg-white/5 text-zinc-500 border-none rounded-full px-2 capitalize flex-shrink-0">
-          {{ tmpl.chartType }}
-        </Badge>
-        <Badge v-else-if="tmpl.slideKind" variant="secondary" class="text-[9px] bg-amber-500/10 text-amber-500/70 border-none rounded-full px-2 capitalize flex-shrink-0">
-          {{ tmpl.slideKind.replace('-', ' ') }}
-        </Badge>
-
-        <!-- Actions -->
-        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button
-            class="p-1.5 rounded-lg text-zinc-500 hover:text-amber-500 hover:bg-white/5 transition-colors"
-            @click.stop="viewTemplate(tmpl)"
-          >
-            <Eye :size="14" :stroke-width="1.5" />
-          </button>
-          <button
-            class="p-1.5 rounded-lg text-zinc-500 hover:text-amber-500 hover:bg-white/5 transition-colors"
-            @click.stop="templatesStore.duplicateTemplate(tmpl.id)"
-          >
-            <Copy :size="14" :stroke-width="1.5" />
-          </button>
-          <button
-            v-if="isCustom(tmpl.id)"
-            class="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-            @click.stop="templatesStore.removeCustomTemplate(tmpl.id)"
-          >
-            <Trash2 :size="14" :stroke-width="1.5" />
-          </button>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-medium text-zinc-300 truncate">{{ tmpl.name }}</h4>
+            <p class="text-[11px] font-mono text-zinc-600 truncate">{{ tmpl.filename }} · {{ formatFileSize(tmpl.size) }}</p>
+          </div>
+          <Badge variant="secondary" class="text-[9px] capitalize flex-shrink-0">
+            {{ tmpl.category.replace('_', ' ') }}
+          </Badge>
         </div>
       </div>
-    </div>
 
-    <!-- Detail Dialog -->
+      <div v-if="templatesStore.backendError" class="mt-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">
+        {{ templatesStore.backendError }} — ensure the API is reachable (e.g. localhost:8000).
+      </div>
+    </template>
+
+    <!-- Template detail (backend .pptx metadata + preview) -->
     <Dialog v-model:open="showDetailDialog">
       <DialogContent
-        v-if="selectedTemplate"
+        v-if="selectedBackendTemplate"
         class="bg-[#12121A] border-[rgba(255,255,255,0.08)] rounded-xl max-w-lg"
       >
         <DialogHeader>
           <DialogTitle class="font-display tracking-tight flex items-center gap-2">
             <component
-              :is="selectedTemplate.chartType ? (chartTypeIcons[selectedTemplate.chartType] ?? BarChart3) : (selectedTemplate.category === 'table' ? Table2 : FileText)"
+              :is="pptCategoryIcons[selectedBackendTemplate.category] ?? FileText"
               :size="18"
               :stroke-width="1.5"
               class="text-amber-500"
             />
-            {{ selectedTemplate.name }}
+            {{ selectedBackendTemplate.name }}
           </DialogTitle>
-          <DialogDescription class="text-xs text-zinc-500">
-            {{ selectedTemplate.description }}
+          <DialogDescription class="text-xs text-zinc-500 text-left">
+            Engine template file from the server (<code class="text-zinc-600">individual_templates</code>).
+            The generator selects it when your deck JSON uses the matching chart or table type.
           </DialogDescription>
         </DialogHeader>
 
-        <div class="space-y-4 py-2">
-          <!-- Preview -->
-          <div class="h-40 rounded-lg bg-[rgba(10,10,15,0.5)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center p-6">
-            <template v-if="selectedTemplate.category === 'chart' && isChartData(selectedTemplate.previewData)">
-              <template v-if="selectedTemplate.chartType === 'bar'">
-                <div class="flex items-end gap-2 w-full h-full px-4">
-                  <div
-                    v-for="(val, i) in getBarHeights(selectedTemplate.previewData.datasets[0].data)"
-                    :key="i"
-                    class="flex-1 rounded-t transition-all"
-                    :style="{ height: `${val}%`, backgroundColor: 'rgba(245, 158, 11, 0.6)', minHeight: '4px' }"
-                  />
-                </div>
-              </template>
-              <template v-else>
-                <svg class="w-full h-full" viewBox="0 0 140 60" preserveAspectRatio="none">
-                  <polyline
-                    v-for="(ds, dsi) in selectedTemplate.previewData.datasets"
-                    :key="dsi"
-                    fill="none"
-                    :stroke="dsi === 0 ? '#F59E0B' : '#71717A'"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    :points="ds.data.map((v, i) => `${(i / (ds.data.length - 1)) * 140},${60 - (v / Math.max(...ds.data)) * 52}`).join(' ')"
-                  />
-                </svg>
-              </template>
-            </template>
-            <template v-else-if="selectedTemplate.category === 'table' && isTableData(selectedTemplate.previewData)">
-              <table class="w-full text-xs">
-                <thead>
-                  <tr class="border-b border-[rgba(255,255,255,0.08)]">
-                    <th v-for="h in (selectedTemplate.previewData as TableData).headers" :key="h" class="text-left py-1.5 px-2 font-mono text-amber-500/70 font-medium text-[10px]">
-                      {{ h }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, i) in (selectedTemplate.previewData as TableData).rows" :key="i" class="border-b border-[rgba(255,255,255,0.04)]">
-                    <td v-for="(cell, j) in row" :key="j" class="py-1.5 px-2 text-zinc-400 text-[10px]">{{ cell }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </template>
-            <template v-else-if="selectedTemplate.category === 'slide' && isSlidePreviewData(selectedTemplate.previewData)">
-              <div class="w-full h-full relative rounded-lg overflow-hidden bg-[rgba(10,10,15,0.3)]">
+        <div class="h-44 rounded-lg bg-[rgba(10,10,15,0.5)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center p-4 relative overflow-hidden">
+          <template v-if="pptPreviewKind(selectedBackendTemplate) === 'bar'">
+            <div class="flex items-end gap-1.5 w-full h-full px-2 pt-3">
+              <div
+                v-for="(val, i) in getBarHeights(pptDemoBarData)"
+                :key="i"
+                class="flex-1 rounded-t"
+                :style="{ height: `${val}%`, backgroundColor: 'rgba(245, 158, 11, 0.55)', minHeight: '6px' }"
+              />
+            </div>
+          </template>
+          <template v-else-if="pptPreviewKind(selectedBackendTemplate) === 'line'">
+            <svg class="w-full max-h-full" viewBox="0 0 120 50" preserveAspectRatio="none">
+              <polyline
+                fill="none"
+                stroke="#F59E0B"
+                stroke-width="2"
+                stroke-linecap="round"
+                :points="pptLinePoints(pptDemoLineData, 1)"
+                opacity="0.85"
+              />
+              <polyline
+                fill="none"
+                stroke="#71717A"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                :points="pptLinePoints(pptDemoLineData, 0.72)"
+                opacity="0.6"
+              />
+            </svg>
+          </template>
+          <template v-else-if="pptPreviewKind(selectedBackendTemplate) === 'pie'">
+            <div class="relative w-24 h-24 flex items-center justify-center">
+              <div
+                class="w-[5.5rem] h-[5.5rem] rounded-full"
+                :style="{
+                  background: 'conic-gradient(#F59E0B 0% 42%, #FBBF24 42% 72%, #D97706 72% 100%)',
+                  opacity: 0.8,
+                }"
+              />
+              <div
+                v-if="(selectedBackendTemplate.chart_type || '').toLowerCase().includes('donut')"
+                class="absolute w-12 h-12 rounded-full bg-[rgba(10,10,15,0.92)]"
+              />
+            </div>
+          </template>
+          <template v-else-if="pptPreviewKind(selectedBackendTemplate) === 'horizontal'">
+            <div class="flex flex-col justify-center gap-2 w-full h-full px-4">
+              <div v-for="row in 4" :key="row" class="flex items-center gap-2">
+                <div class="h-2.5 flex-1 rounded-sm bg-zinc-800/80" />
                 <div
-                  v-for="(el, ei) in (selectedTemplate.previewData as SlidePreviewData).elements"
-                  :key="ei"
-                  class="absolute rounded-sm flex items-center justify-center"
-                  :class="
-                    el.type === 'heading' ? 'bg-amber-500/20' :
-                    el.type === 'subheading' ? 'bg-amber-500/10' :
-                    el.type === 'accent-bar' ? 'bg-amber-500/40' :
-                    el.type === 'divider' ? 'bg-zinc-600' :
-                    el.type === 'image-placeholder' ? 'bg-zinc-800/60 border border-dashed border-zinc-700' :
-                    el.type === 'list' ? 'bg-transparent' :
-                    'bg-zinc-800/40'
-                  "
-                  :style="{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%` }"
-                >
-                  <span
-                    v-if="el.label && el.type !== 'divider' && el.type !== 'accent-bar'"
-                    class="text-[7px] text-zinc-500 truncate px-1 whitespace-pre-line text-center leading-tight"
-                  >
-                    {{ el.label.slice(0, 40) }}
-                  </span>
-                </div>
+                  class="h-2.5 rounded-sm bg-amber-500/50"
+                  :style="{ width: `${[55, 72, 48, 65][row - 1]}%` }"
+                />
               </div>
-            </template>
-            <template v-else>
-              <p class="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">{{ selectedTemplate.previewData }}</p>
-            </template>
-          </div>
+            </div>
+          </template>
+          <template v-else-if="pptPreviewKind(selectedBackendTemplate) === 'table'">
+            <div class="w-full space-y-2 px-2">
+              <div class="flex gap-2">
+                <div v-for="i in 4" :key="i" class="flex-1 h-2.5 rounded-sm bg-amber-500/30" />
+              </div>
+              <div v-for="r in 3" :key="r" class="flex gap-2">
+                <div v-for="c in 4" :key="c" class="flex-1 h-2 rounded-sm bg-zinc-800" />
+              </div>
+            </div>
+          </template>
+          <template v-else-if="pptPreviewKind(selectedBackendTemplate) === 'slide-shell'">
+            <div class="w-full h-full relative rounded-md">
+              <div class="absolute top-[8%] left-[6%] right-[6%] h-[10%] rounded-sm bg-amber-500/20" />
+              <div class="absolute top-[24%] left-[6%] w-[55%] h-[5%] rounded-sm bg-zinc-700/80" />
+              <div class="absolute top-[36%] left-[6%] w-[40%] h-[4%] rounded-sm bg-zinc-800/90" />
+              <div
+                v-if="selectedBackendTemplate.category === 'base'"
+                class="absolute bottom-[10%] left-[6%] right-[6%] top-[48%] rounded border border-dashed border-zinc-700/60 bg-zinc-900/30"
+              />
+              <div
+                v-else
+                class="absolute bottom-[16%] left-[6%] right-[28%] h-[22%] rounded-sm bg-zinc-800/50"
+              />
+            </div>
+          </template>
+          <template v-else>
+            <component
+              :is="pptCategoryIcons[selectedBackendTemplate.category] ?? FileText"
+              :size="40"
+              :stroke-width="1"
+              :class="pptCategoryColors[selectedBackendTemplate.category] ?? 'text-zinc-500'"
+              class="opacity-70"
+            />
+          </template>
+        </div>
 
-          <!-- Metadata -->
-          <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-2 py-2 text-sm">
+          <div class="grid grid-cols-2 gap-2">
+            <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
+              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">File</p>
+              <p class="text-xs font-mono text-zinc-300 break-all">{{ selectedBackendTemplate.filename }}</p>
+            </div>
+            <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
+              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Size</p>
+              <p class="text-xs text-zinc-300">{{ formatFileSize(selectedBackendTemplate.size) }}</p>
+            </div>
             <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
               <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Category</p>
-              <p class="text-xs text-zinc-300 capitalize">{{ selectedTemplate.category }}</p>
+              <p class="text-xs text-zinc-300 capitalize">{{ selectedBackendTemplate.category.replace('_', ' ') }}</p>
             </div>
-            <div v-if="selectedTemplate.chartType" class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Chart Type</p>
-              <p class="text-xs text-zinc-300 capitalize">{{ selectedTemplate.chartType }}</p>
+            <div
+              v-if="selectedBackendTemplate.chart_type"
+              class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)] col-span-2"
+            >
+              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Chart type (JSON)</p>
+              <p class="text-xs text-zinc-300">{{ selectedBackendTemplate.chart_type }}</p>
             </div>
-            <div v-else-if="selectedTemplate.slideKind" class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Slide Kind</p>
-              <p class="text-xs text-zinc-300 capitalize">{{ selectedTemplate.slideKind.replace('-', ' ') }}</p>
-            </div>
-            <div :class="selectedTemplate.chartType ? 'col-span-2' : ''" class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
-              <div class="flex items-center justify-between mb-1">
-                <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600">Schema Hint</p>
-                <button
-                  class="text-[9px] text-zinc-600 hover:text-amber-500 transition-colors flex items-center gap-0.5"
-                  @click="copyToClipboard(selectedTemplate!.schemaHint)"
-                >
-                  <Copy :size="8" :stroke-width="1.5" />
-                  Copy
-                </button>
-              </div>
-              <pre class="text-[10px] font-mono text-zinc-500 whitespace-pre-wrap break-all">{{ selectedTemplate.schemaHint }}</pre>
+            <div
+              v-if="selectedBackendTemplate.table_type"
+              class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)] col-span-2"
+            >
+              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Table type (JSON)</p>
+              <p class="text-xs text-zinc-300">{{ selectedBackendTemplate.table_type }}</p>
             </div>
           </div>
+          <p class="text-[11px] text-zinc-600 leading-relaxed">
+            Illustration above is a quick category preview, not a pixel-perfect render of the .pptx slide.
+          </p>
         </div>
 
-        <DialogFooter>
+        <DialogFooter class="gap-2 sm:gap-2">
           <Button
             variant="outline"
             class="border-[rgba(255,255,255,0.15)] rounded-lg"
-            @click="templatesStore.duplicateTemplate(selectedTemplate!.id); showDetailDialog = false"
+            @click="copyToClipboard(selectedBackendTemplate.filename)"
           >
             <Copy :size="14" :stroke-width="1.5" class="mr-1.5" />
-            Duplicate
+            Copy filename
           </Button>
-          <Button
-            class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg"
-            @click="showDetailDialog = false"
-          >
-            Done
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <!-- Create Template Dialog -->
-    <Dialog v-model:open="showCreateDialog">
-      <DialogContent class="bg-[#12121A] border-[rgba(255,255,255,0.08)] rounded-xl max-w-lg">
-        <DialogHeader>
-          <DialogTitle class="font-display tracking-tight">Create Custom Template</DialogTitle>
-          <DialogDescription class="text-xs text-zinc-500">
-            Define a reusable slide component template with preview data and schema.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div class="space-y-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
-          <!-- Name -->
-          <div>
-            <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">Template Name</Label>
-            <Input
-              v-model="newTemplate.name"
-              placeholder="e.g., Revenue Waterfall Chart"
-              class="h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg placeholder:text-zinc-600"
-            />
-          </div>
-
-          <!-- Category + Chart type -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">Category</Label>
-              <Select v-model="newTemplate.category">
-                <SelectTrigger class="h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent class="bg-[#12121A] border-[rgba(255,255,255,0.08)]">
-                  <SelectItem value="slide">Slide</SelectItem>
-                  <SelectItem value="chart">Chart</SelectItem>
-                  <SelectItem value="table">Table</SelectItem>
-                  <SelectItem value="text">Text</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div v-if="newTemplate.category === 'chart'">
-              <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">Chart Type</Label>
-              <Select v-model="newTemplate.chartType">
-                <SelectTrigger class="h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent class="bg-[#12121A] border-[rgba(255,255,255,0.08)]">
-                  <SelectItem value="bar">Bar</SelectItem>
-                  <SelectItem value="line">Line</SelectItem>
-                  <SelectItem value="pie">Pie</SelectItem>
-                  <SelectItem value="doughnut">Doughnut</SelectItem>
-                  <SelectItem value="area">Area</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div v-else-if="newTemplate.category === 'slide'">
-              <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">Slide Kind</Label>
-              <Select v-model="(newTemplate as any).slideKind" default-value="content">
-                <SelectTrigger class="h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg">
-                  <SelectValue placeholder="Select kind" />
-                </SelectTrigger>
-                <SelectContent class="bg-[#12121A] border-[rgba(255,255,255,0.08)]">
-                  <SelectItem value="title">Title Page</SelectItem>
-                  <SelectItem value="section-divider">Section Divider</SelectItem>
-                  <SelectItem value="agenda">Agenda</SelectItem>
-                  <SelectItem value="closing">Closing</SelectItem>
-                  <SelectItem value="team">Team</SelectItem>
-                  <SelectItem value="timeline">Timeline</SelectItem>
-                  <SelectItem value="comparison">Comparison</SelectItem>
-                  <SelectItem value="quote">Quote / Stat</SelectItem>
-                  <SelectItem value="content">General Content</SelectItem>
-                  <SelectItem value="blank">Blank</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <!-- Description -->
-          <div>
-            <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">Description</Label>
-            <Textarea
-              v-model="newTemplate.description"
-              rows="2"
-              placeholder="What this template is best used for..."
-              class="text-sm bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg resize-none placeholder:text-zinc-600"
-            />
-          </div>
-
-          <!-- Schema hint -->
-          <div>
-            <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">
-              Schema Hint
-              <span class="text-zinc-600 font-normal">(shown to users as data format guide)</span>
-            </Label>
-            <Textarea
-              v-model="newTemplate.schemaHint"
-              rows="2"
-              placeholder='e.g., { "x_axis": [...], "y_axis": [...] }'
-              class="text-xs font-mono bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg resize-none placeholder:text-zinc-600"
-            />
-          </div>
-
-          <!-- Sample data -->
-          <div>
-            <Label class="text-sm font-medium text-zinc-300 mb-1.5 block">
-              Sample Data
-              <span class="text-zinc-600 font-normal">(JSON for charts/tables, plain text for text)</span>
-            </Label>
-            <Textarea
-              v-model="newTemplate.dataJson"
-              rows="4"
-              :placeholder="newTemplate.category === 'chart'
-                ? '{ &quot;x_axis&quot;: [&quot;Q1&quot;, &quot;Q2&quot;], &quot;y_axis&quot;: [100, 200], &quot;label&quot;: &quot;Revenue&quot; }'
-                : newTemplate.category === 'table'
-                  ? '{ &quot;headers&quot;: [&quot;Col1&quot;, &quot;Col2&quot;], &quot;rows&quot;: [[&quot;A&quot;, &quot;B&quot;]] }'
-                  : 'Your template text content...'"
-              class="text-xs font-mono bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-lg resize-none placeholder:text-zinc-600"
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            class="border-[rgba(255,255,255,0.15)] rounded-lg"
-            @click="showCreateDialog = false"
-          >
-            Cancel
-          </Button>
-          <Button
-            class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg"
-            :disabled="!newTemplate.name.trim() || !newTemplate.description.trim()"
-            @click="createTemplate"
-          >
-            Create Template
+          <Button class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg" @click="showDetailDialog = false">
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
