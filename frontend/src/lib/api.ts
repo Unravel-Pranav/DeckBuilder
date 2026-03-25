@@ -1,4 +1,14 @@
 import type { Section, Slide, SlideComponent, Presentation, ChartDataset } from '@/types'
+import { LAYOUT_BY_ID, getBackendPreference } from '@/lib/layoutDefinitions'
+
+// Re-export for backward compatibility with any component that imported LAYOUT_TO_BACKEND
+export { getBackendPreference as LAYOUT_TO_BACKEND }
+
+// Resolve the dominant layout_preference for a section from its slides
+function resolveLayoutPreference(slides: Slide[]): string {
+  if (!slides.length) return 'Content (2x2 Grid)'
+  return getBackendPreference(slides[0].layout)
+}
 
 /**
  * Transforms frontend presentation data to the format expected by the backend PPT engine.
@@ -14,27 +24,40 @@ export function transformToBackendFormat(
       id: presentation.id,
       name: presentation.name,
       ...(deckTemplateId != null ? { template_id: deckTemplateId } : {}),
-      property_type: presentation.intent.type === 'business' ? 'Office' : 'Industrial', // Mapping for demo
-      property_sub_type: 'figures', // Default for demo
-      quarter: '2025 Q1', // Default for demo
+      property_type: presentation.intent.type === 'business' ? 'Office' : 'Industrial',
+      property_sub_type: 'figures',
+      quarter: '2025 Q1',
     },
     sections: sections.map((section: Section) => ({
       id: section.id,
       name: section.name,
       display_order: section.order,
+      // Wire the frontend layout selection to the backend orchestrator
+      layout_preference: resolveLayoutPreference(section.slides),
       elements: section.slides.reduce((acc: any[], slide: Slide, slideIdx: number) => {
+        // Resolve layout definition from the registry (falls back gracefully to undefined)
+        const layoutDef = LAYOUT_BY_ID[slide.layout]
+        const useFullTable = layoutDef?.fullTableMode ?? false
+        const quadrantPositions = layoutDef?.quadrantPositions ?? null
+
         // Flatten slides into elements for the backend orchestrator
         const slideElements = slide.components.map((comp: SlideComponent, compIdx: number) => {
+          const quadrantPin =
+            quadrantPositions != null ? (quadrantPositions[compIdx] ?? null) : null
+
           const element: any = {
             id: comp.id,
             element_type: comp.type === 'text' ? 'commentary' : comp.type,
             label: slide.title,
             display_order: slideIdx * 10 + compIdx,
-            config: {},
+            config: {
+              // layout_category so the backend can apply category-specific logic
+              layout_category: layoutDef?.category ?? 'full_width',
+              ...(quadrantPin != null ? { quadrant_position: quadrantPin } : {}),
+            },
           }
 
           if (comp.type === 'chart') {
-            // Transform Chart.js format to row-oriented format
             const chartData = []
             const labels = comp.data.labels
             for (let i = 0; i < labels.length; i++) {
@@ -45,13 +68,13 @@ export function transformToBackendFormat(
               chartData.push(row)
             }
             element.config = {
+              ...element.config,
               chart_type: mapChartType(comp.data.type),
               chart_name: slide.title,
               chart_data: chartData,
               primary_y_axis_title: comp.data.datasets[0]?.label || '',
             }
           } else if (comp.type === 'table') {
-            // Transform Table headers/rows to row-oriented format
             const tableData = comp.data.rows.map((row: string[]) => {
               const rowObj: any = {}
               comp.data.headers.forEach((header: string, i: number) => {
@@ -60,11 +83,14 @@ export function transformToBackendFormat(
               return rowObj
             })
             element.config = {
+              ...element.config,
               table_data: tableData,
               figure_name: slide.title,
+              ...(useFullTable ? { render_full_table: true } : {}),
             }
           } else if (comp.type === 'text') {
             element.config = {
+              ...element.config,
               commentary_text: comp.data?.content || '',
             }
           }
@@ -73,7 +99,6 @@ export function transformToBackendFormat(
         })
 
         // Preserve slide-level commentary even when there is no explicit text component.
-        // This keeps user-entered text from being dropped in backend payloads.
         const hasTextComponent = slide.components.some((c) => c.type === 'text')
         if (!hasTextComponent && slide.commentary?.trim()) {
           slideElements.push({
