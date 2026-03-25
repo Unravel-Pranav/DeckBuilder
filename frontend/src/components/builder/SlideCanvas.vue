@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
+import { useDragDrop } from '@/composables/useDragDrop'
 import { STRUCTURE_BY_ID } from '@/lib/layoutDefinitions'
 import EmptyState from '@/components/shared/EmptyState.vue'
-import type { ChartData, TableData, SlideRegion } from '@/types'
+import type { ChartData, TableData, SlideRegion, SlideComponent } from '@/types'
 import {
   BarChart3,
   Table2,
@@ -11,10 +12,78 @@ import {
   PenTool,
   TrendingUp,
   Plus,
+  GripVertical,
 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
 const slide = computed(() => slidesStore.activeSlide)
+const { isDragging, hoverRegionIndex, payload, startDrag, endDrag, setHoverRegion, consumePayload } = useDragDrop()
+
+function regionDynamicClass(ri: number): string {
+  if (isDragging.value) {
+    if (hoverRegionIndex.value === ri) {
+      return 'border-amber-500 bg-amber-500/10 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-2 ring-amber-500/20 scale-[1.01]'
+    }
+    return 'border-dashed border-amber-500/30 bg-amber-500/[0.02]'
+  }
+  if (slidesStore.activeRegionIndex === ri) {
+    return 'border-amber-500/40 bg-amber-500/[0.04] shadow-[0_0_12px_rgba(245,158,11,0.08)]'
+  }
+  return 'border-border/60 hover:border-border bg-[var(--glass-bg)]'
+}
+
+function onDragEnter(regionIndex: number) {
+  setHoverRegion(regionIndex)
+}
+
+function onGridDragLeave(event: DragEvent) {
+  const grid = event.currentTarget as HTMLElement
+  const related = event.relatedTarget as Node | null
+  if (!related || !grid.contains(related)) {
+    setHoverRegion(null)
+  }
+}
+
+function onRegionDragStart(event: DragEvent, ri: number, region: SlideRegion) {
+  if (!region.component) {
+    event.preventDefault()
+    return
+  }
+  startDrag(event, {
+    componentType: region.component.type,
+    component: region.component,
+    label: `Move ${region.component.type}`,
+    sourceRegionIndex: ri,
+  })
+}
+
+function onDrop(targetIndex: number) {
+  const data = consumePayload()
+  if (!data || !slide.value) return
+
+  if (data.sourceRegionIndex != null) {
+    const sourceIndex = data.sourceRegionIndex
+    if (sourceIndex === targetIndex) return
+
+    const targetComponent = slide.value.regions[targetIndex].component
+    const sourceComponent = data.component as SlideComponent
+
+    slidesStore.setRegionComponent(slide.value.id, targetIndex, sourceComponent)
+    if (targetComponent) {
+      slidesStore.setRegionComponent(slide.value.id, sourceIndex, targetComponent)
+    } else {
+      slidesStore.clearRegion(slide.value.id, sourceIndex)
+    }
+  } else {
+    const component = {
+      ...data.component,
+      id: crypto.randomUUID(),
+    } as SlideComponent
+    slidesStore.setRegionComponent(slide.value.id, targetIndex, component)
+  }
+
+  slidesStore.setActiveRegion(targetIndex)
+}
 
 const structureDef = computed(() => {
   const id = slide.value?.structure ?? 'blank'
@@ -71,19 +140,41 @@ function regionLabel(index: number): string {
           class="w-full max-w-4xl mx-auto aspect-[16/9] rounded-xl border border-border p-4 grid gap-3"
           :class="gridClass"
           :style="{ background: 'var(--preview-surface-deep)' }"
+          @dragleave="onGridDragLeave"
         >
           <!-- Render each region -->
           <div
             v-for="(region, ri) in slide.regions"
             :key="region.id"
-            class="rounded-lg border-2 transition-all duration-200 cursor-pointer flex flex-col overflow-hidden"
-            :class="
-              slidesStore.activeRegionIndex === ri
-                ? 'border-amber-500/40 bg-amber-500/[0.04] shadow-[0_0_12px_rgba(245,158,11,0.08)]'
-                : 'border-border/60 hover:border-border bg-[var(--glass-bg)]'
-            "
+            class="group relative rounded-lg border-2 transition-all duration-200 cursor-pointer flex flex-col overflow-hidden"
+            :class="regionDynamicClass(ri)"
+            :draggable="!!region.component"
             @click="selectRegion(ri)"
+            @dragstart="onRegionDragStart($event, ri, region)"
+            @dragend="endDrag"
+            @dragenter.prevent="onDragEnter(ri)"
+            @dragover.prevent
+            @drop.prevent="onDrop(ri)"
           >
+            <!-- Drop indicator overlay -->
+            <div
+              v-if="isDragging && hoverRegionIndex === ri"
+              class="absolute inset-0 flex items-center justify-center rounded-lg z-10 pointer-events-none"
+            >
+              <div class="flex flex-col items-center gap-1 px-3 py-2 rounded-lg bg-amber-500/15 backdrop-blur-sm">
+                <Plus :size="16" :stroke-width="2" class="text-amber-500" />
+                <span class="text-[10px] font-mono font-medium text-amber-500">{{ payload?.label ?? 'Drop here' }}</span>
+              </div>
+            </div>
+
+            <!-- Drag handle (visible on hover when region has content) -->
+            <div
+              v-if="region.component && !isDragging"
+              class="absolute top-2 right-2 opacity-0 group-hover:opacity-60 transition-opacity z-10 cursor-grab"
+            >
+              <GripVertical :size="12" class="text-muted-foreground" />
+            </div>
+
             <!-- Region header -->
             <div class="flex items-center justify-between px-3 py-1.5 border-b"
               :class="slidesStore.activeRegionIndex === ri ? 'border-amber-500/20' : 'border-border/40'"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
+import { useDragDrop } from '@/composables/useDragDrop'
 import { chartTemplates, tableTemplates, textTemplates } from '@/lib/mockData'
 import type { SlideTemplate, ChartData, TableData, SlideComponent, SlidePreviewData } from '@/types'
 import {
@@ -12,9 +13,11 @@ import {
   Check,
   Info,
   Copy,
+  GripVertical,
 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
+const { startDrag, endDrag } = useDragDrop()
 const activeCategory = ref<'chart' | 'table' | 'text'>('chart')
 
 const filteredTemplates = computed(() => {
@@ -75,6 +78,28 @@ function applyTemplate(template: SlideTemplate) {
 function copySchema(hint: string) {
   navigator.clipboard.writeText(hint)
 }
+
+function onTemplateDragStart(event: DragEvent, template: SlideTemplate) {
+  if (template.category === 'slide') return
+
+  let component: Omit<SlideComponent, 'id'>
+
+  if (template.category === 'chart' && isChartData(template.previewData)) {
+    component = { type: 'chart', templateId: template.id, data: template.previewData, config: {} }
+  } else if (template.category === 'table' && isTableData(template.previewData)) {
+    component = { type: 'table', templateId: template.id, data: template.previewData, config: {} }
+  } else if (template.category === 'text' && typeof template.previewData === 'string') {
+    component = { type: 'text', templateId: template.id, data: { content: template.previewData }, config: { format: 'paragraph' as const } }
+  } else {
+    return
+  }
+
+  startDrag(event, {
+    componentType: component.type,
+    component,
+    label: template.name,
+  })
+}
 </script>
 
 <template>
@@ -108,15 +133,23 @@ function copySchema(hint: string) {
       <div
         v-for="tmpl in filteredTemplates"
         :key="tmpl.id"
-        class="rounded-lg border p-3 transition-all duration-200 cursor-pointer"
+        class="group/card rounded-lg border p-3 transition-all duration-200 cursor-pointer"
         :class="
           appliedTemplateIds.has(tmpl.id)
             ? 'border-amber-500/30 bg-amber-500/10'
             : 'border-border bg-foreground/[0.02] hover:border-[color:var(--glass-border-hover)] hover:bg-foreground/[0.04]'
         "
+        draggable="true"
         @click="applyTemplate(tmpl)"
+        @dragstart="onTemplateDragStart($event, tmpl)"
+        @dragend="endDrag"
       >
-        <div class="flex items-start gap-2.5">
+        <div class="flex items-start gap-2.5 relative">
+          <!-- Drag grip -->
+          <div class="absolute -left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-50 transition-opacity cursor-grab">
+            <GripVertical :size="10" class="text-muted-foreground" />
+          </div>
+
           <!-- Icon -->
           <div
             class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -174,7 +207,7 @@ function copySchema(hint: string) {
 
     <!-- Helper text -->
     <p class="text-[10px] text-muted-foreground/50 text-center pt-2">
-      Click a template to apply it. Switch to the Data tab to customize values.
+      Click to apply or drag into a region. Switch to the Data tab to customize values.
     </p>
   </div>
 </template>

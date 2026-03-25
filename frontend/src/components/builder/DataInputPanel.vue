@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
+import { useDragDrop } from '@/composables/useDragDrop'
 import { validateSchema, mapDataToChartComponent, mapDataToTableComponent, detectDataType } from '@/lib/schema'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +19,7 @@ import {
   PieChart,
   Table2,
   TrendingUp,
+  GripVertical,
 } from 'lucide-vue-next'
 
 const iconMap: Record<string, any> = {
@@ -28,6 +30,7 @@ const iconMap: Record<string, any> = {
 }
 
 const slidesStore = useSlidesStore()
+const { startDrag, endDrag } = useDragDrop()
 
 const jsonInput = ref('')
 const csvInput = ref('')
@@ -186,6 +189,48 @@ function loadExample() {
 function copySchema() {
   navigator.clipboard.writeText(schemaExample.value)
 }
+
+function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[number]) {
+  const d = pattern.data as Record<string, unknown>
+  let component: Omit<SlideComponent, 'id'>
+
+  if ('headers' in d && 'rows' in d) {
+    component = {
+      type: 'table',
+      data: { headers: d.headers as string[], rows: d.rows as string[][] },
+      config: {},
+    }
+  } else if ('labels' in d && 'values' in d) {
+    component = {
+      type: 'chart',
+      data: {
+        type: 'pie' as const,
+        labels: d.labels as string[],
+        datasets: [{ label: 'Share', data: d.values as number[] }],
+      },
+      config: {},
+    }
+  } else if ('x_axis' in d && 'y_axis' in d) {
+    const chartType = pattern.icon === 'TrendingUp' ? 'line' as const : 'bar' as const
+    component = {
+      type: 'chart',
+      data: {
+        type: chartType,
+        labels: d.x_axis as string[],
+        datasets: [{ label: (d.label as string) ?? 'Value', data: d.y_axis as number[] }],
+      },
+      config: {},
+    }
+  } else {
+    return
+  }
+
+  startDrag(event, {
+    componentType: component.type,
+    component,
+    label: pattern.label,
+  })
+}
 </script>
 
 <template>
@@ -238,11 +283,15 @@ function copySchema() {
           <button
             v-for="pattern in dataPatterns"
             :key="pattern.id"
-            class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03] border border-border hover:bg-foreground/[0.06] hover:border-amber-500/30 transition-all text-left group"
+            class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03] border border-border hover:bg-foreground/[0.06] hover:border-amber-500/30 transition-all text-left group cursor-grab active:cursor-grabbing"
+            draggable="true"
             @click="jsonInput = JSON.stringify(pattern.data, null, 2)"
+            @dragstart="onPatternDragStart($event, pattern)"
+            @dragend="endDrag"
           >
             <component :is="iconMap[pattern.icon]" :size="12" :stroke-width="1.5" class="text-muted-foreground group-hover:text-amber-500" />
-            <span class="text-[10px] text-muted-foreground group-hover:text-foreground/80 truncate">{{ pattern.label }}</span>
+            <span class="text-[10px] text-muted-foreground group-hover:text-foreground/80 truncate flex-1">{{ pattern.label }}</span>
+            <GripVertical :size="10" class="text-muted-foreground/30 group-hover:text-muted-foreground/60 flex-shrink-0 transition-colors" />
           </button>
         </div>
       </div>
