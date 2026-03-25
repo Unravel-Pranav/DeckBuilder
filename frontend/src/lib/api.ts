@@ -50,8 +50,8 @@ export function transformToBackendFormat(
             element_type: comp.type === 'text' ? 'commentary' : comp.type,
             label: slide.title,
             display_order: slideIdx * 10 + compIdx,
+            slide_group: slideIdx,
             config: {
-              // layout_category so the backend can apply category-specific logic
               layout_category: layoutDef?.category ?? 'full_width',
               ...(quadrantPin != null ? { quadrant_position: quadrantPin } : {}),
             },
@@ -106,6 +106,7 @@ export function transformToBackendFormat(
             element_type: 'commentary',
             label: slide.title,
             display_order: slideIdx * 10 + slide.components.length,
+            slide_group: slideIdx,
             config: {
               commentary_text: slide.commentary.trim(),
             },

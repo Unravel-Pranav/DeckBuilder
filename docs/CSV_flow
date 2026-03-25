@@ -1,0 +1,190 @@
+Here's the full breakdown of how data gets classified into a chart type across the pipeline:
+
+---
+
+## Data Classification Pipeline -- How DeckBuilder Picks a Chart Type
+
+There are **4 stages** from raw input to final `.pptx` chart. Each stage can influence the chart type.
+
+---
+
+### Stage 1: CSV Parsing (`DataInputPanel.vue`)
+
+When you paste CSV into the "CSV Upload" tab and click **Transform to Data**, `processCSVInput()` runs.
+
+**Column count determines chart vs table:**
+
+| CSV columns | Result |
+|---|---|
+| Exactly 2 | Treated as **chart data** -- column 1 becomes `x_axis`, column 2 becomes `y_axis` |
+| 3 or more | Treated as **table data** -- becomes `{ headers, rows }` |
+| 1 or 0 | Rejected as invalid |
+
+For your 2-column CSV:
+```
+x axis,yaxis
+12,14
+14,15
+```
+
+`convertCSVToChart()` produces this JSON:
+```json
+{
+  "x_axis": ["12", "14"],
+  "y_axis": [14, 15],
+  "label": "yaxis"
+}
+```
+
+Note: `x_axis` values are **strings** (raw text from column 1), while `y_axis` values are **parsed floats**.
+
+At this point, **no chart type has been chosen yet**. The JSON is placed into the JSON editor and the tab switches to JSON mode.
+
+---
+
+### Stage 2: Data Type Detection (`schema.ts` -- `detectDataType`)
+
+When the JSON lands in the editor, a `watch` fires and calls `detectDataType(parsed)`. This function checks the shape of the JSON object in priority order:
+
+| Priority | Shape detected | Classified as | Chart type inference |
+|---|---|---|---|
+| 1 | `typeof raw === 'string'` | `text` | -- |
+| 2 | Has `headers` + `rows` arrays | `table` | -- |
+| 3 | Has `labels` + `values` arrays | `chart` | `inferChartType(values, labels)` |
+| 4 | Has `x_axis` + `y_axis` arrays | `chart` | `inferChartType(y_axis, x_axis)` |
+| 5 | Has `series` array | `chart` | Hard-coded `bar` |
+| 6 | Has `content` or `text` string | `text` | -- |
+| 7 | None of the above | `unknown` | -- |
+
+Your data has `x_axis` + `y_axis`, so it matches **priority 4** and calls `inferChartType([14, 15], ["12", "14"])`.
+
+---
+
+### Stage 3: Chart Type Inference (`schema.ts` -- `inferChartType`)
+
+This is the core decision function. After the fix, the logic is:
+
+```
+inferChartType(values, labels)
+```
+
+**Decision tree (current, after fix):**
+
+```
+1. Are ALL labels numeric? (e.g. "12", "14", "2023")
+   ├─ YES → Skip pie entirely (numeric axes = continuous data, not categories)
+   └─ NO  → Continue to step 2
+
+2. Are there 2-5 values, ALL non-negative?
+   ├─ YES → Do values sum to ~100 (±10) or ~1.0 (±0.1)?
+   │        ├─ YES → PIE   (looks like proportions / parts of a whole)
+   │        └─ NO  → Fall through to step 3
+   └─ NO  → Fall through to step 3
+
+3. Are there more than 8 data points?
+   ├─ YES → LINE  (many points = trend data)
+   └─ NO  → BAR   (default for everything else)
+```
+
+**Your data walks through this as:**
+1. Labels `["12", "14"]` -- all numeric? YES → skip pie
+2. (skipped)
+3. 2 points, not > 8 → **BAR**
+
+**Examples of what each path produces:**
+
+| Input | Labels numeric? | Count ≤ 5 & non-neg? | Sum ≈ 100? | Result |
+|---|---|---|---|---|
+| `x:["12","14"] y:[14,15]` | YES | -- | -- | **bar** |
+| `x:["A","B","C"] y:[45,30,25]` | no | yes | 100 ✓ | **pie** |
+| `x:["A","B","C"] y:[120,150,180]` | no | yes | 450 ✗ | **bar** |
+| `x:["Q1","Q2","Q3"] y:[0.4,0.35,0.25]` | no | yes | 1.0 ✓ | **pie** |
+| `x:["Jan"..."Dec"] y:[...]` (12 pts) | no | no (>5) | -- | **line** |
+| `{ series: [...] }` | -- | -- | -- | **bar** (hard-coded) |
+
+---
+
+### Stage 4: Applying Data to the Slide (`applyData`)
+
+When you click **Apply Data**, `applyData()` runs:
+
+1. Re-calls `detectDataType(parsed)` to get the `detected.chartType`
+2. If the data is chart-like: uses `detected.chartType` as the chart type
+3. **Fallback**: if detection returns `unknown` but the slide already has a chart, it uses `currentChartType` (the existing chart's type on that slide)
+4. Calls `mapDataToChartComponent(parsed, chartType)` which structures the data into the internal `ChartData` format:
+
+```typescript
+{
+  type: 'bar',                           // ← the inferred chart type
+  labels: ["12", "14"],                   // ← from x_axis
+  datasets: [{ label: "yaxis", data: [14, 15] }]  // ← from y_axis
+}
+```
+
+This component gets stored on the slide.
+
+---
+
+### Stage 5: Export to Backend (`api.ts` -- `mapChartType`)
+
+When generating the final `.pptx`, the frontend maps the internal `ChartType` to a display string the backend expects:
+
+| Frontend type | Backend string |
+|---|---|
+| `bar` | `"Bar Chart"` |
+| `line` | `"Line - Single axis"` |
+| `pie` | `"Pie Chart"` |
+| `doughnut` | `"Donut Chart"` |
+| `area` | `"Combo - Area + Bar"` |
+| `scatter` | `"Line - Multi axis"` |
+| anything else | `"Bar Chart"` (fallback) |
+
+---
+
+### Stage 6: Backend Template Selection (`frontend_json_processor.py`)
+
+The backend maps the display string to a `.pptx` template file:
+
+| Backend string | Template file |
+|---|---|
+| `"Bar Chart"` | `bar_chart.pptx` |
+| `"Pie Chart"` | `pie_chart.pptx` |
+| `"Donut Chart"` | `donut_chart.pptx` |
+| `"Line - Single axis"` | `line_chart.pptx` |
+| `"Line - Multi axis"` | `multi_line_chart.pptx` |
+| `"Combo - Area + Bar"` | `combo_chart _area_bar.pptx` |
+| etc. | etc. |
+
+The template `.pptx` file is cloned, and then `ChartDataPopulator` replaces the embedded chart data with your actual values using Open XML / python-pptx.
+
+---
+
+### Summary: Full Flow for Your CSV
+
+```
+CSV Input                    "x axis,yaxis\n12,14\n14,15"
+    │
+    ▼
+parseCSV()                   { headers: ["x axis","yaxis"], rows: [["12","14"],["14","15"]] }
+    │  (2 columns → chart path)
+    ▼
+convertCSVToChart()          { x_axis: ["12","14"], y_axis: [14,15], label: "yaxis" }
+    │
+    ▼
+detectDataType()             has x_axis + y_axis → call inferChartType([14,15], ["12","14"])
+    │
+    ▼
+inferChartType()             labels "12","14" are numeric → skip pie → 2 pts ≤ 8 → "bar"
+    │
+    ▼
+mapDataToChartComponent()    { type:"bar", labels:["12","14"], datasets:[{label:"yaxis", data:[14,15]}] }
+    │
+    ▼
+mapChartType("bar")          "Bar Chart"
+    │
+    ▼
+Backend chart_type_mapping   "Bar Chart" → bar_chart.pptx
+    │
+    ▼
+ChartDataPopulator           Populates bar_chart.pptx with your data
+```

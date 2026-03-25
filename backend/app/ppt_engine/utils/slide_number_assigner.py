@@ -1258,6 +1258,12 @@ def _assign_section_elements(
     # Track elements on current slide for layout logic (element references)
     elements_on_current_slide_list = []
     current_slide_num = current_slide
+
+    # Track slide_group from frontend so elements from different slides
+    # are never packed onto the same backend slide.  Reset at each section
+    # boundary because slide_group is the slideIdx *within* a section.
+    _prev_slide_group: Optional[int] = None
+    _section_id = section.get("id")
     # Track cumulative height for full_width vertical stacking
     # Only use global_cumulative_height if we're continuing on the same slide
     # If we moved to a new slide, cumulative_height was already reset at line 899
@@ -1317,6 +1323,28 @@ def _assign_section_elements(
             if "config" not in element:
                 element["config"] = {}
             
+            # ── slide_group boundary: force a new slide when the frontend
+            #    slide grouping changes (so user-defined slides are preserved) ──
+            elem_slide_group = element.get("slide_group")
+            if (elem_slide_group is not None
+                    and _prev_slide_group is not None
+                    and elem_slide_group != _prev_slide_group
+                    and elements_on_current_slide > 0):
+                if elements_on_current_slide_list:
+                    _apply_layout_to_slide_elements(
+                        elements_on_current_slide_list, layout, current_slide_num,
+                        is_first_slide, forced_layout_type)
+                current_slide += 1
+                current_slide_num = current_slide
+                elements_on_current_slide = 0
+                elements_on_current_slide_list = []
+                cumulative_height = 0.0
+                is_first_slide = False
+                slide_capacity = layout.regular_slide_capacity
+                current_slide_layout = None
+                print(f"      ⏩ slide_group boundary ({_prev_slide_group}→{elem_slide_group}): starting slide {current_slide}")
+            _prev_slide_group = elem_slide_group
+
             # Check if this is the first element of the section
             is_first_element_of_section = (element is first_element)
             
@@ -1516,6 +1544,26 @@ def _assign_section_elements(
             if "config" not in element:
                 element["config"] = {}
             
+            # ── slide_group boundary ──
+            elem_slide_group = element.get("slide_group")
+            if (elem_slide_group is not None
+                    and _prev_slide_group is not None
+                    and elem_slide_group != _prev_slide_group
+                    and elements_on_current_slide > 0):
+                _apply_layout_to_slide_elements(
+                    elements_on_current_slide_list, layout, current_slide_num,
+                    is_first_slide, forced_layout_type)
+                current_slide += 1
+                current_slide_num = current_slide
+                elements_on_current_slide = 0
+                elements_on_current_slide_list = []
+                cumulative_height = 0.0
+                is_first_slide = False
+                slide_capacity = layout.regular_slide_capacity
+                current_slide_layout = None
+                print(f"      ⏩ slide_group boundary ({_prev_slide_group}→{elem_slide_group}): starting slide {current_slide}")
+            _prev_slide_group = elem_slide_group
+
             # base_slide uses capacity-based logic (elements positioned horizontally)
             if elements_on_current_slide < slide_capacity:
                 element["config"]["slide_number"] = current_slide
@@ -1594,6 +1642,27 @@ def _assign_section_elements(
             if "config" not in element:
                 element["config"] = {}
             
+            # ── slide_group boundary ──
+            elem_slide_group = element.get("slide_group")
+            if (elem_slide_group is not None
+                    and _prev_slide_group is not None
+                    and elem_slide_group != _prev_slide_group
+                    and elements_on_current_slide > 0):
+                if elements_on_current_slide_list:
+                    _apply_layout_to_slide_elements(
+                        elements_on_current_slide_list, layout, current_slide_num,
+                        is_first_slide, forced_layout_type)
+                current_slide += 1
+                current_slide_num = current_slide
+                elements_on_current_slide = 0
+                elements_on_current_slide_list = []
+                cumulative_height = 0.0
+                is_first_slide = False
+                slide_capacity = layout.regular_slide_capacity
+                current_slide_layout = None
+                print(f"      ⏩ slide_group boundary ({_prev_slide_group}→{elem_slide_group}): starting slide {current_slide}")
+            _prev_slide_group = elem_slide_group
+
             # Check if this is the first element of the section
             is_first_element_of_section = (element is first_element)
             

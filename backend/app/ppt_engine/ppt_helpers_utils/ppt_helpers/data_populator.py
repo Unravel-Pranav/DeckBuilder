@@ -1025,6 +1025,13 @@ class ChartDataPopulator:
             traceback.print_exc()
             return None
 
+    # Column names that should always be treated as categorical (case-insensitive).
+    _CATEGORICAL_COLUMN_HINTS = frozenset({
+        "quarter", "category", "label", "name", "region", "product",
+        "year", "month", "date", "period", "market", "sector", "type",
+        "country", "city", "state", "department", "segment",
+    })
+
     def _analyze_data_types(self, data: List[Dict[str, Any]]) -> Dict[str, str]:
         """
         Analyze data to determine which columns are categorical vs numerical.
@@ -1041,7 +1048,12 @@ class ChartDataPopulator:
         columns = list(data[0].keys())
         column_types = {}
 
-        for column in columns:
+        for col_idx, column in enumerate(columns):
+            # Force categorical for well-known label column names
+            if column.lower().strip() in self._CATEGORICAL_COLUMN_HINTS:
+                column_types[column] = "categorical"
+                continue
+
             # Sample values from this column (up to 10 non-null values)
             sample_values = []
             for row in data:
@@ -1052,11 +1064,12 @@ class ChartDataPopulator:
                         break
 
             if not sample_values:
-                column_types[column] = "categorical"  # Default for empty columns
+                column_types[column] = "categorical"
                 continue
 
             # Check if values are numeric
             numeric_count = 0
+            all_are_strings = all(isinstance(v, str) for v in sample_values)
             for value in sample_values:
                 try:
                     float(value)
@@ -1064,8 +1077,18 @@ class ChartDataPopulator:
                 except (ValueError, TypeError):
                     pass
 
-            # If most values (>= 70%) are numeric, consider it numerical
-            if numeric_count / len(sample_values) >= 0.7:
+            is_mostly_numeric = numeric_count / len(sample_values) >= 0.7
+
+            # Even when parseable as floats, string values that are all unique
+            # and sit in the first column are almost certainly category labels
+            # (e.g. year strings "2019", "2020" sent by the frontend).
+            if is_mostly_numeric and all_are_strings and col_idx == 0:
+                unique_ratio = len(set(sample_values)) / len(sample_values)
+                if unique_ratio > 0.8:
+                    column_types[column] = "categorical"
+                    continue
+
+            if is_mostly_numeric:
                 column_types[column] = "numerical"
             else:
                 column_types[column] = "categorical"
@@ -1217,6 +1240,13 @@ class ChartDataPopulator:
                 print(
                     f"    ⚠️  No categorical columns found, using first column '{category_column}' as category"
                 )
+
+            # Exclude the category column from numerical candidates so it is
+            # never accidentally picked as a value series (e.g. year strings
+            # like "2019" that pass float() but aren't real Y-axis data).
+            numerical_columns = [
+                col for col in numerical_columns if col != category_column
+            ]
 
             # Select value columns based on chart type
             if chart_type in [
