@@ -34,7 +34,7 @@ const typeIcons = {
 } as const
 
 const statusColors = {
-  draft: 'text-zinc-400 bg-zinc-800',
+  draft: 'text-muted-foreground bg-muted',
   generating: 'text-amber-500 bg-amber-500/15',
   complete: 'text-emerald-400 bg-emerald-500/15',
 } as const
@@ -68,13 +68,13 @@ function formatDate(iso: string) {
         <h2 class="text-3xl md:text-4xl font-display font-bold tracking-tight mb-2">
           Your Presentations
         </h2>
-        <p class="text-zinc-500 text-sm">
+        <p class="text-muted-foreground text-sm">
           Create AI-powered presentations in minutes
         </p>
       </div>
 
       <Button
-        class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
+        class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
         @click="createNew"
       >
         <Plus :size="18" :stroke-width="2" class="mr-2" />
@@ -119,12 +119,12 @@ function formatDate(iso: string) {
         <h3 class="font-display font-semibold text-base tracking-tight mb-1.5 line-clamp-1">
           {{ pres.name }}
         </h3>
-        <p class="text-xs text-zinc-500 mb-4 capitalize">
+        <p class="text-xs text-muted-foreground mb-4 capitalize">
           {{ pres.intent.type }} · {{ pres.intent.tone }}
         </p>
 
         <!-- Card footer -->
-        <div class="flex items-center gap-4 text-[11px] text-zinc-600 font-mono">
+        <div class="flex items-center gap-4 text-[11px] text-muted-foreground/70 font-mono">
           <span class="flex items-center gap-1">
             <FileText :size="12" :stroke-width="1.5" />
             {{ pres.sections.length }} sections
@@ -138,19 +138,19 @@ function formatDate(iso: string) {
 
       <!-- Create new card -->
       <button
-        class="group flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 hover:border-amber-500/30 bg-transparent hover:bg-[var(--accent-muted)] min-h-[200px] transition-all duration-300"
+        class="group flex flex-col items-center justify-center rounded-xl border border-dashed border-border hover:border-amber-500/30 bg-transparent hover:bg-[var(--accent-muted)] min-h-[200px] transition-all duration-300"
         @click="createNew"
       >
         <div
-          class="w-12 h-12 rounded-xl bg-zinc-900 group-hover:bg-amber-500/15 flex items-center justify-center mb-3 transition-all duration-300"
+          class="w-12 h-12 rounded-xl bg-muted group-hover:bg-amber-500/15 flex items-center justify-center mb-3 transition-all duration-300"
         >
           <Plus
             :size="24"
             :stroke-width="1.5"
-            class="text-zinc-600 group-hover:text-amber-500 transition-colors duration-300"
+            class="text-muted-foreground/70 group-hover:text-amber-500 transition-colors duration-300"
           />
         </div>
-        <span class="text-sm text-zinc-600 group-hover:text-zinc-400 transition-colors font-medium">
+        <span class="text-sm text-muted-foreground/70 group-hover:text-muted-foreground transition-colors font-medium">
           Create New
         </span>
       </button>
@@ -164,7 +164,7 @@ function formatDate(iso: string) {
       description="Create your first AI-powered presentation to get started."
     >
       <Button
-        class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200"
+        class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200"
         @click="createNew"
       >
         <Plus :size="18" :stroke-width="2" class="mr-2" />

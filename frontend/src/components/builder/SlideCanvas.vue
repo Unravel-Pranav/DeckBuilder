@@ -82,10 +82,10 @@ function getLinePoints(data: number[], width: number, height: number): string {
 
     <template v-else>
       <!-- Slide title -->
-      <div class="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">
+      <div class="px-6 py-3 border-b border-border">
         <input
           :value="slide.title"
-          class="bg-transparent text-lg font-display font-semibold tracking-tight outline-none w-full placeholder:text-zinc-700"
+          class="bg-transparent text-lg font-display font-semibold tracking-tight outline-none w-full placeholder:text-muted-foreground/50"
           placeholder="Slide title..."
           @input="(e) => { if (slide) slide.title = (e.target as HTMLInputElement).value }"
         />
@@ -94,19 +94,19 @@ function getLinePoints(data: number[], width: number, height: number): string {
       <!-- Canvas area -->
       <div class="flex-1 p-6 overflow-y-auto">
         <div
-          class="w-full max-w-4xl mx-auto aspect-[16/9] rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,15,0.6)] p-6 flex flex-col"
+          class="w-full max-w-4xl mx-auto aspect-[16/9] rounded-xl border border-border bg-[var(--preview-surface)] p-6 flex flex-col"
         >
           <div class="flex-1 grid gap-4" :class="layoutConfig?.grid">
 
             <!-- CHART AREA -->
             <div
               v-if="hasChart"
-              class="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(26,26,36,0.4)] p-4 flex flex-col"
+              class="rounded-lg border border-border bg-[var(--glass-bg)] p-4 flex flex-col"
               :class="layoutConfig?.areas[0]"
             >
               <div class="flex items-center gap-2 mb-3">
                 <BarChart3 :size="14" :stroke-width="1.5" class="text-amber-500" />
-                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                   {{ chartType }} chart
                 </span>
               </div>
@@ -122,7 +122,7 @@ function getLinePoints(data: number[], width: number, height: number): string {
                   />
                 </div>
                 <div class="flex justify-between mt-2 px-1">
-                  <span v-for="(label, i) in chartData.labels" :key="i" class="text-[9px] font-mono text-zinc-600">
+                  <span v-for="(label, i) in chartData.labels" :key="i" class="text-[9px] font-mono text-muted-foreground/70">
                     {{ label }}
                   </span>
                 </div>
@@ -151,7 +151,7 @@ function getLinePoints(data: number[], width: number, height: number): string {
                   </svg>
                 </div>
                 <div class="flex justify-between mt-1 px-1">
-                  <span v-for="(label, i) in chartData.labels" :key="i" class="text-[9px] font-mono text-zinc-600">
+                  <span v-for="(label, i) in chartData.labels" :key="i" class="text-[9px] font-mono text-muted-foreground/70">
                     {{ label }}
                   </span>
                 </div>
@@ -178,12 +178,12 @@ function getLinePoints(data: number[], width: number, height: number): string {
                   >
                     <div
                       v-if="chartType === 'doughnut'"
-                      class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-[rgba(26,26,36,0.9)]"
+                      class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-[var(--preview-surface-deep)]"
                     />
                   </div>
                 </div>
                 <div class="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2">
-                  <span v-for="(label, i) in chartData.labels" :key="i" class="text-[9px] font-mono text-zinc-600 flex items-center gap-1">
+                  <span v-for="(label, i) in chartData.labels" :key="i" class="text-[9px] font-mono text-muted-foreground/70 flex items-center gap-1">
                     <span
                       class="w-1.5 h-1.5 rounded-full"
                       :style="{ backgroundColor: (chartData.datasets[0].backgroundColor ?? ['#F59E0B', '#FBBF24', '#D97706'])[i % 3] }"
@@ -193,7 +193,7 @@ function getLinePoints(data: number[], width: number, height: number): string {
                 </div>
               </template>
 
-              <!-- Fallback for other chart types -->
+              <!-- Fallback -->
               <template v-else>
                 <div class="flex-1 flex items-end gap-2 px-2">
                   <div
@@ -209,22 +209,22 @@ function getLinePoints(data: number[], width: number, height: number): string {
             <!-- TABLE AREA -->
             <div
               v-if="hasTable"
-              class="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(26,26,36,0.4)] p-4 flex flex-col"
+              class="rounded-lg border border-border bg-[var(--glass-bg)] p-4 flex flex-col"
               :class="hasChart ? layoutConfig?.areas[1] : layoutConfig?.areas[0]"
             >
               <div class="flex items-center gap-2 mb-3">
                 <Table2 :size="14" :stroke-width="1.5" class="text-amber-500" />
-                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Table</span>
+                <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Table</span>
               </div>
 
               <div class="flex-1 overflow-auto">
                 <table class="w-full text-[10px]">
                   <thead>
-                    <tr class="border-b border-[rgba(255,255,255,0.06)]">
+                    <tr class="border-b border-border">
                       <th
                         v-for="h in tableData.headers.slice(0, 5)"
                         :key="h"
-                        class="text-left py-1.5 px-2 font-mono text-zinc-500 font-medium"
+                        class="text-left py-1.5 px-2 font-mono text-muted-foreground font-medium"
                       >
                         {{ h }}
                       </th>
@@ -234,12 +234,12 @@ function getLinePoints(data: number[], width: number, height: number): string {
                     <tr
                       v-for="(row, i) in tableData.rows.slice(0, 4)"
                       :key="i"
-                      class="border-b border-[rgba(255,255,255,0.03)]"
+                      class="border-b border-border"
                     >
                       <td
                         v-for="(cell, j) in row.slice(0, 5)"
                         :key="j"
-                        class="py-1.5 px-2 text-zinc-400"
+                        class="py-1.5 px-2 text-muted-foreground"
                       >
                         {{ cell }}
                       </td>
@@ -252,15 +252,15 @@ function getLinePoints(data: number[], width: number, height: number): string {
             <!-- COMMENTARY / TEXT AREA -->
             <div
               v-if="hasCommentary"
-              class="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(26,26,36,0.4)] p-4 flex flex-col"
+              class="rounded-lg border border-border bg-[var(--glass-bg)] p-4 flex flex-col"
               :class="hasChart || hasTable ? layoutConfig?.areas[1] : layoutConfig?.areas[0]"
             >
               <div class="flex items-center gap-2 mb-3">
                 <FileText :size="14" :stroke-width="1.5" class="text-amber-500" />
-                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Commentary</span>
+                <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Commentary</span>
               </div>
               <div class="flex-1">
-                <p class="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">
+                <p class="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
                   {{ slide.commentary || (slide.components.find(c => c.type === 'text')?.type === 'text' ? (slide.components.find(c => c.type === 'text') as any)?.data?.content : '') || 'No commentary yet. Use the right panel to add data and generate commentary.' }}
                 </p>
               </div>

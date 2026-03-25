@@ -46,21 +46,21 @@ async function handleContinue() {
           <h2 class="text-2xl md:text-3xl font-display font-bold tracking-tight mb-2">
             Define Your Presentation
           </h2>
-          <p class="text-sm text-zinc-500">
+          <p class="text-sm text-muted-foreground">
             Tell us about your presentation and we'll recommend the best structure.
           </p>
         </div>
 
         <!-- Name input -->
         <div>
-          <Label for="name" class="text-sm font-medium text-zinc-300 mb-2 block">
+          <Label for="name" class="text-sm font-medium text-foreground/80 mb-2 block">
             Presentation Name
           </Label>
           <Input
             id="name"
             v-model="presentationName"
             placeholder="e.g., Q4 2025 Financial Review"
-            class="h-11 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-xl placeholder:text-zinc-600 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
+            class="h-11 bg-[var(--glass-bg)] border-border rounded-xl placeholder:text-muted-foreground/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
           />
         </div>
 
@@ -69,7 +69,7 @@ async function handleContinue() {
         <div class="pt-4">
           <Button
             :disabled="isSubmitting"
-            class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-base disabled:opacity-60"
+            class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-base disabled:opacity-60"
             @click="handleContinue"
           >
             <Loader2 v-if="isSubmitting" :size="18" class="mr-2 animate-spin" />

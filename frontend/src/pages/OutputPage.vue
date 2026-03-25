@@ -66,7 +66,7 @@ function createNew() {
       <h2 class="text-3xl md:text-4xl font-display font-bold tracking-tight mb-3">
         Presentation Ready
       </h2>
-      <p class="text-zinc-500 text-sm max-w-md mx-auto">
+      <p class="text-muted-foreground text-sm max-w-md mx-auto">
         Your presentation has been generated successfully. Download it or make further edits.
       </p>
     </div>
@@ -82,7 +82,7 @@ function createNew() {
             <h3 class="font-display font-semibold text-lg tracking-tight">
               {{ presentationStore.presentationName }}
             </h3>
-            <p class="text-xs text-zinc-500 mt-0.5">
+            <p class="text-xs text-muted-foreground mt-0.5">
               {{ slidesStore.sections.length }} sections · {{ slidesStore.totalSlideCount }} slides
             </p>
           </div>
@@ -96,24 +96,24 @@ function createNew() {
 
         <!-- Section summary -->
         <div class="space-y-2 mb-6">
-          <p class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 mb-2">Sections</p>
+          <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-2">Sections</p>
           <div
             v-for="section in slidesStore.sections"
             :key="section.id"
-            class="flex items-center gap-3 py-2 px-3 rounded-lg bg-white/[0.02]"
+            class="flex items-center gap-3 py-2 px-3 rounded-lg bg-foreground/[0.02]"
           >
-            <Layers :size="14" :stroke-width="1.5" class="text-zinc-600 flex-shrink-0" />
-            <span class="text-sm text-zinc-400 flex-1">{{ section.name }}</span>
-            <span class="text-[10px] font-mono text-zinc-600">{{ section.slides.length }} slides</span>
+            <Layers :size="14" :stroke-width="1.5" class="text-muted-foreground/70 flex-shrink-0" />
+            <span class="text-sm text-muted-foreground flex-1">{{ section.name }}</span>
+            <span class="text-[10px] font-mono text-muted-foreground/70">{{ section.slides.length }} slides</span>
           </div>
         </div>
 
-        <Separator class="bg-[rgba(255,255,255,0.06)] my-6" />
+        <Separator class="bg-border my-6" />
 
         <!-- Actions -->
         <div class="flex flex-wrap gap-3">
           <Button
-            class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98]"
+            class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98]"
             :disabled="isDownloading"
             @click="downloadPPT"
           >
@@ -123,7 +123,7 @@ function createNew() {
 
           <Button
             variant="outline"
-            class="border-[rgba(255,255,255,0.15)] text-zinc-300 hover:bg-white/5 rounded-xl h-12"
+            class="border-border text-foreground/80 hover:bg-foreground/5 rounded-xl h-12"
             @click="editPresentation"
           >
             <Edit3 :size="16" :stroke-width="1.5" class="mr-2" />
@@ -132,7 +132,7 @@ function createNew() {
 
           <Button
             variant="outline"
-            class="border-[rgba(255,255,255,0.15)] text-zinc-300 hover:bg-white/5 rounded-xl h-12"
+            class="border-border text-foreground/80 hover:bg-foreground/5 rounded-xl h-12"
           >
             <Share2 :size="16" :stroke-width="1.5" class="mr-2" />
             Share
@@ -140,7 +140,7 @@ function createNew() {
 
           <Button
             variant="outline"
-            class="border-[rgba(255,255,255,0.15)] text-zinc-300 hover:bg-white/5 rounded-xl h-12"
+            class="border-border text-foreground/80 hover:bg-foreground/5 rounded-xl h-12"
           >
             <Copy :size="16" :stroke-width="1.5" class="mr-2" />
             Duplicate
@@ -151,8 +151,8 @@ function createNew() {
       <!-- Version history -->
       <GlassCard>
         <div class="flex items-center gap-2 mb-4">
-          <Clock :size="14" :stroke-width="1.5" class="text-zinc-500" />
-          <h4 class="text-xs font-mono uppercase tracking-wider text-zinc-500">Versions</h4>
+          <Clock :size="14" :stroke-width="1.5" class="text-muted-foreground" />
+          <h4 class="text-xs font-mono uppercase tracking-wider text-muted-foreground">Versions</h4>
         </div>
 
         <div class="space-y-2">
@@ -163,26 +163,26 @@ function createNew() {
             :class="
               version.isCurrent
                 ? 'bg-amber-500/10 border border-amber-500/20'
-                : 'bg-white/[0.02] border border-transparent hover:bg-white/[0.04]'
+                : 'bg-foreground/[0.02] border border-transparent hover:bg-foreground/[0.04]'
             "
           >
             <p
               class="text-xs font-medium"
-              :class="version.isCurrent ? 'text-amber-500' : 'text-zinc-400'"
+              :class="version.isCurrent ? 'text-amber-500' : 'text-muted-foreground'"
             >
               {{ version.label }}
             </p>
-            <p class="text-[10px] text-zinc-600 mt-0.5">{{ version.date }}</p>
+            <p class="text-[10px] text-muted-foreground/70 mt-0.5">{{ version.date }}</p>
           </button>
         </div>
       </GlassCard>
     </div>
 
     <!-- Create new -->
-    <div class="text-center pt-6 border-t border-[rgba(255,255,255,0.06)]">
+    <div class="text-center pt-6 border-t border-border">
       <Button
         variant="outline"
-        class="border-[rgba(255,255,255,0.15)] text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-xl h-11"
+        class="border-border text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-xl h-11"
         @click="createNew"
       >
         <Plus :size="16" :stroke-width="1.5" class="mr-2" />

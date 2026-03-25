@@ -83,7 +83,7 @@ function handleContinue() {
             Recommended Structure
           </h2>
         </div>
-        <p class="text-sm text-zinc-500 ml-10">
+        <p class="text-sm text-muted-foreground ml-10">
           Review, reorder, and customize the AI-suggested sections. Drag to reorder.
         </p>
       </div>
@@ -91,7 +91,7 @@ function handleContinue() {
       <div class="flex items-center gap-2">
         <Button
           variant="outline"
-          class="border-[rgba(255,255,255,0.15)] text-zinc-300 hover:bg-white/5 rounded-lg h-9 text-sm"
+          class="border-border text-foreground/80 hover:bg-foreground/5 rounded-lg h-9 text-sm"
           @click="acceptAllSections"
         >
           <CheckCheck :size="14" :stroke-width="1.5" class="mr-1.5" />
@@ -99,7 +99,7 @@ function handleContinue() {
         </Button>
         <Button
           variant="outline"
-          class="border-[rgba(255,255,255,0.15)] text-zinc-300 hover:bg-white/5 rounded-lg h-9 text-sm"
+          class="border-border text-foreground/80 hover:bg-foreground/5 rounded-lg h-9 text-sm"
           @click="addCustomSection"
         >
           <Plus :size="14" :stroke-width="1.5" class="mr-1.5" />
@@ -111,7 +111,7 @@ function handleContinue() {
     <!-- Loading state -->
     <div v-if="aiStore.isLoading" class="flex flex-col items-center py-24">
       <Loader2 :size="32" :stroke-width="1.5" class="text-amber-500 animate-spin mb-4" />
-      <p class="text-sm text-zinc-500 font-mono">Analyzing your intent...</p>
+      <p class="text-sm text-muted-foreground font-mono">Analyzing your intent...</p>
     </div>
 
     <!-- Section cards with drag-and-drop -->
@@ -144,11 +144,11 @@ function handleContinue() {
         <div class="flex items-center gap-3">
           <Sparkles :size="16" :stroke-width="1.5" class="text-amber-500 flex-shrink-0" />
           <div>
-            <p class="text-xs text-zinc-400">
+            <p class="text-xs text-muted-foreground">
               <span class="text-amber-500 font-medium">Suggested style:</span>
               {{ aiStore.recommendation.suggestedStyle }}
             </p>
-            <p class="text-[11px] text-zinc-600 mt-0.5">
+            <p class="text-[11px] text-muted-foreground/70 mt-0.5">
               Recommended chart types:
               {{ aiStore.recommendation.suggestedChartTypes.join(', ') }}
             </p>
@@ -159,7 +159,7 @@ function handleContinue() {
       <!-- Continue -->
       <div class="flex justify-end pt-6">
         <Button
-          class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-base"
+          class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-base"
           @click="handleContinue"
         >
           Continue to Sections

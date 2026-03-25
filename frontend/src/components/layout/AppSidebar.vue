@@ -41,14 +41,14 @@ function navigateTo(routePath: string) {
 
 <template>
   <aside
-    class="fixed left-0 top-0 bottom-0 z-40 flex flex-col border-r border-[rgba(255,255,255,0.08)] transition-all duration-300"
+    class="fixed left-0 top-0 bottom-0 z-40 flex flex-col border-r border-border transition-all duration-300"
     :class="uiStore.sidebarCollapsed ? 'w-16' : 'w-64'"
     :style="{ backgroundColor: 'var(--surface-elevated)' }"
   >
     <!-- Logo area -->
-    <div class="flex items-center gap-3 px-4 h-16 border-b border-[rgba(255,255,255,0.08)]">
+    <div class="flex items-center gap-3 px-4 h-16 border-b border-border">
       <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
-        <Presentation :size="18" class="text-[#0A0A0F]" />
+        <Presentation :size="18" class="text-[#09090B]" />
       </div>
       <Transition name="fade">
         <span
@@ -67,7 +67,7 @@ function navigateTo(routePath: string) {
         :class="
           isOnDashboard
             ? 'bg-[var(--accent-muted)] text-amber-500'
-            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+            : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
         "
         @click="navigateTo('/')"
       >
@@ -85,7 +85,7 @@ function navigateTo(routePath: string) {
         :class="
           isOnTemplates
             ? 'bg-[var(--accent-muted)] text-amber-500'
-            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+            : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
         "
         @click="navigateTo('/templates')"
       >
@@ -101,7 +101,7 @@ function navigateTo(routePath: string) {
       <Transition name="fade">
         <p
           v-if="!uiStore.sidebarCollapsed"
-          class="px-3 mb-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600"
+          class="px-3 mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60"
         >
           Build Flow
         </p>
@@ -116,8 +116,8 @@ function navigateTo(routePath: string) {
             step.isActive
               ? 'bg-[var(--accent-muted)] text-amber-500'
               : step.isCompleted
-                ? 'text-zinc-300 hover:bg-white/5'
-                : 'text-zinc-600 hover:text-zinc-400 hover:bg-white/5',
+                ? 'text-foreground/80 hover:bg-foreground/5'
+                : 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5',
           ]"
           @click="navigateTo(step.route)"
         >
@@ -129,7 +129,7 @@ function navigateTo(routePath: string) {
                 ? 'border-amber-500/50 text-amber-500 bg-amber-500/10'
                 : step.isCompleted
                   ? 'border-amber-500/30 text-amber-500 bg-amber-500/5'
-                  : 'border-zinc-700 text-zinc-600',
+                  : 'border-border text-muted-foreground',
             ]"
           >
             <component
@@ -158,9 +158,9 @@ function navigateTo(routePath: string) {
     </nav>
 
     <!-- Collapse toggle -->
-    <div class="px-3 py-3 border-t border-[rgba(255,255,255,0.08)]">
+    <div class="px-3 py-3 border-t border-border">
       <button
-        class="flex items-center justify-center w-full py-2 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all duration-200"
+        class="flex items-center justify-center w-full py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-all duration-200"
         @click="uiStore.toggleSidebar()"
       >
         <ChevronLeft v-if="!uiStore.sidebarCollapsed" :size="18" :stroke-width="1.5" />

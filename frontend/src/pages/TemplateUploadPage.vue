@@ -51,7 +51,6 @@ onMounted(async () => {
     if (fromQuery && res.items.some((t) => String(t.id) === fromQuery)) {
       selectedTemplateId.value = fromQuery
     } else if (res.items.length > 0) {
-      // Default so upload works without relying on Radix Select v-model edge cases.
       selectedTemplateId.value = String(res.items[0].id)
     }
   } catch (e: unknown) {
@@ -128,7 +127,7 @@ function resetUpload() {
       <h2 class="text-2xl md:text-3xl font-display font-bold tracking-tight mb-1">
         Upload template deck
       </h2>
-      <p class="text-sm text-zinc-500">
+      <p class="text-sm text-muted-foreground">
         The server validates your file as a real .pptx (readable, at least one slide), then saves it for
         this template record. After a successful upload, this deck is set as the base for exports (cover and theme)
         when you generate a PPT from Preview. Use Download stored .pptx to view the file.
@@ -136,7 +135,7 @@ function resetUpload() {
     </div>
 
     <GlassCard v-if="templatesLoading" padding="p-6" class="mb-6">
-      <div class="flex items-center gap-3 text-sm text-zinc-400">
+      <div class="flex items-center gap-3 text-sm text-muted-foreground">
         <Loader2 :size="18" class="animate-spin text-amber-500" />
         Loading templates…
       </div>
@@ -148,12 +147,12 @@ function resetUpload() {
 
     <template v-else>
       <GlassCard padding="p-4" class="mb-6">
-        <label class="text-xs font-mono uppercase tracking-wider text-zinc-500 block mb-2">
+        <label class="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-2">
           Template
         </label>
         <select
           v-model="selectedTemplateId"
-          class="w-full max-w-md h-10 text-sm rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(26,26,36,0.9)] text-zinc-200 px-3 outline-none focus:ring-1 focus:ring-amber-500/50"
+          class="w-full max-w-md h-10 text-sm rounded-lg border border-border bg-[var(--glass-bg)] text-foreground px-3 outline-none focus:ring-1 focus:ring-amber-500/50"
         >
           <option disabled value="">
             Choose a template to attach the .pptx to
@@ -162,7 +161,7 @@ function resetUpload() {
             {{ t.name }} ({{ t.ppt_status }})
           </option>
         </select>
-        <p v-if="deckTemplates.length === 0" class="text-xs text-zinc-500 mt-2">
+        <p v-if="deckTemplates.length === 0" class="text-xs text-muted-foreground mt-2">
           No templates in the database yet. Create one via the API or seed data first.
         </p>
       </GlassCard>
@@ -176,7 +175,7 @@ function resetUpload() {
                 ? 'border-emerald-500/30 bg-emerald-500/5'
                 : uploadState === 'invalid'
                   ? 'border-red-500/30 bg-red-500/5'
-                  : 'border-zinc-800 hover:border-amber-500/30 hover:bg-[var(--accent-muted)]'
+                  : 'border-border hover:border-amber-500/30 hover:bg-[var(--accent-muted)]'
             "
             @dragover.prevent
             @drop="handleDrop"
@@ -191,22 +190,22 @@ function resetUpload() {
             />
 
             <template v-if="uploadState === 'idle'">
-              <Upload :size="32" :stroke-width="1.5" class="mx-auto mb-4 text-zinc-600" />
-              <p class="text-sm text-zinc-400 font-medium mb-1">Drop your .pptx here or click to browse</p>
-              <p class="text-xs text-zinc-600">Only .pptx is supported</p>
+              <Upload :size="32" :stroke-width="1.5" class="mx-auto mb-4 text-muted-foreground/70" />
+              <p class="text-sm text-muted-foreground font-medium mb-1">Drop your .pptx here or click to browse</p>
+              <p class="text-xs text-muted-foreground/70">Only .pptx is supported</p>
             </template>
 
             <template v-else-if="uploadState === 'uploading'">
               <Loader2 :size="32" :stroke-width="1.5" class="mx-auto mb-4 text-amber-500 animate-spin" />
               <p class="text-sm text-amber-500 font-medium mb-1">Uploading &amp; validating…</p>
-              <p class="text-xs text-zinc-600">Server checks the file before saving</p>
+              <p class="text-xs text-muted-foreground/70">Server checks the file before saving</p>
             </template>
 
             <template v-else-if="uploadState === 'valid'">
               <FileCheck :size="32" :stroke-width="1.5" class="mx-auto mb-4 text-emerald-400" />
               <p class="text-sm text-emerald-400 font-medium mb-1">Saved</p>
-              <p class="text-xs text-zinc-500">{{ uploadedFileName }}</p>
-              <Button variant="ghost" class="mt-3 text-xs text-zinc-400" type="button" @click.stop="resetUpload">
+              <p class="text-xs text-muted-foreground">{{ uploadedFileName }}</p>
+              <Button variant="ghost" class="mt-3 text-xs text-muted-foreground" type="button" @click.stop="resetUpload">
                 Upload another
               </Button>
             </template>
@@ -214,8 +213,8 @@ function resetUpload() {
             <template v-else>
               <AlertTriangle :size="32" :stroke-width="1.5" class="mx-auto mb-4 text-red-400" />
               <p class="text-sm text-red-400 font-medium mb-1">Not saved</p>
-              <p class="text-xs text-zinc-500 px-2">{{ uploadError }}</p>
-              <Button variant="ghost" class="mt-3 text-xs text-zinc-400" type="button" @click.stop="resetUpload">
+              <p class="text-xs text-muted-foreground px-2">{{ uploadError }}</p>
+              <Button variant="ghost" class="mt-3 text-xs text-muted-foreground" type="button" @click.stop="resetUpload">
                 Try again
               </Button>
             </template>
@@ -224,27 +223,27 @@ function resetUpload() {
 
         <div v-if="uploadState === 'valid' && serverTemplate" class="space-y-6">
           <GlassCard padding="p-4">
-            <h4 class="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-3">
+            <h4 class="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
               Server response
             </h4>
-            <dl class="space-y-2 text-xs text-zinc-400">
+            <dl class="space-y-2 text-xs text-muted-foreground">
               <div class="flex justify-between gap-4">
-                <dt class="text-zinc-500">Template</dt>
-                <dd class="text-zinc-300 truncate">{{ serverTemplate.name }}</dd>
+                <dt class="text-muted-foreground/70">Template</dt>
+                <dd class="text-foreground/80 truncate">{{ serverTemplate.name }}</dd>
               </div>
               <div class="flex justify-between gap-4">
-                <dt class="text-zinc-500">PPT status</dt>
+                <dt class="text-muted-foreground/70">PPT status</dt>
                 <dd class="text-emerald-400/90">{{ serverTemplate.ppt_status }}</dd>
               </div>
               <div class="flex justify-between gap-4">
-                <dt class="text-zinc-500">Deck URL</dt>
-                <dd class="truncate font-mono text-[10px] text-zinc-500">{{ serverTemplate.ppt_url }}</dd>
+                <dt class="text-muted-foreground/70">Deck URL</dt>
+                <dd class="truncate font-mono text-[10px] text-muted-foreground/70">{{ serverTemplate.ppt_url }}</dd>
               </div>
             </dl>
             <Button
               type="button"
               variant="outline"
-              class="mt-4 w-full border-[rgba(255,255,255,0.12)] text-zinc-300"
+              class="mt-4 w-full border-border text-foreground/80"
               @click="openDownload"
             >
               <Download :size="14" :stroke-width="1.5" class="mr-2" />
@@ -254,7 +253,7 @@ function resetUpload() {
 
           <div class="flex justify-end">
             <Button
-              class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
+              class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
               @click="handleContinue"
             >
               Continue to Preview

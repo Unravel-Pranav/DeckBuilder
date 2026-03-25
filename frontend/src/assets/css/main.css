@@ -49,6 +49,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-card: var(--surface-card);
 
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-display: 'Space Grotesk', system-ui, sans-serif;
@@ -64,10 +66,73 @@
   --shadow-glow-border: 0 0 0 1px rgba(245, 158, 11, 0.3), 0 0 20px rgba(245, 158, 11, 0.15);
 }
 
-/* ── Minimalist Dark Palette (always dark) ── */
+/* ── Light Theme (default) ── */
 :root {
   --radius: 0.75rem;
 
+  --background: #F8F8FC;
+  --foreground: #09090B;
+
+  --card: rgba(255, 255, 255, 0.85);
+  --card-foreground: #09090B;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #09090B;
+
+  --primary: #F59E0B;
+  --primary-foreground: #09090B;
+
+  --secondary: #F4F4F5;
+  --secondary-foreground: #18181B;
+
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+
+  --accent: #F59E0B;
+  --accent-foreground: #09090B;
+
+  --destructive: #EF4444;
+
+  --border: rgba(0, 0, 0, 0.09);
+  --input: rgba(0, 0, 0, 0.06);
+  --ring: #F59E0B;
+
+  --chart-1: #F59E0B;
+  --chart-2: #3B82F6;
+  --chart-3: #10B981;
+  --chart-4: #8B5CF6;
+  --chart-5: #EC4899;
+
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #09090B;
+  --sidebar-primary: #F59E0B;
+  --sidebar-primary-foreground: #09090B;
+  --sidebar-accent: #F4F4F5;
+  --sidebar-accent-foreground: #18181B;
+  --sidebar-border: rgba(0, 0, 0, 0.09);
+  --sidebar-ring: #F59E0B;
+
+  --surface-elevated: #FFFFFF;
+  --surface-card: #F4F4F5;
+  --border-hover: rgba(0, 0, 0, 0.16);
+  --accent-muted: rgba(245, 158, 11, 0.1);
+
+  /* Glass variables */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg-hover: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(0, 0, 0, 0.09);
+  --glass-border-hover: rgba(0, 0, 0, 0.16);
+
+  /* Topbar backdrop */
+  --topbar-bg: rgba(248, 248, 252, 0.85);
+
+  /* Preview surface (always dark-ish for slide simulations) */
+  --preview-surface: rgba(228, 228, 235, 0.7);
+  --preview-surface-deep: rgba(210, 210, 220, 0.8);
+}
+
+/* ── Dark Theme ── */
+.dark {
   --background: #0A0A0F;
   --foreground: #FAFAFA;
 
@@ -114,6 +179,19 @@
   --surface-card: #1A1A24;
   --border-hover: rgba(255, 255, 255, 0.15);
   --accent-muted: rgba(245, 158, 11, 0.15);
+
+  /* Glass variables */
+  --glass-bg: rgba(26, 26, 36, 0.6);
+  --glass-bg-hover: rgba(26, 26, 36, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.15);
+
+  /* Topbar backdrop */
+  --topbar-bg: rgba(10, 10, 15, 0.85);
+
+  /* Preview surface */
+  --preview-surface: rgba(10, 10, 15, 0.5);
+  --preview-surface-deep: rgba(10, 10, 15, 0.92);
 }
 
 @layer base {
@@ -132,14 +210,14 @@
 
 /* ── Glass utility ── */
 @utility glass {
-  background: rgba(26, 26, 36, 0.6);
+  background: var(--glass-bg);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
 }
 
 @utility glass-hover {
-  background: rgba(26, 26, 36, 0.8);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
 }
 
 /* ── Ambient gradient ── */
@@ -158,10 +236,18 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }

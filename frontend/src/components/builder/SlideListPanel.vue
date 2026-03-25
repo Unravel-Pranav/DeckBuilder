@@ -87,12 +87,12 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
 </script>
 
 <template>
-  <div class="flex flex-col h-full border-r border-[rgba(255,255,255,0.08)]" style="background: rgba(18, 18, 26, 0.9)">
+  <div class="flex flex-col h-full border-r border-border" :style="{ background: 'var(--surface-elevated)' }">
     <!-- Header -->
-    <div class="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
+    <div class="px-4 py-3 border-b border-border">
       <div class="flex items-center justify-between">
-        <h3 class="text-xs font-mono uppercase tracking-wider text-zinc-500">Slides</h3>
-        <span class="text-[10px] font-mono text-zinc-600">{{ slidesStore.totalSlideCount }}</span>
+        <h3 class="text-xs font-mono uppercase tracking-wider text-muted-foreground">Slides</h3>
+        <span class="text-[10px] font-mono text-muted-foreground/70">{{ slidesStore.totalSlideCount }}</span>
       </div>
     </div>
 
@@ -101,7 +101,7 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
       <div class="p-3 space-y-4">
         <div v-for="section in slidesStore.sections" :key="section.id">
           <!-- Section label -->
-          <p class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 mb-2 px-1 truncate">
+          <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-2 px-1 truncate">
             {{ section.name }}
           </p>
 
@@ -114,7 +114,7 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
               :class="
                 slidesStore.activeSlideId === slide.id
                   ? 'bg-amber-500/10 border border-amber-500/20 shadow-[0_0_12px_rgba(245,158,11,0.1)]'
-                  : 'bg-white/[0.03] border border-transparent hover:bg-white/[0.06] hover:border-[rgba(255,255,255,0.06)]'
+                  : 'bg-foreground/[0.03] border border-transparent hover:bg-foreground/[0.06] hover:border-border'
               "
               @click="slidesStore.setActiveSlide(slide.id)"
             >
@@ -123,30 +123,30 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                 :class="
                   slidesStore.activeSlideId === slide.id
                     ? 'border-amber-500/30 bg-amber-500/5'
-                    : 'border-zinc-800 bg-zinc-900'
+                    : 'border-border bg-muted'
                 "
               >
                 <FileText
                   :size="10"
                   :stroke-width="1.5"
-                  :class="slidesStore.activeSlideId === slide.id ? 'text-amber-500' : 'text-zinc-700'"
+                  :class="slidesStore.activeSlideId === slide.id ? 'text-amber-500' : 'text-muted-foreground/50'"
                 />
               </div>
 
               <div class="flex-1 min-w-0">
                 <p
                   class="text-[11px] font-medium truncate"
-                  :class="slidesStore.activeSlideId === slide.id ? 'text-amber-500' : 'text-zinc-400'"
+                  :class="slidesStore.activeSlideId === slide.id ? 'text-amber-500' : 'text-muted-foreground'"
                 >
                   {{ slide.title }}
                 </p>
-                <p class="text-[9px] font-mono text-zinc-700 truncate">{{ slide.layout }}</p>
+                <p class="text-[9px] font-mono text-muted-foreground/50 truncate">{{ slide.layout }}</p>
               </div>
             </button>
 
             <!-- Add slide to section -->
             <button
-              class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-zinc-800 text-zinc-700 hover:text-zinc-500 hover:border-zinc-700 transition-all text-[11px]"
+              class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-border text-muted-foreground/50 hover:text-muted-foreground hover:border-border transition-all text-[11px]"
               @click="openAddDialog(section.id)"
             >
               <Plus :size="12" :stroke-width="1.5" />
@@ -159,7 +159,7 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
 
     <!-- Add slide dialog (template picker) -->
     <Dialog v-model:open="showAddDialog">
-      <DialogContent class="bg-[#12121A] border-[rgba(255,255,255,0.08)] rounded-xl max-w-md max-h-[70vh] overflow-hidden flex flex-col">
+      <DialogContent class="bg-popover border-border rounded-xl max-w-md max-h-[70vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle class="font-display tracking-tight">Add Slide</DialogTitle>
         </DialogHeader>
@@ -167,28 +167,28 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
         <div class="flex-1 overflow-y-auto space-y-4 pr-1">
           <!-- Blank slide option -->
           <button
-            class="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-zinc-800 hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-200 text-left"
+            class="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-200 text-left"
             @click="addBlankSlide"
           >
-            <div class="w-10 h-10 rounded-lg bg-zinc-900 flex items-center justify-center flex-shrink-0">
-              <Plus :size="18" :stroke-width="1.5" class="text-zinc-500" />
+            <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+              <Plus :size="18" :stroke-width="1.5" class="text-muted-foreground" />
             </div>
             <div>
-              <p class="text-sm font-medium text-zinc-300">Blank Slide</p>
-              <p class="text-[10px] text-zinc-600">Start from scratch with Chart + Text layout</p>
+              <p class="text-sm font-medium text-foreground/80">Blank Slide</p>
+              <p class="text-[10px] text-muted-foreground/70">Start from scratch with Chart + Text layout</p>
             </div>
           </button>
 
           <!-- Slide templates -->
           <div>
-            <p class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 mb-2 px-1">
+            <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-2 px-1">
               From Template
             </p>
             <div class="space-y-1.5">
               <button
                 v-for="tmpl in templatesStore.getSlideTemplates()"
                 :key="tmpl.id"
-                class="w-full flex items-center gap-3 p-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(26,26,36,0.4)] hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(26,26,36,0.6)] transition-all duration-200 text-left"
+                class="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-[var(--glass-bg)] hover:border-[color:var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)] transition-all duration-200 text-left"
                 @click="addFromTemplate(tmpl)"
               >
                 <!-- Slide kind icon -->
@@ -203,7 +203,7 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
 
                 <!-- Mini preview -->
                 <div
-                  class="flex-shrink-0 w-14 h-10 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,15,0.5)] relative overflow-hidden"
+                  class="flex-shrink-0 w-14 h-10 rounded border border-border bg-[var(--preview-surface)] relative overflow-hidden"
                 >
                   <template v-if="isSlidePreviewData(tmpl.previewData)">
                     <div
@@ -213,8 +213,8 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                       :class="
                         el.type === 'heading' ? 'bg-amber-500/25' :
                         el.type === 'accent-bar' ? 'bg-amber-500/40' :
-                        el.type === 'divider' ? 'bg-zinc-600' :
-                        'bg-zinc-800'
+                        el.type === 'divider' ? 'bg-muted-foreground/30' :
+                        'bg-muted'
                       "
                       :style="{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%` }"
                     />
@@ -222,8 +222,8 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                 </div>
 
                 <div class="flex-1 min-w-0">
-                  <p class="text-xs font-medium text-zinc-300 truncate">{{ tmpl.name }}</p>
-                  <p class="text-[10px] text-zinc-600 line-clamp-1">{{ tmpl.description }}</p>
+                  <p class="text-xs font-medium text-foreground/80 truncate">{{ tmpl.name }}</p>
+                  <p class="text-[10px] text-muted-foreground/70 line-clamp-1">{{ tmpl.description }}</p>
                 </div>
               </button>
             </div>
