@@ -1518,8 +1518,11 @@ def _assign_section_elements(
     if forced_layout_type == "base_slide":
         # Keep first base_slide focused on visual/KPI content.
         # Commentary/text is deferred to continuation slides when visual elements exist.
+        # BUT: skip deferral when slide_group info is present — the frontend already
+        # organized elements into explicit slides, so reordering would break that.
         prioritized_elements = selected_elements
-        if is_first_slide and current_slide == 1:
+        has_slide_groups = any(e.get("slide_group") is not None for e in selected_elements)
+        if is_first_slide and current_slide == 1 and not has_slide_groups:
             non_text_elements = [
                 e for e in selected_elements
                 if (e.get("element_type") or "").lower() not in {"commentary", "text", "title"}
