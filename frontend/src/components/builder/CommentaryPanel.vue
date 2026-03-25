@@ -29,9 +29,10 @@ const sectionName = computed(() => slidesStore.activeSection?.name ?? '')
 const dominantContext = computed(() => {
   const slide = slidesStore.activeSlide
   if (!slide) return 'default'
-  if (slide.components.find((c) => c.type === 'chart')) return 'chart'
-  if (slide.components.find((c) => c.type === 'table')) return 'table'
-  if (slide.components.find((c) => c.type === 'text')) return 'text'
+  const components = slide.regions.map((r) => r.component).filter(Boolean)
+  if (components.find((c) => c!.type === 'chart')) return 'chart'
+  if (components.find((c) => c!.type === 'table')) return 'table'
+  if (components.find((c) => c!.type === 'text')) return 'text'
   return 'default'
 })
 
@@ -112,11 +113,11 @@ function applyManual() {
         <Database :size="10" class="text-muted-foreground" />
         <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Reference Data</span>
       </div>
-      <div v-if="slidesStore.activeSlide?.components.some(c => c.type === 'chart')" class="text-[10px] text-muted-foreground font-mono">
-        {{ (slidesStore.activeSlide?.components.find(c => c.type === 'chart') as any)?.data.labels.join(', ') }} ...
+      <div v-if="slidesStore.activeSlide?.regions.some(r => r.component?.type === 'chart')" class="text-[10px] text-muted-foreground font-mono">
+        {{ (slidesStore.activeSlide?.regions.find(r => r.component?.type === 'chart')?.component as any)?.data.labels.join(', ') }} ...
       </div>
-      <div v-else-if="slidesStore.activeSlide?.components.some(c => c.type === 'table')" class="text-[10px] text-muted-foreground font-mono">
-        {{ (slidesStore.activeSlide?.components.find(c => c.type === 'table') as any)?.data.headers.join(' | ') }}
+      <div v-else-if="slidesStore.activeSlide?.regions.some(r => r.component?.type === 'table')" class="text-[10px] text-muted-foreground font-mono">
+        {{ (slidesStore.activeSlide?.regions.find(r => r.component?.type === 'table')?.component as any)?.data.headers.join(' | ') }}
       </div>
     </div>
 

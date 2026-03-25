@@ -130,7 +130,7 @@ const templateTypeIcons = {
                   variant="secondary"
                   class="text-[9px] bg-foreground/5 text-muted-foreground border-none ml-auto rounded-full"
                 >
-                  {{ tmpl.layout }}
+                  {{ tmpl.structure }}
                 </Badge>
               </div>
               <p class="text-[11px] text-muted-foreground/70">{{ tmpl.previewDescription }}</p>

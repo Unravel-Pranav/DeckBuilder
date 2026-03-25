@@ -26,7 +26,11 @@ const filteredTemplates = computed(() => {
 const appliedTemplateIds = computed(() => {
   const slide = slidesStore.activeSlide
   if (!slide) return new Set<string>()
-  return new Set(slide.components.map((c) => c.templateId).filter(Boolean))
+  return new Set(
+    slide.regions
+      .map((r) => r.component?.templateId)
+      .filter(Boolean),
+  )
 })
 
 const chartTypeIcons: Record<string, typeof BarChart3> = {
@@ -61,20 +65,11 @@ function applyTemplate(template: SlideTemplate) {
     return
   }
 
-  const slide = slidesStore.activeSlide
-  if (!slide) return
-
-  const existingIndex = slide.components.findIndex((c) => c.type === template.category)
-  if (existingIndex >= 0) {
-    const updated = [...slide.components]
-    updated[existingIndex] = component
-    slidesStore.updateSlideComponents(slidesStore.activeSlideId, updated)
-  } else {
-    slidesStore.updateSlideComponents(slidesStore.activeSlideId, [
-      ...slide.components,
-      component,
-    ])
-  }
+  slidesStore.setRegionComponent(
+    slidesStore.activeSlideId,
+    slidesStore.activeRegionIndex,
+    component,
+  )
 }
 
 function copySchema(hint: string) {

@@ -80,20 +80,34 @@ function processCSVInput() {
   }
 }
 
-const dominantType = computed<'chart' | 'table' | 'text'>(() => {
+const activeRegionLabel = computed(() => {
   const slide = slidesStore.activeSlide
-  if (!slide) return 'chart'
-  if (slide.components.find((c) => c.type === 'chart')) return 'chart'
-  if (slide.components.find((c) => c.type === 'table')) return 'table'
+  if (!slide) return ''
+  const idx = slidesStore.activeRegionIndex
+  const region = slide.regions[idx]
+  if (!region) return ''
+  const labels = ['Full Slide', 'Left', 'Right', 'Top', 'Bottom', 'Top Left', 'Top Right', 'Bottom Left', 'Bottom Right']
+  const structureLabels: Record<string, string[]> = {
+    'blank': ['Full Slide'],
+    'two-col': ['Left', 'Right'],
+    'two-row': ['Top', 'Bottom'],
+    'grid-2x2': ['Top Left', 'Top Right', 'Bottom Left', 'Bottom Right'],
+  }
+  return (structureLabels[slide.structure] ?? labels)[idx] ?? `Region ${idx + 1}`
+})
+
+const dominantType = computed<'chart' | 'table' | 'text'>(() => {
+  const region = slidesStore.activeRegion
+  if (!region?.component) return 'chart'
+  if (region.component.type === 'chart') return 'chart'
+  if (region.component.type === 'table') return 'table'
   return 'chart'
 })
 
 const currentChartType = computed<ChartType>(() => {
-  const slide = slidesStore.activeSlide
-  if (!slide) return 'bar'
-  const chart = slide.components.find((c) => c.type === 'chart')
-  if (chart?.type === 'chart') return chart.data.type
-  return 'bar'
+  const region = slidesStore.activeRegion
+  if (!region?.component || region.component.type !== 'chart') return 'bar'
+  return region.component.data.type
 })
 
 const schemaExample = computed(() => {
@@ -138,33 +152,27 @@ watch(jsonInput, (val) => {
 
 function applyData() {
   if (validationState.value !== 'valid' || !slidesStore.activeSlideId) return
-  const slide = slidesStore.activeSlide
-  if (!slide) return
 
   try {
     const parsed = JSON.parse(jsonInput.value) as Record<string, unknown>
     const detected = detectDataType(parsed)
 
+    let component: SlideComponent | null = null
+
     if (detected.type === 'chart' || (detected.type === 'unknown' && dominantType.value === 'chart')) {
       const chartData = mapDataToChartComponent(parsed, detected.chartType ?? currentChartType.value)
-      const newChart: SlideComponent = {
-        id: crypto.randomUUID(),
-        type: 'chart',
-        data: chartData,
-        config: {},
-      }
-      const existing = slide.components.filter((c) => c.type !== 'chart')
-      slidesStore.updateSlideComponents(slidesStore.activeSlideId!, [...existing, newChart])
+      component = { id: crypto.randomUUID(), type: 'chart', data: chartData, config: {} }
     } else if (detected.type === 'table' || (detected.type === 'unknown' && dominantType.value === 'table')) {
       const tableData = mapDataToTableComponent(parsed)
-      const newTable: SlideComponent = {
-        id: crypto.randomUUID(),
-        type: 'table',
-        data: tableData,
-        config: {},
-      }
-      const existing = slide.components.filter((c) => c.type !== 'table')
-      slidesStore.updateSlideComponents(slidesStore.activeSlideId!, [...existing, newTable])
+      component = { id: crypto.randomUUID(), type: 'table', data: tableData, config: {} }
+    }
+
+    if (component) {
+      slidesStore.setRegionComponent(
+        slidesStore.activeSlideId!,
+        slidesStore.activeRegionIndex,
+        component,
+      )
     }
   } catch {
     validationState.value = 'invalid'
@@ -182,16 +190,23 @@ function copySchema() {
 
 <template>
   <div class="space-y-4">
-    <!-- Active data type -->
+    <!-- Active region indicator -->
     <div class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03]">
-      <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Editing:</span>
+      <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Region:</span>
       <Badge
         variant="secondary"
-        class="text-[10px] rounded-full px-2 capitalize"
-        :class="dominantType === 'chart' ? 'bg-amber-500/10 text-amber-500' : 'bg-foreground/5 text-muted-foreground'"
+        class="text-[10px] rounded-full px-2 bg-amber-500/10 text-amber-500"
+      >
+        {{ activeRegionLabel }}
+      </Badge>
+      <Badge
+        v-if="slidesStore.activeRegion?.component"
+        variant="secondary"
+        class="text-[10px] rounded-full px-2 capitalize bg-foreground/5 text-muted-foreground"
       >
         {{ dominantType }} {{ dominantType === 'chart' ? `(${currentChartType})` : '' }}
       </Badge>
+      <span v-else class="text-[10px] text-muted-foreground/50">Empty</span>
     </div>
 
     <!-- Tab selector -->
@@ -247,7 +262,7 @@ function copySchema() {
             </button>
           </div>
         </div>
-        <pre class="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap">{{ schemaExample }}</pre>
+        <pre class="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap max-h-24 overflow-y-auto">{{ schemaExample }}</pre>
       </div>
 
       <!-- Editor -->
@@ -271,7 +286,7 @@ function copySchema() {
         <Textarea
           v-model="jsonInput"
           rows="8"
-          class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-none placeholder:text-muted-foreground/50"
+          class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-vertical max-h-[40vh] overflow-y-auto placeholder:text-muted-foreground/50"
           placeholder='Paste your JSON data here...'
         />
       </div>
@@ -310,7 +325,7 @@ function copySchema() {
       <Textarea
         v-model="csvInput"
         rows="8"
-        class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-none placeholder:text-muted-foreground/50"
+        class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-vertical max-h-[40vh] overflow-y-auto placeholder:text-muted-foreground/50"
         placeholder="Month,Revenue&#10;Jan,100&#10;Feb,150&#10;Mar,200"
       />
 

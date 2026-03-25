@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Section, Slide, SlideComponent, LayoutType, CommentarySource } from '@/types'
+import type { Section, Slide, SlideComponent, SlideStructure, CommentarySource } from '@/types'
+import { createRegions, getRegionCount } from '@/types'
 
 export const useSlidesStore = defineStore('slides', () => {
   const sections = ref<Section[]>([])
   const activeSlideId = ref<string | null>(null)
   const activeSectionId = ref<string | null>(null)
+  const activeRegionIndex = ref<number>(0)
 
   const allSlides = computed(() => sections.value.flatMap((s) => s.slides))
 
@@ -18,6 +20,12 @@ export const useSlidesStore = defineStore('slides', () => {
   )
 
   const totalSlideCount = computed(() => allSlides.value.length)
+
+  const activeRegion = computed(() => {
+    const slide = activeSlide.value
+    if (!slide) return null
+    return slide.regions[activeRegionIndex.value] ?? null
+  })
 
   function setSections(newSections: Section[]) {
     sections.value = newSections
@@ -55,15 +63,15 @@ export const useSlidesStore = defineStore('slides', () => {
       .filter((s): s is Section => !!s)
   }
 
-  function addSlide(sectionId: string, layout: LayoutType) {
+  function addSlide(sectionId: string, structure: SlideStructure) {
     const section = sections.value.find((s) => s.id === sectionId)
     if (!section) return
 
     const slide: Slide = {
       id: crypto.randomUUID(),
       title: `Slide ${section.slides.length + 1}`,
-      layout,
-      components: [],
+      structure,
+      regions: createRegions(structure),
       commentary: '',
       commentarySource: 'manual',
       order: section.slides.length,
@@ -71,6 +79,7 @@ export const useSlidesStore = defineStore('slides', () => {
     section.slides.push(slide)
     activeSlideId.value = slide.id
     activeSectionId.value = sectionId
+    activeRegionIndex.value = 0
   }
 
   function removeSlide(sectionId: string, slideId: string) {
@@ -84,14 +93,49 @@ export const useSlidesStore = defineStore('slides', () => {
     }
   }
 
-  function updateSlideLayout(slideId: string, layout: LayoutType) {
+  function updateSlideStructure(slideId: string, structure: SlideStructure) {
     const slide = allSlides.value.find((s) => s.id === slideId)
-    if (slide) slide.layout = layout
+    if (!slide) return
+
+    const oldRegions = slide.regions
+    const newCount = getRegionCount(structure)
+    const newRegions = createRegions(structure)
+
+    // Carry over existing components into the new regions (as many as fit)
+    const existingComponents = oldRegions
+      .map((r) => r.component)
+      .filter((c): c is SlideComponent => c !== null)
+    for (let i = 0; i < Math.min(existingComponents.length, newCount); i++) {
+      newRegions[i].component = existingComponents[i]
+    }
+
+    slide.structure = structure
+    slide.regions = newRegions
+
+    if (activeRegionIndex.value >= newCount) {
+      activeRegionIndex.value = 0
+    }
   }
 
-  function updateSlideComponents(slideId: string, components: SlideComponent[]) {
+  function setRegionComponent(slideId: string, regionIndex: number, component: SlideComponent) {
     const slide = allSlides.value.find((s) => s.id === slideId)
-    if (slide) slide.components = components
+    if (!slide || regionIndex < 0 || regionIndex >= slide.regions.length) return
+    slide.regions[regionIndex].component = component
+  }
+
+  function clearRegion(slideId: string, regionIndex: number) {
+    const slide = allSlides.value.find((s) => s.id === slideId)
+    if (!slide || regionIndex < 0 || regionIndex >= slide.regions.length) return
+    slide.regions[regionIndex].component = null
+  }
+
+  /** Flat list of all non-null components across regions (convenience accessor) */
+  function getSlideComponents(slideId: string): SlideComponent[] {
+    const slide = allSlides.value.find((s) => s.id === slideId)
+    if (!slide) return []
+    return slide.regions
+      .map((r) => r.component)
+      .filter((c): c is SlideComponent => c !== null)
   }
 
   function updateSlideCommentary(
@@ -108,6 +152,7 @@ export const useSlidesStore = defineStore('slides', () => {
 
   function setActiveSlide(slideId: string | null) {
     activeSlideId.value = slideId
+    activeRegionIndex.value = 0
     if (slideId) {
       const section = sections.value.find((s) =>
         s.slides.some((sl) => sl.id === slideId),
@@ -116,19 +161,26 @@ export const useSlidesStore = defineStore('slides', () => {
     }
   }
 
+  function setActiveRegion(index: number) {
+    activeRegionIndex.value = index
+  }
+
   function $reset() {
     sections.value = []
     activeSlideId.value = null
     activeSectionId.value = null
+    activeRegionIndex.value = 0
   }
 
   return {
     sections,
     activeSlideId,
     activeSectionId,
+    activeRegionIndex,
     allSlides,
     activeSlide,
     activeSection,
+    activeRegion,
     totalSlideCount,
     setSections,
     addSection,
@@ -136,10 +188,13 @@ export const useSlidesStore = defineStore('slides', () => {
     updateSectionOrder,
     addSlide,
     removeSlide,
-    updateSlideLayout,
-    updateSlideComponents,
+    updateSlideStructure,
+    setRegionComponent,
+    clearRegion,
+    getSlideComponents,
     updateSlideCommentary,
     setActiveSlide,
+    setActiveRegion,
     $reset,
   }
 })
