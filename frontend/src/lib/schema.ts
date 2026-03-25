@@ -27,12 +27,12 @@ export function detectDataType(raw: unknown): DetectionResult {
   }
 
   if (Array.isArray(obj.labels) && Array.isArray(obj.values)) {
-    const chartType = inferChartType(obj.values as number[])
+    const chartType = inferChartType(obj.values as number[], obj.labels as string[])
     return { type: 'chart', confidence: 0.9, chartType, errors: [] }
   }
 
   if (Array.isArray(obj.x_axis) && Array.isArray(obj.y_axis)) {
-    const chartType = inferChartType(obj.y_axis as number[])
+    const chartType = inferChartType(obj.y_axis as number[], obj.x_axis as string[])
     return { type: 'chart', confidence: 0.95, chartType, errors: [] }
   }
 
@@ -47,8 +47,16 @@ export function detectDataType(raw: unknown): DetectionResult {
   return { type: 'unknown', confidence: 0, errors: ['Could not determine data type'] }
 }
 
-function inferChartType(values: number[]): ChartType {
-  if (values.length <= 5 && values.every((v) => v >= 0)) return 'pie'
+function inferChartType(values: number[], labels?: (string | number)[]): ChartType {
+  const allNonNegative = values.every((v) => v >= 0)
+  const labelsAreNumeric = labels != null && labels.every((l) => !isNaN(Number(l)))
+
+  if (!labelsAreNumeric && allNonNegative && values.length >= 2 && values.length <= 5) {
+    const sum = values.reduce((a, b) => a + b, 0)
+    const looksLikeProportions = (sum > 90 && sum < 110) || (sum > 0.9 && sum < 1.1)
+    if (looksLikeProportions) return 'pie'
+  }
+
   if (values.length > 8) return 'line'
   return 'bar'
 }
