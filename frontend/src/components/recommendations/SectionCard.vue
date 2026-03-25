@@ -44,7 +44,7 @@ const templateTypeIcons = {
   >
     <div class="flex items-start gap-3">
       <!-- Drag handle -->
-      <div class="drag-handle flex-shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-zinc-700 hover:text-zinc-500 transition-colors">
+      <div class="drag-handle flex-shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors">
         <GripVertical :size="16" :stroke-width="1.5" />
       </div>
 
@@ -53,14 +53,14 @@ const templateTypeIcons = {
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-[10px] font-mono text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded">
+              <span class="text-[10px] font-mono text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded">
                 {{ index + 1 }}
               </span>
               <h4 class="font-display font-semibold text-sm tracking-tight">
                 {{ section.name }}
               </h4>
             </div>
-            <p class="text-xs text-zinc-500 line-clamp-2">{{ section.description }}</p>
+            <p class="text-xs text-muted-foreground line-clamp-2">{{ section.description }}</p>
           </div>
 
           <!-- Actions -->
@@ -70,14 +70,14 @@ const templateTypeIcons = {
               :class="
                 section.accepted
                   ? 'bg-amber-500/15 text-amber-500 hover:bg-amber-500/25'
-                  : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
               "
               @click="emit('toggle', section.id)"
             >
               <Check :size="14" :stroke-width="2" />
             </button>
             <button
-              class="p-1.5 rounded-lg bg-zinc-800 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+              class="p-1.5 rounded-lg bg-muted text-muted-foreground/70 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
               @click="emit('remove', section.id)"
             >
               <X :size="14" :stroke-width="2" />
@@ -91,7 +91,7 @@ const templateTypeIcons = {
             v-for="tmpl in section.suggestedTemplates"
             :key="tmpl.id"
             variant="secondary"
-            class="text-[10px] bg-white/5 text-zinc-400 border border-[rgba(255,255,255,0.06)] rounded-md px-2 py-1 flex items-center gap-1"
+            class="text-[10px] bg-foreground/5 text-muted-foreground border border-border rounded-md px-2 py-1 flex items-center gap-1"
           >
             <component
               :is="templateTypeIcons[tmpl.type]"
@@ -104,7 +104,7 @@ const templateTypeIcons = {
 
         <!-- Expandable templates detail -->
         <button
-          class="mt-3 flex items-center gap-1 text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
+          class="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-muted-foreground transition-colors"
           @click="expanded = !expanded"
         >
           <component :is="expanded ? ChevronUp : ChevronDown" :size="12" :stroke-width="1.5" />
@@ -116,7 +116,7 @@ const templateTypeIcons = {
             <div
               v-for="tmpl in section.suggestedTemplates"
               :key="tmpl.id"
-              class="p-3 rounded-lg bg-white/[0.03] border border-[rgba(255,255,255,0.04)]"
+              class="p-3 rounded-lg bg-foreground/[0.03] border border-border"
             >
               <div class="flex items-center gap-2 mb-1">
                 <component
@@ -128,12 +128,12 @@ const templateTypeIcons = {
                 <span class="text-xs font-medium">{{ tmpl.name }}</span>
                 <Badge
                   variant="secondary"
-                  class="text-[9px] bg-white/5 text-zinc-500 border-none ml-auto rounded-full"
+                  class="text-[9px] bg-foreground/5 text-muted-foreground border-none ml-auto rounded-full"
                 >
                   {{ tmpl.layout }}
                 </Badge>
               </div>
-              <p class="text-[11px] text-zinc-600">{{ tmpl.previewDescription }}</p>
+              <p class="text-[11px] text-muted-foreground/70">{{ tmpl.previewDescription }}</p>
             </div>
           </div>
         </Transition>

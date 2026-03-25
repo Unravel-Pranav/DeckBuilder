@@ -60,11 +60,11 @@ function handleContinue() {
       <SlideCanvas />
 
       <!-- Continue bar -->
-      <div class="px-6 py-3 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+      <div class="px-6 py-3 border-t border-border flex items-center justify-between">
         <!-- Right panel toggle -->
         <button
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200"
-          :class="rightPanelOpen ? 'text-amber-500 bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'"
+          :class="rightPanelOpen ? 'text-amber-500 bg-amber-500/10' : 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5'"
           @click="rightPanelOpen = !rightPanelOpen"
         >
           <PanelRightClose v-if="rightPanelOpen" :size="14" :stroke-width="1.5" />
@@ -73,7 +73,7 @@ function handleContinue() {
         </button>
 
         <Button
-          class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-9 px-6 rounded-lg shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-sm"
+          class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-9 px-6 rounded-lg shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-sm"
           @click="handleContinue"
         >
           Preview & Generate
@@ -86,31 +86,31 @@ function handleContinue() {
     <Transition name="slide-panel">
       <div
         v-if="rightPanelOpen"
-        class="w-80 flex-shrink-0 flex flex-col border-l border-[rgba(255,255,255,0.08)]"
-        style="background: rgba(18, 18, 26, 0.95)"
+        class="w-80 flex-shrink-0 flex flex-col border-l border-border"
+        :style="{ background: 'var(--surface-elevated)' }"
       >
         <Tabs
           v-model="rightTab"
           class="flex flex-col h-full"
         >
-          <TabsList class="w-full grid grid-cols-3 bg-white/[0.03] rounded-none border-b border-[rgba(255,255,255,0.06)] h-auto p-0">
+          <TabsList class="w-full grid grid-cols-3 bg-foreground/[0.03] rounded-none border-b border-border h-auto p-0">
             <TabsTrigger
               value="templates"
-              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-zinc-500"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-muted-foreground"
             >
               <LayoutTemplate :size="12" :stroke-width="1.5" />
               Templates
             </TabsTrigger>
             <TabsTrigger
               value="data"
-              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-zinc-500"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-muted-foreground"
             >
               <Database :size="12" :stroke-width="1.5" />
               Data
             </TabsTrigger>
             <TabsTrigger
               value="commentary"
-              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-zinc-500"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-muted-foreground"
             >
               <MessageSquare :size="12" :stroke-width="1.5" />
               Text

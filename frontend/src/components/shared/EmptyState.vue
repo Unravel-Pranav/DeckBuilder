@@ -21,7 +21,7 @@ defineProps<Props>()
     <h3 class="text-xl font-display font-semibold tracking-tight mb-2">
       {{ title }}
     </h3>
-    <p v-if="description" class="text-sm text-zinc-500 max-w-sm">
+    <p v-if="description" class="text-sm text-muted-foreground max-w-sm">
       {{ description }}
     </p>
     <div class="mt-6">

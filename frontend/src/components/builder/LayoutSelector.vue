@@ -32,8 +32,8 @@ function setLayout(layout: LayoutType) {
 </script>
 
 <template>
-  <div class="flex items-center gap-1.5 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] overflow-x-auto">
-    <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 mr-2 flex-shrink-0">Layout</span>
+  <div class="flex items-center gap-1.5 px-4 py-2 border-b border-border overflow-x-auto">
+    <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mr-2 flex-shrink-0">Layout</span>
     <button
       v-for="layout in layouts"
       :key="layout.id"
@@ -41,7 +41,7 @@ function setLayout(layout: LayoutType) {
       :class="
         activeLayout === layout.id
           ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-          : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5 border border-transparent'
+          : 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5 border border-transparent'
       "
       @click="setLayout(layout.id)"
     >

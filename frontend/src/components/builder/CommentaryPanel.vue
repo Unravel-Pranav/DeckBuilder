@@ -70,7 +70,7 @@ function applyManual() {
 <template>
   <div class="space-y-4">
     <!-- Mode selector -->
-    <div class="flex gap-1 p-1 rounded-lg bg-white/[0.03]">
+    <div class="flex gap-1 p-1 rounded-lg bg-foreground/[0.03]">
       <button
         v-for="mode in [
           { id: 'ai' as const, label: 'AI Generate', icon: Sparkles },
@@ -79,7 +79,7 @@ function applyManual() {
         ]"
         :key="mode.id"
         class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-[11px] font-medium transition-all duration-200"
-        :class="commentaryMode === mode.id ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-500 hover:text-zinc-300'"
+        :class="commentaryMode === mode.id ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:text-foreground/80'"
         @click="commentaryMode = mode.id"
       >
         <component :is="mode.icon" :size="12" :stroke-width="1.5" />
@@ -88,47 +88,47 @@ function applyManual() {
     </div>
 
     <!-- Context indicator -->
-    <div class="flex items-center gap-2 flex-wrap text-[9px] font-mono text-zinc-600">
-      <span class="px-1.5 py-0.5 rounded bg-white/5">{{ dominantContext }}</span>
-      <span v-if="sectionName" class="px-1.5 py-0.5 rounded bg-white/5">{{ sectionName }}</span>
-      <span class="px-1.5 py-0.5 rounded bg-white/5">{{ presentationStore.intent.type }}</span>
-      <span class="px-1.5 py-0.5 rounded bg-white/5">{{ presentationStore.intent.tone }}</span>
+    <div class="flex items-center gap-2 flex-wrap text-[9px] font-mono text-muted-foreground/70">
+      <span class="px-1.5 py-0.5 rounded bg-foreground/5">{{ dominantContext }}</span>
+      <span v-if="sectionName" class="px-1.5 py-0.5 rounded bg-foreground/5">{{ sectionName }}</span>
+      <span class="px-1.5 py-0.5 rounded bg-foreground/5">{{ presentationStore.intent.type }}</span>
+      <span class="px-1.5 py-0.5 rounded bg-foreground/5">{{ presentationStore.intent.tone }}</span>
     </div>
 
     <!-- Current commentary -->
-    <div v-if="currentCommentary" class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
+    <div v-if="currentCommentary" class="p-3 rounded-lg bg-foreground/[0.02] border border-border">
       <div class="flex items-center gap-2 mb-2">
-        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Current Commentary</span>
+        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Current Commentary</span>
         <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
           {{ slidesStore.activeSlide?.commentarySource }}
         </span>
       </div>
-      <p class="text-xs text-zinc-400 leading-relaxed">{{ currentCommentary }}</p>
+      <p class="text-xs text-muted-foreground leading-relaxed">{{ currentCommentary }}</p>
     </div>
 
-    <!-- Data source preview (new) -->
-    <div v-if="dominantContext !== 'text' && dominantContext !== 'default'" class="p-3 rounded-lg bg-white/[0.01] border border-dashed border-zinc-800">
+    <!-- Data source preview -->
+    <div v-if="dominantContext !== 'text' && dominantContext !== 'default'" class="p-3 rounded-lg bg-foreground/[0.01] border border-dashed border-border">
       <div class="flex items-center gap-2 mb-2">
-        <Database :size="10" class="text-zinc-500" />
-        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Reference Data</span>
+        <Database :size="10" class="text-muted-foreground" />
+        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Reference Data</span>
       </div>
-      <div v-if="slidesStore.activeSlide?.components.some(c => c.type === 'chart')" class="text-[10px] text-zinc-500 font-mono">
+      <div v-if="slidesStore.activeSlide?.components.some(c => c.type === 'chart')" class="text-[10px] text-muted-foreground font-mono">
         {{ (slidesStore.activeSlide?.components.find(c => c.type === 'chart') as any)?.data.labels.join(', ') }} ...
       </div>
-      <div v-else-if="slidesStore.activeSlide?.components.some(c => c.type === 'table')" class="text-[10px] text-zinc-500 font-mono">
+      <div v-else-if="slidesStore.activeSlide?.components.some(c => c.type === 'table')" class="text-[10px] text-muted-foreground font-mono">
         {{ (slidesStore.activeSlide?.components.find(c => c.type === 'table') as any)?.data.headers.join(' | ') }}
       </div>
     </div>
 
     <!-- AI Generate -->
     <div v-if="commentaryMode === 'ai'" class="space-y-3">
-      <p class="text-xs text-zinc-500">
+      <p class="text-xs text-muted-foreground">
         AI will analyze the slide's {{ dominantContext }} data in the context of
-        <span class="text-zinc-400">{{ sectionName || 'this section' }}</span>
+        <span class="text-foreground/80">{{ sectionName || 'this section' }}</span>
         and generate {{ presentationStore.intent.tone }} commentary.
       </p>
       <Button
-        class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
+        class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
         :disabled="aiStore.isGeneratingCommentary"
         @click="generateFromData"
       >
@@ -140,7 +140,7 @@ function applyManual() {
       <Button
         v-if="currentCommentary"
         variant="outline"
-        class="w-full border-[rgba(255,255,255,0.1)] text-zinc-400 hover:bg-white/5 rounded-lg h-9 text-sm"
+        class="w-full border-border text-muted-foreground hover:bg-foreground/5 rounded-lg h-9 text-sm"
         :disabled="aiStore.isGeneratingCommentary"
         @click="generateFromData"
       >
@@ -154,11 +154,11 @@ function applyManual() {
       <Textarea
         v-model="promptText"
         rows="3"
-        class="text-xs bg-[rgba(10,10,15,0.6)] border-[rgba(255,255,255,0.06)] rounded-lg resize-none placeholder:text-zinc-700"
+        class="text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-none placeholder:text-muted-foreground/50"
         placeholder="Describe what the commentary should focus on..."
       />
       <Button
-        class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
+        class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
         :disabled="!promptText.trim() || aiStore.isGeneratingCommentary"
         @click="generateFromPrompt"
       >
@@ -173,11 +173,11 @@ function applyManual() {
       <Textarea
         v-model="manualText"
         rows="6"
-        class="text-xs bg-[rgba(10,10,15,0.6)] border-[rgba(255,255,255,0.06)] rounded-lg resize-none placeholder:text-zinc-700"
+        class="text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-none placeholder:text-muted-foreground/50"
         placeholder="Write or paste your commentary..."
       />
       <Button
-        class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
+        class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
         :disabled="!manualText.trim()"
         @click="applyManual"
       >

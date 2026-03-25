@@ -90,24 +90,24 @@ function getBarHeights(data: number[]): number[] {
 </script>
 
 <template>
-  <div class="border-b border-[rgba(255,255,255,0.06)]">
+  <div class="border-b border-border">
     <!-- Category tabs -->
     <div class="flex items-center gap-1 px-4 pt-2 pb-0">
-      <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 mr-2 flex-shrink-0">Template</span>
+      <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mr-2 flex-shrink-0">Template</span>
       <button
         v-for="cat in categories"
         :key="cat.id"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-[11px] font-medium transition-all duration-200 border border-b-0"
         :class="
           activeCategory === cat.id
-            ? 'bg-[rgba(26,26,36,0.6)] text-amber-500 border-[rgba(255,255,255,0.08)]'
-            : 'text-zinc-500 hover:text-zinc-300 border-transparent'
+            ? 'bg-[var(--glass-bg)] text-amber-500 border-border'
+            : 'text-muted-foreground hover:text-foreground/80 border-transparent'
         "
         @click="activeCategory = cat.id"
       >
         <component :is="cat.icon" :size="12" :stroke-width="1.5" />
         {{ cat.label }}
-        <span class="text-[9px] text-zinc-600 font-mono">{{ cat.count }}</span>
+        <span class="text-[9px] text-muted-foreground/70 font-mono">{{ cat.count }}</span>
       </button>
     </div>
 
@@ -121,7 +121,7 @@ function getBarHeights(data: number[]): number[] {
           :class="
             appliedTemplateIds.has(tmpl.id)
               ? 'border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-              : 'border-[rgba(255,255,255,0.06)] bg-[rgba(26,26,36,0.3)] hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(26,26,36,0.5)]'
+              : 'border-border bg-[var(--glass-bg)] hover:border-[color:var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]'
           "
           @click="applyTemplate(tmpl)"
         >
@@ -130,11 +130,11 @@ function getBarHeights(data: number[]): number[] {
             v-if="appliedTemplateIds.has(tmpl.id)"
             class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center"
           >
-            <Check :size="10" :stroke-width="3" class="text-[#0A0A0F]" />
+            <Check :size="10" :stroke-width="3" class="text-[#09090B]" />
           </div>
 
           <!-- Mini preview -->
-          <div class="h-16 mb-2 rounded bg-[rgba(10,10,15,0.5)] border border-[rgba(255,255,255,0.04)] flex items-end p-1.5 overflow-hidden">
+          <div class="h-16 mb-2 rounded bg-[var(--preview-surface)] border border-border flex items-end p-1.5 overflow-hidden">
             <!-- Chart mini preview -->
             <template v-if="tmpl.category === 'chart' && isChartData(tmpl.previewData)">
               <template v-if="tmpl.chartType === 'bar'">
@@ -173,7 +173,7 @@ function getBarHeights(data: number[]): number[] {
                   >
                     <div
                       v-if="tmpl.chartType === 'doughnut'"
-                      class="w-5 h-5 rounded-full bg-[rgba(10,10,15,0.9)] mt-2.5 ml-2.5"
+                      class="w-5 h-5 rounded-full bg-[var(--preview-surface-deep)] mt-2.5 ml-2.5"
                     />
                   </div>
                 </div>
@@ -206,7 +206,7 @@ function getBarHeights(data: number[]): number[] {
                   <div
                     v-for="c in Math.min((tmpl.previewData as TableData).headers.length, 3)"
                     :key="c"
-                    class="flex-1 h-1 rounded-sm bg-zinc-800"
+                    class="flex-1 h-1 rounded-sm bg-muted"
                   />
                 </div>
               </div>
@@ -215,25 +215,25 @@ function getBarHeights(data: number[]): number[] {
             <!-- Text mini preview -->
             <template v-else>
               <div class="w-full space-y-1 py-1">
-                <div class="h-1 w-full rounded-sm" :style="{ backgroundColor: appliedTemplateIds.has(tmpl.id) ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)' }" />
-                <div class="h-1 w-3/4 rounded-sm bg-zinc-800" />
-                <div class="h-1 w-5/6 rounded-sm bg-zinc-800" />
-                <div class="h-1 w-2/3 rounded-sm bg-zinc-800" />
+                <div class="h-1 w-full rounded-sm" :style="{ backgroundColor: appliedTemplateIds.has(tmpl.id) ? 'rgba(245,158,11,0.3)' : 'rgba(0,0,0,0.08)' }" />
+                <div class="h-1 w-3/4 rounded-sm bg-muted" />
+                <div class="h-1 w-5/6 rounded-sm bg-muted" />
+                <div class="h-1 w-2/3 rounded-sm bg-muted" />
               </div>
             </template>
           </div>
 
           <!-- Info -->
-          <p class="text-[11px] font-medium truncate" :class="appliedTemplateIds.has(tmpl.id) ? 'text-amber-500' : 'text-zinc-300'">
+          <p class="text-[11px] font-medium truncate" :class="appliedTemplateIds.has(tmpl.id) ? 'text-amber-500' : 'text-foreground/80'">
             {{ tmpl.name }}
           </p>
-          <p class="text-[9px] text-zinc-600 line-clamp-1 mt-0.5">{{ tmpl.description }}</p>
+          <p class="text-[9px] text-muted-foreground/70 line-clamp-1 mt-0.5">{{ tmpl.description }}</p>
 
           <!-- Chart type badge -->
           <Badge
             v-if="tmpl.chartType"
             variant="secondary"
-            class="mt-1.5 text-[8px] bg-white/5 text-zinc-500 rounded-full px-1.5 py-0 inline-flex items-center gap-0.5 border-none"
+            class="mt-1.5 text-[8px] bg-foreground/5 text-muted-foreground rounded-full px-1.5 py-0 inline-flex items-center gap-0.5 border-none"
           >
             <component :is="chartTypeIcons[tmpl.chartType] ?? BarChart3" :size="8" :stroke-width="1.5" />
             {{ tmpl.chartType }}

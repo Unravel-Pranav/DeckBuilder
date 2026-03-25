@@ -72,7 +72,6 @@ function openExportDeckFile() {
 
 async function generatePPTAction() {
   if (!presentationStore.currentPresentation) {
-    // For demo/dev purposes, if no presentation is set, we might want to create one
     if (slidesStore.sections.length > 0) {
         presentationStore.createPresentation("Manual Presentation")
     } else {
@@ -80,13 +79,12 @@ async function generatePPTAction() {
         return
     }
   }
-  
+
   isGenerating.value = true
   generateProgress.value = 10
   errorMessage.value = null
 
   try {
-    // 1. Transform data
     const payload = transformToBackendFormat(
       presentationStore.currentPresentation!,
       slidesStore.sections,
@@ -95,16 +93,12 @@ async function generatePPTAction() {
     console.log('Sending payload to backend:', payload)
     generateProgress.value = 30
 
-    // 2. Call backend
     const result = await generatePPT(payload)
     generateProgress.value = 80
 
     if (result.success && result.file_id) {
-      // 3. Trigger download
       downloadFile(result.file_id, result.filename)
       generateProgress.value = 100
-      
-      // 4. Update UI state
       uiStore.completeStep('preview')
       uiStore.setCurrentStep('output')
       router.push('/output')
@@ -143,7 +137,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
 
           <!-- Slide card -->
           <div
-            class="aspect-[16/9] rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,15,0.8)] p-8 flex flex-col shadow-xl"
+            class="aspect-[16/9] rounded-xl border border-border bg-[var(--preview-surface)] p-8 flex flex-col shadow-xl"
           >
             <h3 class="font-display font-bold text-xl tracking-tight mb-6">
               {{ currentSlide.title }}
@@ -157,17 +151,17 @@ const layoutIcons: Record<string, typeof BarChart3> = {
                   :stroke-width="1"
                   class="mx-auto mb-4 text-amber-500/40"
                 />
-                <p class="text-sm text-zinc-500 max-w-md">
+                <p class="text-sm text-muted-foreground max-w-md">
                   {{ currentSlide.commentary || 'Slide content preview — data and visuals will be rendered in the final PPT.' }}
                 </p>
               </div>
             </div>
 
-            <div class="flex items-center justify-between mt-4 pt-4 border-t border-[rgba(255,255,255,0.04)]">
-              <span class="text-[10px] font-mono text-zinc-600">
+            <div class="flex items-center justify-between mt-4 pt-4 border-t border-border">
+              <span class="text-[10px] font-mono text-muted-foreground/70">
                 {{ sectionForSlide?.name }}
               </span>
-              <span class="text-[10px] font-mono text-zinc-600">
+              <span class="text-[10px] font-mono text-muted-foreground/70">
                 {{ currentSlideIndex + 1 }} / {{ allSlides.length }}
               </span>
             </div>
@@ -177,7 +171,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
           <div class="flex items-center justify-between mt-6">
             <Button
               variant="outline"
-              class="border-[rgba(255,255,255,0.1)] text-zinc-400 hover:bg-white/5 rounded-lg h-9"
+              class="border-border text-muted-foreground hover:bg-foreground/5 rounded-lg h-9"
               :disabled="currentSlideIndex === 0"
               @click="prevSlide"
             >
@@ -193,7 +187,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
                 :class="
                   idx === currentSlideIndex
                     ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-                    : 'bg-zinc-800 hover:bg-zinc-700'
+                    : 'bg-muted hover:bg-muted-foreground/30'
                 "
                 @click="currentSlideIndex = idx"
               />
@@ -201,7 +195,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
 
             <Button
               variant="outline"
-              class="border-[rgba(255,255,255,0.1)] text-zinc-400 hover:bg-white/5 rounded-lg h-9"
+              class="border-border text-muted-foreground hover:bg-foreground/5 rounded-lg h-9"
               :disabled="currentSlideIndex === allSlides.length - 1"
               @click="nextSlide"
             >
@@ -214,32 +208,32 @@ const layoutIcons: Record<string, typeof BarChart3> = {
     </div>
 
     <!-- Right sidebar: Summary -->
-    <div class="w-72 flex-shrink-0 border-l border-[rgba(255,255,255,0.08)] flex flex-col" style="background: rgba(18, 18, 26, 0.9)">
-      <div class="px-4 py-4 border-b border-[rgba(255,255,255,0.06)]">
+    <div class="w-72 flex-shrink-0 border-l border-border flex flex-col" :style="{ background: 'var(--surface-elevated)' }">
+      <div class="px-4 py-4 border-b border-border">
         <h3 class="text-sm font-display font-semibold tracking-tight">Presentation Summary</h3>
       </div>
 
       <ScrollArea class="flex-1">
         <div class="p-4 space-y-4">
-          <div class="rounded-lg border border-[rgba(255,255,255,0.08)] p-3 bg-[rgba(10,10,15,0.5)]">
-            <p class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
+          <div class="rounded-lg border border-border p-3 bg-[var(--preview-surface)]">
+            <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
               Export base deck
             </p>
             <template v-if="deckTemplateStore.selectedTemplateId != null">
-              <p class="text-xs text-zinc-300 truncate" :title="deckTemplateStore.selectedTemplateName ?? ''">
+              <p class="text-xs text-foreground/80 truncate" :title="deckTemplateStore.selectedTemplateName ?? ''">
                 {{ deckTemplateStore.selectedTemplateName }}
               </p>
               <div class="flex flex-wrap gap-2 mt-2">
                 <Button size="sm" variant="outline" class="h-8 text-xs" @click="openExportDeckFile">
                   View .pptx
                 </Button>
-                <Button size="sm" variant="ghost" class="h-8 text-xs text-zinc-500" @click="deckTemplateStore.clearExportDeck()">
+                <Button size="sm" variant="ghost" class="h-8 text-xs text-muted-foreground" @click="deckTemplateStore.clearExportDeck()">
                   Clear
                 </Button>
               </div>
             </template>
             <template v-else>
-              <p class="text-xs text-zinc-500">
+              <p class="text-xs text-muted-foreground">
                 Built-in theme only. Upload a deck and it becomes the export base automatically, or pick one under Templates.
               </p>
               <Button size="sm" variant="outline" class="h-8 text-xs mt-2 w-full" @click="router.push('/templates')">
@@ -250,28 +244,28 @@ const layoutIcons: Record<string, typeof BarChart3> = {
           <!-- Stats -->
           <div class="grid grid-cols-2 gap-3">
             <GlassCard padding="p-3">
-              <p class="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">Sections</p>
+              <p class="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider mb-1">Sections</p>
               <p class="text-lg font-display font-bold text-amber-500">{{ slidesStore.sections.length }}</p>
             </GlassCard>
             <GlassCard padding="p-3">
-              <p class="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">Slides</p>
+              <p class="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider mb-1">Slides</p>
               <p class="text-lg font-display font-bold text-amber-500">{{ allSlides.length }}</p>
             </GlassCard>
           </div>
 
           <!-- Section list -->
           <div>
-            <p class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 mb-2">Sections</p>
+            <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-2">Sections</p>
             <div class="space-y-1.5">
               <div
                 v-for="section in slidesStore.sections"
                 :key="section.id"
-                class="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/[0.02]"
+                class="flex items-center gap-2 py-2 px-3 rounded-lg bg-foreground/[0.02]"
               >
                 <div class="w-5 h-5 rounded bg-amber-500/10 flex items-center justify-center text-[9px] font-mono text-amber-500">
                   {{ section.slides.length }}
                 </div>
-                <span class="text-xs text-zinc-400 truncate">{{ section.name }}</span>
+                <span class="text-xs text-muted-foreground truncate">{{ section.name }}</span>
               </div>
             </div>
           </div>
@@ -279,7 +273,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
           <!-- Edit current -->
           <Button
             variant="outline"
-            class="w-full border-[rgba(255,255,255,0.1)] text-zinc-400 hover:bg-white/5 rounded-lg h-9 text-xs"
+            class="w-full border-border text-muted-foreground hover:bg-foreground/5 rounded-lg h-9 text-xs"
             @click="editSlide"
           >
             <Edit3 :size="12" :stroke-width="1.5" class="mr-1.5" />
@@ -289,9 +283,9 @@ const layoutIcons: Record<string, typeof BarChart3> = {
       </ScrollArea>
 
       <!-- Generate button -->
-      <div class="p-4 border-t border-[rgba(255,255,255,0.06)]">
+      <div class="p-4 border-t border-border">
         <Button
-          class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 font-medium h-12 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98] text-sm"
+          class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-12 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98] text-sm"
           :disabled="isGenerating"
           @click="generatePPTAction"
         >
@@ -306,7 +300,7 @@ const layoutIcons: Record<string, typeof BarChart3> = {
         </Button>
 
         <!-- Progress bar -->
-        <div v-if="isGenerating" class="mt-3 h-1 rounded-full bg-zinc-800 overflow-hidden">
+        <div v-if="isGenerating" class="mt-3 h-1 rounded-full bg-muted overflow-hidden">
           <div
             class="h-full bg-amber-500 rounded-full transition-all duration-300"
             :style="{ width: `${generateProgress}%` }"

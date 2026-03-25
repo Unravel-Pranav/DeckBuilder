@@ -102,8 +102,8 @@ const pptCategoryColors: Record<string, string> = {
   table: 'text-emerald-400',
   front_page: 'text-amber-500',
   last_page: 'text-purple-400',
-  base: 'text-zinc-400',
-  other: 'text-zinc-500',
+  base: 'text-muted-foreground',
+  other: 'text-muted-foreground/70',
 }
 
 function formatFileSize(bytes: number): string {
@@ -155,7 +155,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
             Templates
           </h2>
         </div>
-        <p class="text-sm text-zinc-500 ml-10">
+        <p class="text-sm text-muted-foreground ml-10">
           PowerPoint layouts registered with the PPT engine (server).
         </p>
       </div>
@@ -163,7 +163,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
       <div class="flex items-center gap-2">
         <Button
           variant="outline"
-          class="border-[rgba(255,255,255,0.15)] text-zinc-300 hover:bg-white/5 rounded-lg h-9 text-sm"
+          class="border-border text-foreground/80 hover:bg-foreground/5 rounded-lg h-9 text-sm"
           @click="$router.push('/templates/upload')"
         >
           <Upload :size="14" :stroke-width="1.5" class="mr-1.5" />
@@ -173,9 +173,9 @@ function pptLinePoints(data: number[], heightScale = 1): string {
     </div>
 
     <!-- Loading -->
-    <div v-if="templatesStore.isLoadingBackend" class="flex flex-col items-center justify-center py-20">
+      <div v-if="templatesStore.isLoadingBackend" class="flex flex-col items-center justify-center py-20">
       <div class="animate-spin w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full" />
-      <span class="mt-4 text-sm text-zinc-500">Loading templates…</span>
+      <span class="mt-4 text-sm text-muted-foreground">Loading templates…</span>
     </div>
 
     <template v-else>
@@ -194,18 +194,18 @@ function pptLinePoints(data: number[], heightScale = 1): string {
               :is="tab.icon"
               :size="14"
               :stroke-width="1.5"
-              :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-zinc-500'"
+              :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-muted-foreground'"
             />
             <span
               class="text-xs font-medium truncate"
-              :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-zinc-400'"
+              :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-muted-foreground'"
             >
               {{ tab.label }}
             </span>
           </div>
           <p
             class="text-xl font-display font-bold mt-1"
-            :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-zinc-300'"
+            :class="templatesStore.libraryCategoryFilter === tab.id ? 'text-amber-500' : 'text-foreground/80'"
           >
             {{ templatesStore.libraryCategoryCounts[tab.id] }}
           </p>
@@ -215,25 +215,25 @@ function pptLinePoints(data: number[], heightScale = 1): string {
       <!-- Search + view -->
       <div class="flex items-center gap-3 mb-6">
         <div class="relative flex-1">
-          <Search :size="16" :stroke-width="1.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+          <Search :size="16" :stroke-width="1.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             :model-value="templatesStore.searchQuery"
             placeholder="Search by name, filename, or chart/table type…"
-            class="pl-10 h-10 bg-[rgba(26,26,36,0.6)] border-[rgba(255,255,255,0.08)] rounded-xl placeholder:text-zinc-600 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
+            class="pl-10 h-10 bg-[var(--glass-bg)] border-border rounded-xl placeholder:text-muted-foreground/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
             @update:model-value="templatesStore.setSearch($event as string)"
           />
         </div>
-        <div class="flex rounded-lg border border-[rgba(255,255,255,0.08)] overflow-hidden">
+        <div class="flex rounded-lg border border-border overflow-hidden">
           <button
             class="p-2 transition-colors"
-            :class="viewMode === 'grid' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-600 hover:text-zinc-400'"
+            :class="viewMode === 'grid' ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:text-foreground/80'"
             @click="viewMode = 'grid'"
           >
             <Grid3x3 :size="16" :stroke-width="1.5" />
           </button>
           <button
             class="p-2 transition-colors"
-            :class="viewMode === 'list' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-600 hover:text-zinc-400'"
+            :class="viewMode === 'list' ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:text-foreground/80'"
             @click="viewMode = 'list'"
           >
             <List :size="16" :stroke-width="1.5" />
@@ -262,14 +262,14 @@ function pptLinePoints(data: number[], heightScale = 1): string {
         <div
           v-for="tmpl in templatesStore.filteredLibraryTemplates"
           :key="tmpl.filename"
-          class="group rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] hover:border-amber-500/20 transition-all duration-300 overflow-hidden cursor-pointer hover:shadow-[0_0_20px_rgba(245,158,11,0.06)] active:scale-[0.99]"
+          class="group rounded-xl border border-border bg-[var(--glass-bg)] hover:border-amber-500/20 transition-all duration-300 overflow-hidden cursor-pointer hover:shadow-[0_0_20px_rgba(245,158,11,0.06)] active:scale-[0.99]"
           style="backdrop-filter: blur(8px)"
           role="button"
           tabindex="0"
           @click="openTemplateDetail(tmpl)"
           @keydown.enter.prevent="openTemplateDetail(tmpl)"
         >
-          <div class="h-28 bg-[rgba(10,10,15,0.5)] flex items-center justify-center p-3 relative overflow-hidden">
+          <div class="h-28 bg-[var(--preview-surface)] flex items-center justify-center p-3 relative overflow-hidden">
             <Badge
               variant="secondary"
               class="absolute top-2 left-2 z-10 text-[8px] bg-amber-500/15 text-amber-500 border-amber-500/20 rounded-full px-1.5"
@@ -318,7 +318,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
                 />
                 <div
                   v-if="(tmpl.chart_type || '').toLowerCase().includes('donut')"
-                  class="absolute w-7 h-7 rounded-full bg-[rgba(10,10,15,0.92)]"
+                  class="absolute w-7 h-7 rounded-full bg-[var(--preview-surface-deep)]"
                 />
               </div>
             </template>
@@ -364,15 +364,15 @@ function pptLinePoints(data: number[], heightScale = 1): string {
                 :is="pptCategoryIcons[tmpl.category] ?? FileText"
                 :size="28"
                 :stroke-width="1"
-                :class="pptCategoryColors[tmpl.category] ?? 'text-zinc-500'"
+                :class="pptCategoryColors[tmpl.category] ?? 'text-muted-foreground/70'"
                 style="opacity: 0.6"
               />
             </template>
           </div>
           <div class="p-3">
-            <h4 class="text-xs font-medium text-zinc-300 truncate mb-0.5">{{ tmpl.name }}</h4>
+            <h4 class="text-xs font-medium text-foreground/80 truncate mb-0.5">{{ tmpl.name }}</h4>
             <div class="flex items-center gap-1.5 flex-wrap">
-              <Badge variant="secondary" class="text-[8px] bg-white/5 text-zinc-500 border-none rounded-full px-1.5 capitalize">
+              <Badge variant="secondary" class="text-[8px] bg-foreground/5 text-muted-foreground border-none rounded-full px-1.5 capitalize">
                 {{ tmpl.category.replace('_', ' ') }}
               </Badge>
               <Badge v-if="tmpl.chart_type" variant="secondary" class="text-[8px] bg-blue-500/10 text-blue-400 border-none rounded-full px-1.5">
@@ -382,7 +382,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
                 {{ tmpl.table_type }}
               </Badge>
             </div>
-            <p class="text-[9px] font-mono text-zinc-700 mt-1.5">{{ tmpl.filename }} · {{ formatFileSize(tmpl.size) }}</p>
+            <p class="text-[9px] font-mono text-muted-foreground/50 mt-1.5">{{ tmpl.filename }} · {{ formatFileSize(tmpl.size) }}</p>
           </div>
         </div>
       </div>
@@ -392,14 +392,14 @@ function pptLinePoints(data: number[], heightScale = 1): string {
         <div
           v-for="tmpl in templatesStore.filteredLibraryTemplates"
           :key="tmpl.filename"
-          class="flex items-center gap-4 px-4 py-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(26,26,36,0.6)] cursor-pointer hover:border-amber-500/25 transition-colors"
+          class="flex items-center gap-4 px-4 py-3 rounded-xl border border-border bg-[var(--glass-bg)] cursor-pointer hover:border-amber-500/25 transition-colors"
           style="backdrop-filter: blur(8px)"
           role="button"
           tabindex="0"
           @click="openTemplateDetail(tmpl)"
           @keydown.enter.prevent="openTemplateDetail(tmpl)"
         >
-          <div class="w-28 h-16 rounded-lg bg-[rgba(10,10,15,0.5)] flex items-center justify-center overflow-hidden flex-shrink-0 relative p-1.5">
+          <div class="w-28 h-16 rounded-lg bg-[var(--preview-surface)] flex items-center justify-center overflow-hidden flex-shrink-0 relative p-1.5">
             <template v-if="pptPreviewKind(tmpl) === 'bar'">
               <div class="flex items-end gap-0.5 w-full h-full">
                 <div
@@ -459,13 +459,13 @@ function pptLinePoints(data: number[], heightScale = 1): string {
               :is="pptCategoryIcons[tmpl.category] ?? FileText"
               :size="22"
               :stroke-width="1"
-              :class="pptCategoryColors[tmpl.category] ?? 'text-zinc-500'"
+              :class="pptCategoryColors[tmpl.category] ?? 'text-muted-foreground/70'"
               class="opacity-60"
             />
           </div>
           <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-medium text-zinc-300 truncate">{{ tmpl.name }}</h4>
-            <p class="text-[11px] font-mono text-zinc-600 truncate">{{ tmpl.filename }} · {{ formatFileSize(tmpl.size) }}</p>
+            <h4 class="text-sm font-medium text-foreground/80 truncate">{{ tmpl.name }}</h4>
+            <p class="text-[11px] font-mono text-muted-foreground/70 truncate">{{ tmpl.filename }} · {{ formatFileSize(tmpl.size) }}</p>
           </div>
           <Badge variant="secondary" class="text-[9px] capitalize flex-shrink-0">
             {{ tmpl.category.replace('_', ' ') }}
@@ -481,39 +481,39 @@ function pptLinePoints(data: number[], heightScale = 1): string {
     <GlassCard class="mt-10" padding="p-6">
       <div class="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h3 class="text-lg font-display font-semibold tracking-tight text-zinc-200">
+          <h3 class="text-lg font-display font-semibold tracking-tight">
             Your presentation decks
           </h3>
-          <p class="text-xs text-zinc-500 mt-1 max-w-xl">
+          <p class="text-xs text-muted-foreground mt-1 max-w-xl">
             Templates saved in the database with an uploaded .pptx. View the file in PowerPoint or the browser;
             choose one as the base (cover and theme) for generated exports from Preview.
           </p>
         </div>
         <Button
           variant="outline"
-          class="border-[rgba(255,255,255,0.12)] text-zinc-300 shrink-0 text-xs h-8"
+          class="border-border text-foreground/80 shrink-0 text-xs h-8"
           :disabled="savedDecksLoading"
           @click="loadSavedDecks"
         >
           Refresh
         </Button>
       </div>
-      <div v-if="savedDecksLoading" class="text-sm text-zinc-500 py-6">Loading…</div>
+      <div v-if="savedDecksLoading" class="text-sm text-muted-foreground py-6">Loading…</div>
       <p v-else-if="savedDecksError" class="text-sm text-red-400">{{ savedDecksError }}</p>
-      <div v-else-if="savedDecks.length === 0" class="text-sm text-zinc-500 py-4">
+      <div v-else-if="savedDecks.length === 0" class="text-sm text-muted-foreground py-4">
         No rows yet. Upload a .pptx under Upload PPT (or seed the database).
       </div>
       <ul v-else class="space-y-2">
         <li
           v-for="t in savedDecks"
           :key="t.id"
-          class="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.05)]"
+          class="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-foreground/[0.02] border border-border"
         >
-          <span class="text-sm text-zinc-300 flex-1 min-w-[12rem]">{{ t.name }}</span>
+          <span class="text-sm text-foreground/80 flex-1 min-w-[12rem]">{{ t.name }}</span>
           <Badge variant="secondary" class="text-[9px] capitalize">{{ t.ppt_status }}</Badge>
           <Button variant="outline" class="h-8 text-xs" @click="viewSavedDeck(t.id)">View .pptx</Button>
           <Button
-            class="h-8 text-xs bg-amber-500/90 text-[#0A0A0F] hover:bg-amber-400"
+            class="h-8 text-xs bg-amber-500/90 text-[#09090B] hover:bg-amber-400"
             :disabled="t.ppt_status !== 'Attached'"
             @click="useDeckForExports(t)"
           >
@@ -531,7 +531,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
     <Dialog v-model:open="showDetailDialog">
       <DialogContent
         v-if="selectedBackendTemplate"
-        class="bg-[#12121A] border-[rgba(255,255,255,0.08)] rounded-xl max-w-lg"
+        class="bg-popover border-border rounded-xl max-w-lg"
       >
         <DialogHeader>
           <DialogTitle class="font-display tracking-tight flex items-center gap-2">
@@ -543,13 +543,13 @@ function pptLinePoints(data: number[], heightScale = 1): string {
             />
             {{ selectedBackendTemplate.name }}
           </DialogTitle>
-          <DialogDescription class="text-xs text-zinc-500 text-left">
-            Engine template file from the server (<code class="text-zinc-600">individual_templates</code>).
+          <DialogDescription class="text-xs text-muted-foreground text-left">
+            Engine template file from the server (<code class="text-muted-foreground/70">individual_templates</code>).
             The generator selects it when your deck JSON uses the matching chart or table type.
           </DialogDescription>
         </DialogHeader>
 
-        <div class="h-44 rounded-lg bg-[rgba(10,10,15,0.5)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center p-4 relative overflow-hidden">
+        <div class="h-44 rounded-lg bg-[var(--preview-surface)] border border-border flex items-center justify-center p-4 relative overflow-hidden">
           <template v-if="pptPreviewKind(selectedBackendTemplate) === 'bar'">
             <div class="flex items-end gap-1.5 w-full h-full px-2 pt-3">
               <div
@@ -591,7 +591,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
               />
               <div
                 v-if="(selectedBackendTemplate.chart_type || '').toLowerCase().includes('donut')"
-                class="absolute w-12 h-12 rounded-full bg-[rgba(10,10,15,0.92)]"
+                class="absolute w-12 h-12 rounded-full bg-[var(--preview-surface-deep)]"
               />
             </div>
           </template>
@@ -636,7 +636,7 @@ function pptLinePoints(data: number[], heightScale = 1): string {
               :is="pptCategoryIcons[selectedBackendTemplate.category] ?? FileText"
               :size="40"
               :stroke-width="1"
-              :class="pptCategoryColors[selectedBackendTemplate.category] ?? 'text-zinc-500'"
+              :class="pptCategoryColors[selectedBackendTemplate.category] ?? 'text-muted-foreground/70'"
               class="opacity-70"
             />
           </template>
@@ -644,34 +644,34 @@ function pptLinePoints(data: number[], heightScale = 1): string {
 
         <div class="space-y-2 py-2 text-sm">
           <div class="grid grid-cols-2 gap-2">
-            <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">File</p>
-              <p class="text-xs font-mono text-zinc-300 break-all">{{ selectedBackendTemplate.filename }}</p>
+            <div class="p-3 rounded-lg bg-foreground/[0.02] border border-border">
+              <p class="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">File</p>
+              <p class="text-xs font-mono text-foreground/80 break-all">{{ selectedBackendTemplate.filename }}</p>
             </div>
-            <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Size</p>
-              <p class="text-xs text-zinc-300">{{ formatFileSize(selectedBackendTemplate.size) }}</p>
+            <div class="p-3 rounded-lg bg-foreground/[0.02] border border-border">
+              <p class="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">Size</p>
+              <p class="text-xs text-foreground/80">{{ formatFileSize(selectedBackendTemplate.size) }}</p>
             </div>
-            <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Category</p>
-              <p class="text-xs text-zinc-300 capitalize">{{ selectedBackendTemplate.category.replace('_', ' ') }}</p>
+            <div class="p-3 rounded-lg bg-foreground/[0.02] border border-border">
+              <p class="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">Category</p>
+              <p class="text-xs text-foreground/80 capitalize">{{ selectedBackendTemplate.category.replace('_', ' ') }}</p>
             </div>
             <div
               v-if="selectedBackendTemplate.chart_type"
-              class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)] col-span-2"
+              class="p-3 rounded-lg bg-foreground/[0.02] border border-border col-span-2"
             >
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Chart type (JSON)</p>
-              <p class="text-xs text-zinc-300">{{ selectedBackendTemplate.chart_type }}</p>
+              <p class="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">Chart type (JSON)</p>
+              <p class="text-xs text-foreground/80">{{ selectedBackendTemplate.chart_type }}</p>
             </div>
             <div
               v-if="selectedBackendTemplate.table_type"
-              class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)] col-span-2"
+              class="p-3 rounded-lg bg-foreground/[0.02] border border-border col-span-2"
             >
-              <p class="text-[9px] font-mono uppercase tracking-wider text-zinc-600 mb-1">Table type (JSON)</p>
-              <p class="text-xs text-zinc-300">{{ selectedBackendTemplate.table_type }}</p>
+              <p class="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">Table type (JSON)</p>
+              <p class="text-xs text-foreground/80">{{ selectedBackendTemplate.table_type }}</p>
             </div>
           </div>
-          <p class="text-[11px] text-zinc-600 leading-relaxed">
+          <p class="text-[11px] text-muted-foreground/70 leading-relaxed">
             Illustration above is a quick category preview, not a pixel-perfect render of the .pptx slide.
           </p>
         </div>
@@ -679,13 +679,13 @@ function pptLinePoints(data: number[], heightScale = 1): string {
         <DialogFooter class="gap-2 sm:gap-2">
           <Button
             variant="outline"
-            class="border-[rgba(255,255,255,0.15)] rounded-lg"
+            class="border-border rounded-lg"
             @click="copyToClipboard(selectedBackendTemplate.filename)"
           >
             <Copy :size="14" :stroke-width="1.5" class="mr-1.5" />
             Copy filename
           </Button>
-          <Button class="bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg" @click="showDetailDialog = false">
+          <Button class="bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg" @click="showDetailDialog = false">
             Close
           </Button>
         </DialogFooter>

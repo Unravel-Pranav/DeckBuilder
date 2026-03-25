@@ -15,8 +15,8 @@ const uiStore = useUiStore()
           step.isActive
             ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
             : step.isCompleted
-              ? 'bg-white/5 text-zinc-400 border border-transparent'
-              : 'text-zinc-600 border border-transparent',
+              ? 'bg-foreground/5 text-muted-foreground border border-transparent'
+              : 'text-muted-foreground/70 border border-transparent',
         ]"
       >
         <Check v-if="step.isCompleted" :size="12" :stroke-width="2" class="text-amber-500" />
@@ -27,7 +27,7 @@ const uiStore = useUiStore()
       <div
         v-if="index < uiStore.steps.length - 1"
         class="w-4 h-px flex-shrink-0"
-        :class="step.isCompleted ? 'bg-amber-500/30' : 'bg-zinc-800'"
+        :class="step.isCompleted ? 'bg-amber-500/30' : 'bg-border'"
       />
     </template>
   </div>

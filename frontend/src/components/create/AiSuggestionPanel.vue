@@ -64,7 +64,7 @@ watch(
       </div>
       <div>
         <h3 class="text-sm font-display font-semibold tracking-tight">AI Suggestions</h3>
-        <p class="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">Recommended Setup</p>
+        <p class="text-[10px] text-muted-foreground/70 font-mono uppercase tracking-wider">Recommended Setup</p>
       </div>
 
       <!-- Thinking indicator -->
@@ -82,16 +82,16 @@ watch(
         <!-- Suggested sections -->
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <FileText :size="14" :stroke-width="1.5" class="text-zinc-500" />
-            <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Sections</span>
+            <FileText :size="14" :stroke-width="1.5" class="text-muted-foreground" />
+            <span class="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sections</span>
           </div>
           <div class="space-y-1.5">
             <div
               v-for="(section, i) in suggestions.sections"
               :key="section"
-              class="flex items-center gap-2.5 py-1.5 px-3 rounded-lg bg-white/[0.03] text-sm text-zinc-300"
+              class="flex items-center gap-2.5 py-1.5 px-3 rounded-lg bg-foreground/[0.03] text-sm text-foreground/80"
             >
-              <span class="text-[10px] text-zinc-600 font-mono w-4 text-right">{{ i + 1 }}</span>
+              <span class="text-[10px] text-muted-foreground/70 font-mono w-4 text-right">{{ i + 1 }}</span>
               <span>{{ section }}</span>
             </div>
           </div>
@@ -100,8 +100,8 @@ watch(
         <!-- Suggested charts -->
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <BarChart3 :size="14" :stroke-width="1.5" class="text-zinc-500" />
-            <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Chart Types</span>
+            <BarChart3 :size="14" :stroke-width="1.5" class="text-muted-foreground" />
+            <span class="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Chart Types</span>
           </div>
           <div class="flex flex-wrap gap-2">
             <span
@@ -117,16 +117,16 @@ watch(
         <!-- Tone & Style -->
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <Palette :size="14" :stroke-width="1.5" class="text-zinc-500" />
-            <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Tone & Style</span>
+            <Palette :size="14" :stroke-width="1.5" class="text-muted-foreground" />
+            <span class="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Tone & Style</span>
           </div>
-          <p class="text-sm text-zinc-400">{{ suggestions.toneDesc }}</p>
+          <p class="text-sm text-muted-foreground">{{ suggestions.toneDesc }}</p>
         </div>
 
         <!-- Slide estimate -->
-        <div class="pt-3 border-t border-[rgba(255,255,255,0.06)]">
+        <div class="pt-3 border-t border-border">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Est. Slides</span>
+            <span class="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Est. Slides</span>
             <span class="text-sm font-display font-semibold text-amber-500">{{ suggestions.slideCount }}</span>
           </div>
         </div>

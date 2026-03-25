@@ -36,7 +36,6 @@ const validationWarnings = ref<string[]>([])
 const validationState = ref<'idle' | 'valid' | 'invalid' | 'schema-error'>('idle')
 const activeTab = ref<'json' | 'csv'>('json')
 
-// New: Common Data Patterns
 const dataPatterns = [
   { id: 'revenue', icon: 'BarChart3', label: 'Quarterly Revenue (Chart)', data: { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Revenue ($M)' } },
   { id: 'market-share', icon: 'PieChart', label: 'Market Share (Pie)', data: { labels: ['Company A', 'Company B', 'Others'], values: [45, 30, 25] } },
@@ -69,7 +68,6 @@ function processCSVInput() {
     return
   }
 
-  // Strategy: If 2 columns, likely a Chart (Category, Value). If more, likely a Table.
   if (csv.headers.length === 2) {
     const chartData = convertCSVToChart(csv)
     if (chartData) {
@@ -185,22 +183,22 @@ function copySchema() {
 <template>
   <div class="space-y-4">
     <!-- Active data type -->
-    <div class="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03]">
-      <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Editing:</span>
+    <div class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03]">
+      <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Editing:</span>
       <Badge
         variant="secondary"
         class="text-[10px] rounded-full px-2 capitalize"
-        :class="dominantType === 'chart' ? 'bg-amber-500/10 text-amber-500' : 'bg-white/5 text-zinc-400'"
+        :class="dominantType === 'chart' ? 'bg-amber-500/10 text-amber-500' : 'bg-foreground/5 text-muted-foreground'"
       >
         {{ dominantType }} {{ dominantType === 'chart' ? `(${currentChartType})` : '' }}
       </Badge>
     </div>
 
     <!-- Tab selector -->
-    <div class="flex gap-1 p-1 rounded-lg bg-white/[0.03]">
+    <div class="flex gap-1 p-1 rounded-lg bg-foreground/[0.03]">
       <button
         class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all duration-200"
-        :class="activeTab === 'json' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-500 hover:text-zinc-300'"
+        :class="activeTab === 'json' ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:text-foreground/80'"
         @click="activeTab = 'json'"
       >
         <Code2 :size="12" :stroke-width="1.5" />
@@ -208,7 +206,7 @@ function copySchema() {
       </button>
       <button
         class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all duration-200"
-        :class="activeTab === 'csv' ? 'bg-amber-500/10 text-amber-500' : 'text-zinc-500 hover:text-zinc-300'"
+        :class="activeTab === 'csv' ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:text-foreground/80'"
         @click="activeTab = 'csv'"
       >
         <Upload :size="12" :stroke-width="1.5" />
@@ -220,42 +218,42 @@ function copySchema() {
     <div v-if="activeTab === 'json'" class="space-y-4">
       <!-- Quick Patterns -->
       <div class="space-y-2">
-        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-600 px-1">Quick Templates</span>
+        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 px-1">Quick Templates</span>
         <div class="grid grid-cols-2 gap-2">
           <button
             v-for="pattern in dataPatterns"
             :key="pattern.id"
-            class="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-[rgba(255,255,255,0.06)] hover:bg-white/[0.06] hover:border-amber-500/30 transition-all text-left group"
+            class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03] border border-border hover:bg-foreground/[0.06] hover:border-amber-500/30 transition-all text-left group"
             @click="jsonInput = JSON.stringify(pattern.data, null, 2)"
           >
-            <component :is="iconMap[pattern.icon]" :size="12" :stroke-width="1.5" class="text-zinc-500 group-hover:text-amber-500" />
-            <span class="text-[10px] text-zinc-400 group-hover:text-zinc-200 truncate">{{ pattern.label }}</span>
+            <component :is="iconMap[pattern.icon]" :size="12" :stroke-width="1.5" class="text-muted-foreground group-hover:text-amber-500" />
+            <span class="text-[10px] text-muted-foreground group-hover:text-foreground/80 truncate">{{ pattern.label }}</span>
           </button>
         </div>
       </div>
 
       <!-- Schema prompt -->
-      <div class="p-3 rounded-lg bg-white/[0.02] border border-[rgba(255,255,255,0.04)]">
+      <div class="p-3 rounded-lg bg-foreground/[0.02] border border-border">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+          <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
             {{ dominantType === 'table' ? 'Table' : 'Chart' }} Schema
           </span>
           <div class="flex gap-1">
-            <button class="text-[10px] text-zinc-600 hover:text-amber-500 transition-colors flex items-center gap-1" @click="copySchema">
+            <button class="text-[10px] text-muted-foreground/70 hover:text-amber-500 transition-colors flex items-center gap-1" @click="copySchema">
               <Copy :size="10" :stroke-width="1.5" /> Copy
             </button>
-            <button class="text-[10px] text-zinc-600 hover:text-amber-500 transition-colors ml-2" @click="loadExample">
+            <button class="text-[10px] text-muted-foreground/70 hover:text-amber-500 transition-colors ml-2" @click="loadExample">
               Use Example
             </button>
           </div>
         </div>
-        <pre class="text-[10px] font-mono text-zinc-600 whitespace-pre-wrap">{{ schemaExample }}</pre>
+        <pre class="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap">{{ schemaExample }}</pre>
       </div>
 
       <!-- Editor -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <Label class="text-xs text-zinc-400">Data JSON</Label>
+          <Label class="text-xs text-muted-foreground">Data JSON</Label>
           <Badge
             v-if="validationState !== 'idle'"
             variant="secondary"
@@ -273,7 +271,7 @@ function copySchema() {
         <Textarea
           v-model="jsonInput"
           rows="8"
-          class="font-mono text-xs bg-[rgba(10,10,15,0.6)] border-[rgba(255,255,255,0.06)] rounded-lg resize-none placeholder:text-zinc-700"
+          class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-none placeholder:text-muted-foreground/50"
           placeholder='Paste your JSON data here...'
         />
       </div>
@@ -294,7 +292,7 @@ function copySchema() {
 
       <Button
         :disabled="validationState !== 'valid'"
-        class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+        class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         @click="applyData"
       >
         Apply Data
@@ -312,21 +310,21 @@ function copySchema() {
       <Textarea
         v-model="csvInput"
         rows="8"
-        class="font-mono text-xs bg-[rgba(10,10,15,0.6)] border-[rgba(255,255,255,0.06)] rounded-lg resize-none placeholder:text-zinc-700"
+        class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-none placeholder:text-muted-foreground/50"
         placeholder="Month,Revenue&#10;Jan,100&#10;Feb,150&#10;Mar,200"
       />
 
       <Button
         :disabled="!csvInput.trim()"
-        class="w-full bg-amber-500 text-[#0A0A0F] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
+        class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
         @click="processCSVInput"
       >
         Transform to Data
       </Button>
 
-      <div class="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)] text-center">
-        <Upload :size="24" :stroke-width="1.5" class="mx-auto mb-2 text-zinc-700 opacity-50" />
-        <p class="text-[10px] text-zinc-600">File upload integration coming soon</p>
+      <div class="mt-4 pt-4 border-t border-border text-center">
+        <Upload :size="24" :stroke-width="1.5" class="mx-auto mb-2 text-muted-foreground/50 opacity-50" />
+        <p class="text-[10px] text-muted-foreground/70">File upload integration coming soon</p>
       </div>
     </div>
   </div>
