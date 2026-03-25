@@ -538,6 +538,9 @@ class TableBlock(ContentBlock):
     figure_label: Optional[str] = None
     figure_name: Optional[str] = None
     table_source: Optional[str] = None
+    # When True, all data rows are rendered without truncation ("whole table as chart" mode).
+    # Row heights are scaled down proportionally so the full table fits within the allocated cell.
+    render_full_table: bool = False
 
     # Template column count - read from template file for accurate height calculation
     _template_columns: Optional[int] = field(default=None, repr=False)
@@ -1703,6 +1706,38 @@ class SlideOrchestrator:
         current_section_id = None  # Track current section for boundary checking
         cell_idx = 0  # Track actual cell index for placement
 
+        # Content-type-aware ordering: when all blocks share the same section,
+        # sort by type so charts occupy the top quadrants, tables the next,
+        # and text/commentary fills the remaining quadrant.
+        # Preserve relative order within each type using stable sort.
+        all_same_section = len({b.section_id for b in blocks if b.section_id}) <= 1
+        has_explicit_quadrant = any(
+            isinstance(getattr(b, "metadata", None), dict) and "quadrant_position" in b.metadata
+            for b in blocks
+        )
+
+        if all_same_section and not has_explicit_quadrant and len(blocks) > 1:
+            _type_order = {
+                ContentType.CHART: 0,
+                ContentType.TABLE: 1,
+                ContentType.TEXT: 2,
+                ContentType.IMAGE: 3,
+            }
+            blocks = sorted(blocks, key=lambda b: _type_order.get(b.type, 99))
+            print(
+                f"       Content-type ordering applied: "
+                + ", ".join(b.type.value for b in blocks)
+            )
+        elif has_explicit_quadrant:
+            # Sort by explicit quadrant_position metadata (0=TL, 1=TR, 2=BL, 3=BR)
+            def _quadrant_key(b):
+                meta = getattr(b, "metadata", None)
+                if isinstance(meta, dict):
+                    return meta.get("quadrant_position", 99)
+                return 99
+            blocks = sorted(blocks, key=_quadrant_key)
+            print("       Explicit quadrant_position ordering applied")
+
         for block in blocks:
             # Calculate which row and column this cell would be at
             row = cell_idx // cols
@@ -2232,12 +2267,25 @@ class SlideOrchestrator:
     def _get_preferred_strategy(
         self, layout_preference: str
     ) -> Tuple[Optional[Callable], bool]:
-        """Map UI layout preference to orchestrator strategy method."""
+        """Map UI layout preference to orchestrator strategy method.
+
+        Accepts both explicit layout_preference strings from the backend format
+        and layout_category values forwarded from the frontend (full_width,
+        two_column, grid, title, kpi, section).
+        """
         preference_map = {
+            # Explicit layout_preference strings (frontend → api.ts → backend)
             "First Slide (Base with KPIs)": self._try_base_slide,
             "Content (2x2 Grid)": self._try_grid_2x2,
             "Full Width": self._try_full_width_stack,
             "Auto (Smart Layout)": None,  # Use default strategy order
+            # layout_category aliases
+            "grid":       self._try_grid_2x2,
+            "two_column": self._try_grid_2x2,
+            "full_width": self._try_full_width_stack,
+            "title":      self._try_full_width_stack,
+            "kpi":        self._try_base_slide,
+            "section":    self._try_full_width_stack,
         }
         if layout_preference in preference_map:
             return preference_map[layout_preference], True

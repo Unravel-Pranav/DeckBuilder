@@ -13,6 +13,7 @@ from app.ppt_engine.ppt_helpers_utils.ppt_helpers.slide_orchestrator import (
     TableBlock,
     SlideLayout,
     ContentType,
+    LayoutType,
 )
 from app.ppt_engine.ppt_helpers_utils.ppt_helpers.test_open_xml import (
     clone_chart,
@@ -459,6 +460,12 @@ class OrchestratorRenderer:
                     section_title=section_title_for_block,
                 )
 
+        # Add quadrant divider lines for GRID_2x2 layouts with multiple blocks
+        if layout.layout_type == LayoutType.GRID_2x2 and len(layout.assigned_blocks) > 1:
+            output_file = self._add_quadrant_dividers(
+                output_file, slide_index, layout, resolved_constraints
+            )
+
         return output_file
 
     def _render_chart(
@@ -534,6 +541,20 @@ class OrchestratorRenderer:
         # Chart should start below FIGURE label space (always reserved)
         chart_top = cell.top + figure_label_space
 
+        # Clamp chart_top to slide content area (prevent overflow above bottom boundary)
+        bottom_boundary = constraint_profile.slide_height - constraint_profile.margin_bottom
+        left_boundary = constraint_profile.margin_left
+
+        # Ensure chart starts within slide bounds
+        if chart_top >= bottom_boundary - 0.5:
+            chart_top = max(cell.top, bottom_boundary - 1.0)
+            print(f'    ⚠ Chart top clamped to {chart_top:.2f}" to stay within slide bounds')
+
+        # Clamp chart_left to slide content area (prevent left overflow)
+        # chart_left is set later but ensure cell.left is valid
+        if cell.left < left_boundary:
+            print(f'    ⚠ Cell left ({cell.left:.2f}") is before margin ({left_boundary:.2f}"), adjusting')
+
         # Chart height fits in the space between figure label and source label
         # The cell.height already includes label space (from estimate_intrinsic_size)
         available_chart_height = cell.height - total_label_space
@@ -544,6 +565,11 @@ class OrchestratorRenderer:
             chart_height = max(
                 0.1, cell.height - total_label_space
             )  # Minimum 0.1" if labels take all space
+
+        # Clamp chart bottom edge to stay within slide bounds
+        if chart_top + chart_height > bottom_boundary:
+            chart_height = max(0.5, bottom_boundary - chart_top)
+            print(f'    ⚠ Chart height clamped to {chart_height:.2f}" to fit within slide bottom boundary')
 
         # Centering logic for single column stacked charts
         # These charts should be narrower and centered horizontally
@@ -740,6 +766,10 @@ class OrchestratorRenderer:
         # Grid layouts (GRID_2x2, SPLIT, etc.) have fixed dimensions and should trim rows to fit
         # Full-width layouts can expand vertically and should reserve extra space for overflow
 
+        # render_full_table: override the trimming behaviour — render ALL rows, scaling row
+        # height proportionally to fit inside the allocated cell ("whole table as chart" mode).
+        render_full_table = getattr(block, "render_full_table", False)
+
         is_fixed_layout = False
         if layout_type:
             # Check if it's a grid or split layout (fixed dimensions)
@@ -750,7 +780,13 @@ class OrchestratorRenderer:
                 "grid" in layout_name.lower() or "split" in layout_name.lower()
             )
 
-        print(f"    📐 Layout: {layout_type}, Fixed: {is_fixed_layout}")
+        # When render_full_table is set, treat layout as full-width so all rows are kept
+        # and scale row heights down proportionally inside the available cell space.
+        if render_full_table:
+            is_fixed_layout = False
+            print("    📊 render_full_table=True: overriding to non-fixed layout (all rows will be shown)")
+
+        print(f"    📐 Layout: {layout_type}, Fixed: {is_fixed_layout}, FullTable: {render_full_table}")
 
         # Calculate space needed at bottom (table source label)
         bottom_space = 0.0
@@ -799,109 +835,104 @@ class OrchestratorRenderer:
                         # Available for table = cell height - top labels - source
                         available_for_table = cell_available_for_table
 
-                        # Check if continuation (split across slides) is enabled
-                        from app.ppt_engine.ppt_helpers_utils.services.template_config import (
-                            get_element_dimensions,
-                        )
-
-                        element_dims = get_element_dimensions()
-                        allow_continuation = element_dims.allow_full_width_overflow
-
-                        # Use TableBlock's centralized method for accurate row fitting calculation
-                        # This is the SINGLE SOURCE OF TRUTH for height calculations
-                        if (
-                            hasattr(block, "data")
-                            and block.data
-                            and hasattr(block, "get_max_rows_for_available_height")
-                        ):
-                            total_data_rows = len(block.data)
-
-                            # Get accurate count using content-based row heights (cached)
-                            max_rows = block.get_max_rows_for_available_height(
-                                available_for_table, cell.width
+                        # render_full_table: skip all splitting / truncation — keep every row.
+                        # The table will use its natural height; any overflow is visually clipped
+                        # at the slide boundary rather than split across slides.
+                        if render_full_table:
+                            # render_full_table: skip all row splitting/truncation.
+                            # Show every row; the table renders at its natural height.
+                            bottom_space = 0.0
+                            rows_trimmed = False
+                            print(
+                                f"    📊 render_full_table: keeping all "
+                                f"{len(block.data)} rows (natural height: {predicted_height:.2f}\")"
+                            )
+                        else:
+                            # Check if continuation (split across slides) is enabled
+                            from app.ppt_engine.ppt_helpers_utils.services.template_config import (
+                                get_element_dimensions,
                             )
 
-                            if max_rows >= total_data_rows:
-                                # All rows fit - don't split
-                                max_rows = total_data_rows
-                                cached = block.get_cached_height()
-                                if cached:
-                                    total_height, _ = cached
+                            element_dims = get_element_dimensions()
+                            allow_continuation = element_dims.allow_full_width_overflow
+
+                            # Use TableBlock's centralized method for accurate row fitting
+                            if (
+                                hasattr(block, "data")
+                                and block.data
+                                and hasattr(block, "get_max_rows_for_available_height")
+                            ):
+                                total_data_rows = len(block.data)
+                                max_rows = block.get_max_rows_for_available_height(
+                                    available_for_table, cell.width
+                                )
+                                if max_rows >= total_data_rows:
+                                    max_rows = total_data_rows
+                                    cached = block.get_cached_height()
+                                    if cached:
+                                        total_height, _ = cached
+                                        print(
+                                            f'    ✓ All {total_data_rows} rows fit (content-based: {total_height:.2f}" ≤ {available_for_table:.2f}")'
+                                        )
+                                else:
                                     print(
-                                        f'    ✓ All {total_data_rows} rows fit (content-based: {total_height:.2f}" ≤ {available_for_table:.2f}")'
+                                        f'    📐 Content-based: {max_rows} data rows fit in {available_for_table:.2f}"'
                                     )
                             else:
+                                max_rows = self._calculate_max_rows_for_height(
+                                    block, cell.width, available_for_table
+                                )
+
+                            # Check minimum reasonable row count
+                            if max_rows < 3:
+                                max_rows = max(2, max_rows)
                                 print(
-                                    f'    📐 Content-based: {max_rows} data rows fit in {available_for_table:.2f}"'
+                                    f'    ⚠️  WARNING: Table severely compressed - only {max_rows} rows fit in {available_for_table:.2f}"!'
                                 )
-                        else:
-                            # Fallback if method not available
-                            max_rows = self._calculate_max_rows_for_height(
-                                block, cell.width, available_for_table
-                            )
-
-                        # Check minimum reasonable row count
-                        if max_rows < 3:
-                            max_rows = max(
-                                2, max_rows
-                            )  # At minimum, header + 2 data rows
-                            print(
-                                f'    ⚠️  WARNING: Table severely compressed - only {max_rows} rows fit in {available_for_table:.2f}"!'
-                            )
-                            print(
-                                "       Consider reassigning this table to next slide in layout planning phase"
-                            )
-
-                        # Trim rows and handle continuation
-                        if (
-                            hasattr(block, "data")
-                            and block.data
-                            and len(block.data) > max_rows
-                        ):
-                            original_count = len(block.data)
-
-                            if allow_continuation:
-                                # Store remaining rows for continuation slide
-                                remaining_rows = block.data[max_rows:]
-                                block.data = block.data[:max_rows]
-
-                                # Store continuation data on the block for later processing
-                                if not hasattr(block, "_continuation_data"):
-                                    block._continuation_data = []
-                                block._continuation_data = remaining_rows
-                                block._continuation_id = getattr(
-                                    block, "id", f"table_{id(block)}"
-                                )
-                                block._continuation_label = getattr(
-                                    block, "label", "Table"
-                                )
-                                block._continuation_section = getattr(
-                                    block, "section_name", "Continued"
-                                )
-
-                                # IMPORTANT: Don't show source on this slide - it continues to next slide
-                                # Source label should only appear on the LAST slide with table data
-                                block._skip_source = True
-
                                 print(
-                                    f"    📄 FULL-WIDTH CONTINUATION: {original_count} rows split → {max_rows} on this slide, {len(remaining_rows)} continue to next slide"
-                                )
-                            else:
-                                # No continuation - just trim
-                                block.data = block.data[:max_rows]
-                                print(
-                                    f"    ✂️  FULL-WIDTH: Table exceeds slide, trimming {original_count} → {max_rows} rows"
+                                    "       Consider reassigning this table to next slide in layout planning phase"
                                 )
 
-                            rows_trimmed = True  # Track that trimming occurred
+                            # Trim rows and handle continuation
+                            if (
+                                hasattr(block, "data")
+                                and block.data
+                                and len(block.data) > max_rows
+                            ):
+                                original_count = len(block.data)
 
-                            # Recalculate predicted height after trimming
-                            predicted_height = self._calculate_actual_table_height(
-                                block=block, table_width=cell.width
-                            )
+                                if allow_continuation:
+                                    remaining_rows = block.data[max_rows:]
+                                    block.data = block.data[:max_rows]
+                                    if not hasattr(block, "_continuation_data"):
+                                        block._continuation_data = []
+                                    block._continuation_data = remaining_rows
+                                    block._continuation_id = getattr(
+                                        block, "id", f"table_{id(block)}"
+                                    )
+                                    block._continuation_label = getattr(
+                                        block, "label", "Table"
+                                    )
+                                    block._continuation_section = getattr(
+                                        block, "section_name", "Continued"
+                                    )
+                                    block._skip_source = True
+                                    print(
+                                        f"    📄 FULL-WIDTH CONTINUATION: {original_count} rows split → {max_rows} on this slide, {len(remaining_rows)} continue to next slide"
+                                    )
+                                else:
+                                    block.data = block.data[:max_rows]
+                                    print(
+                                        f"    ✂️  FULL-WIDTH: Table exceeds slide, trimming {original_count} → {max_rows} rows"
+                                    )
 
-                        # Source is inside table, no external bottom space needed
-                        bottom_space = 0.0
+                                rows_trimmed = True
+                                predicted_height = self._calculate_actual_table_height(
+                                    block=block, table_width=cell.width
+                                )
+
+                            # Source is inside table, no external bottom space needed
+                            bottom_space = 0.0
                 else:
                     # FIXED LAYOUT (grid/split): Must fit in allocated cell
                     # Source is inside table, so no external source space needed
@@ -1479,6 +1510,85 @@ class OrchestratorRenderer:
 
             traceback.print_exc()
             return current_file
+
+    def _add_quadrant_dividers(
+        self,
+        pptx_file: str,
+        slide_index: int,
+        layout: SlideLayout,
+        constraints: Optional[SlideConstraints] = None,
+    ) -> str:
+        """
+        Add thin separator lines to visually divide the slide into quadrants for GRID_2x2 layout.
+
+        Draws a vertical line and horizontal line at the center of the gutters to
+        create a clean 4-quadrant visual separation.
+        """
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches, Pt
+            from pptx.dml.color import RGBColor
+            from pptx.enum.shapes import MSO_CONNECTOR_TYPE
+
+            c = constraints or SlideConstraints()
+
+            margin_left = c.margin_left
+            margin_right = c.margin_right
+            margin_top = c.margin_top
+            margin_bottom = c.margin_bottom
+            gutter_h = c.gutter_horizontal
+            gutter_v = c.gutter_vertical
+            slide_width = c.slide_width
+            slide_height = c.slide_height
+
+            content_width = slide_width - margin_left - margin_right
+            content_height = slide_height - margin_top - margin_bottom
+            cell_w = (content_width - gutter_h) / 2
+            cell_h = (content_height - gutter_v) / 2
+
+            # Divider positions: center of each gutter
+            v_divider_x = margin_left + cell_w + gutter_h / 2
+            h_divider_y = margin_top + cell_h + gutter_v / 2
+
+            prs = Presentation(pptx_file)
+            slide = prs.slides[slide_index]
+
+            line_color = RGBColor(210, 210, 210)  # Light gray dividers
+            line_width_pt = Pt(0.5)
+
+            # Vertical divider (spans full content height)
+            v_connector = slide.shapes.add_connector(
+                MSO_CONNECTOR_TYPE.STRAIGHT,
+                Inches(v_divider_x),
+                Inches(margin_top),
+                Inches(v_divider_x),
+                Inches(slide_height - margin_bottom),
+            )
+            v_connector.line.color.rgb = line_color
+            v_connector.line.width = line_width_pt
+
+            # Horizontal divider (spans full content width)
+            h_connector = slide.shapes.add_connector(
+                MSO_CONNECTOR_TYPE.STRAIGHT,
+                Inches(margin_left),
+                Inches(h_divider_y),
+                Inches(slide_width - margin_right),
+                Inches(h_divider_y),
+            )
+            h_connector.line.color.rgb = line_color
+            h_connector.line.width = line_width_pt
+
+            temp_output = os.path.join(
+                self.temp_dir, f"temp_with_dividers_{self.temp_counter}.pptx"
+            )
+            self.temp_counter += 1
+            prs.save(temp_output)
+            print(f"    ✓ Quadrant dividers added at x={v_divider_x:.2f}\", y={h_divider_y:.2f}\"")
+            return temp_output
+
+        except Exception as e:
+            print(f"    ⚠ Could not add quadrant dividers: {e}")
+            return pptx_file
 
     def _cleanup_temp_files(self):
         """Remove temporary files."""

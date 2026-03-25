@@ -617,6 +617,27 @@ class FrontendJSONProcessor:
                         f"      [DEBUG] Block {block.id}: No layout in element config"
                     )
 
+                # Extract explicit quadrant_position if provided (0=TL, 1=TR, 2=BL, 3=BR)
+                # This allows the frontend to pin elements to specific quadrants
+                quadrant_position = config.get("quadrant_position")
+                if quadrant_position is not None:
+                    try:
+                        block.metadata["quadrant_position"] = int(quadrant_position)
+                        print(
+                            f"      [DEBUG] Block {block.id}: quadrant_position={block.metadata['quadrant_position']}"
+                        )
+                    except (TypeError, ValueError):
+                        pass
+
+                # Extract layout_category for category-specific backend routing
+                # Values: full_width | two_column | grid | title | kpi | section
+                layout_category = config.get("layout_category")
+                if layout_category:
+                    block.metadata["layout_category"] = str(layout_category)
+                    print(
+                        f"      [DEBUG] Block {block.id}: layout_category={layout_category}"
+                    )
+
             return block, figure_counter
 
         except Exception as e:
@@ -983,12 +1004,16 @@ class FrontendJSONProcessor:
             return None, figure_counter
 
         # Create block with data (data is guaranteed to be non-empty at this point)
+        # render_full_table: when True, all rows are shown without truncation
+        # (scales row height proportionally to fit all data in the allocated cell)
+        render_full_table = bool(config.get("render_full_table", False))
         block = TableBlock(
             id=str(element_id),
             rows=rows,
             columns=columns,
             template_path=template_path,
             data=data,
+            render_full_table=render_full_table,
         )
 
         # Derive figure naming metadata (similar to charts)

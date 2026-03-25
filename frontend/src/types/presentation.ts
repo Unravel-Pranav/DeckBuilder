@@ -6,13 +6,39 @@ export type FontStyle = 'modern' | 'corporate' | 'minimal'
 export type ColorScheme = 'dark' | 'light' | 'brand'
 export type CommentarySource = 'ai' | 'manual' | 'prompt'
 
+/**
+ * layout_category — broad grouping that drives backend routing and UI organisation.
+ * Mirrors the LayoutCategory type in lib/layoutDefinitions.ts.
+ */
+export type LayoutCategory =
+  | 'full_width'   // Single element spans full slide
+  | 'two_column'   // Two side-by-side panels
+  | 'grid'         // Full 2×2 four-quadrant grid
+  | 'title'        // Title / intro slide
+  | 'kpi'          // KPI / highlight numbers
+  | 'section'      // Section divider
+
 export type LayoutType =
-  | 'chart-commentary'
-  | 'table-commentary'
-  | 'full-chart'
-  | 'full-table'
-  | 'mixed'
-  | 'commentary-only'
+  // ── full_width ──────────────────────────────────────────────────────────────
+  | 'full-chart'          // One chart, full slide width
+  | 'full-table'          // One table, full slide width — all rows shown
+  | 'commentary-only'     // Text commentary, full width
+  // ── two_column ─────────────────────────────────────────────────────────────
+  | 'chart-commentary'    // Chart (left) + commentary text (right)
+  | 'table-commentary'    // Table (left) + commentary text (right)
+  | 'quadrant-2c'         // 2 charts side-by-side
+  | 'quadrant-1c1t'       // 1 chart (left) + 1 table (right)
+  // ── grid (4-quadrant) ───────────────────────────────────────────────────────
+  | 'mixed'               // Auto-ordered: charts → tables → commentary
+  | 'quadrant-2c1t1text'  // 2 Charts (top) + Table (BL) + Commentary (BR)
+  | 'quadrant-2c2t'       // 2 Charts (top) + 2 Tables (bottom) — all rows shown
+  // ── title ───────────────────────────────────────────────────────────────────
+  | 'title-content'       // Bold title + body text / commentary
+  | 'title-2col'          // Bold title + two content columns
+  // ── kpi ─────────────────────────────────────────────────────────────────────
+  | 'kpi-highlight'       // Large KPI numbers with supporting context
+  // ── section ─────────────────────────────────────────────────────────────────
+  | 'section-divider'     // Visual section break slide
 
 export type ChartType = 'bar' | 'pie' | 'line' | 'doughnut' | 'area' | 'scatter'
 

@@ -1164,10 +1164,12 @@ _TEMPLATE_CONFIGS: Dict[str, TemplateSet] = {
 
 _SLIDE_CONSTRAINT_PROFILES: Dict[str, SlideConstraints] = {
     "figures": SlideConstraints(
-        gutter_vertical=0.05,
+        gutter_vertical=0.10,   # Increased from 0.05 so quadrant rows have visible breathing room
         margin_bottom=0.40,
         margin_top=0.45,
-        gutter_horizontal=0.1
+        margin_left=1.0,        # Increased from 0.8 to prevent y-axis labels from clipping
+        margin_right=0.5,       # Slightly wider right margin for balance
+        gutter_horizontal=0.15, # Wider horizontal gutter for cleaner quadrant separation
     ),
     "submarket": SlideConstraints(
         slide_width=13.33,
