@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
+import { useDragDrop } from '@/composables/useDragDrop'
 import { chartTemplates, tableTemplates, textTemplates } from '@/lib/mockData'
 import type { SlideTemplate, ChartData, TableData, SlideComponent, SlidePreviewData } from '@/types'
 import { Badge } from '@/components/ui/badge'
@@ -11,9 +12,11 @@ import {
   Table2,
   FileText,
   Check,
+  GripVertical,
 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
+const { startDrag, endDrag } = useDragDrop()
 
 const activeCategory = ref<'chart' | 'table' | 'text'>('chart')
 
@@ -78,6 +81,28 @@ function applyTemplate(template: SlideTemplate) {
   )
 }
 
+function onTemplateDragStart(event: DragEvent, template: SlideTemplate) {
+  if (template.category === 'slide') return
+
+  let component: Omit<SlideComponent, 'id'>
+
+  if (template.category === 'chart' && isChartData(template.previewData)) {
+    component = { type: 'chart', templateId: template.id, data: template.previewData, config: {} }
+  } else if (template.category === 'table' && isTableData(template.previewData)) {
+    component = { type: 'table', templateId: template.id, data: template.previewData, config: {} }
+  } else if (template.category === 'text' && typeof template.previewData === 'string') {
+    component = { type: 'text', templateId: template.id, data: { content: template.previewData }, config: { format: 'paragraph' as const } }
+  } else {
+    return
+  }
+
+  startDrag(event, {
+    componentType: component.type,
+    component,
+    label: template.name,
+  })
+}
+
 function getBarHeights(data: number[]): number[] {
   const max = Math.max(...data)
   return data.map((v) => (max > 0 ? (v / max) * 100 : 0))
@@ -112,13 +137,16 @@ function getBarHeights(data: number[]): number[] {
         <button
           v-for="tmpl in filteredTemplates"
           :key="tmpl.id"
-          class="group relative flex-shrink-0 w-44 rounded-lg border p-3 text-left transition-all duration-200"
+          class="group relative flex-shrink-0 w-44 rounded-lg border p-3 text-left transition-all duration-200 cursor-grab active:cursor-grabbing"
           :class="
             appliedTemplateIds.has(tmpl.id)
               ? 'border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
               : 'border-border bg-[var(--glass-bg)] hover:border-[color:var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]'
           "
+          draggable="true"
           @click="applyTemplate(tmpl)"
+          @dragstart="onTemplateDragStart($event, tmpl)"
+          @dragend="endDrag"
         >
           <!-- Applied checkmark -->
           <div
@@ -126,6 +154,13 @@ function getBarHeights(data: number[]): number[] {
             class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center"
           >
             <Check :size="10" :stroke-width="3" class="text-[#09090B]" />
+          </div>
+          <!-- Drag grip -->
+          <div
+            v-if="!appliedTemplateIds.has(tmpl.id)"
+            class="absolute top-2 right-2 opacity-0 group-hover:opacity-50 transition-opacity"
+          >
+            <GripVertical :size="12" class="text-muted-foreground" />
           </div>
 
           <!-- Mini preview -->
