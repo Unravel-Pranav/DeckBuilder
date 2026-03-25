@@ -1,109 +1,86 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
-import type { LayoutType } from '@/types'
-import { LAYOUTS_BY_CATEGORY, CATEGORY_LABELS } from '@/lib/layoutDefinitions'
-import type { LayoutCategory } from '@/lib/layoutDefinitions'
-import {
-  BarChart3,
-  Table2,
-  Columns2,
-  FileText,
-  LayoutGrid,
-  PanelLeft,
-  Rows3,
-  Grid2x2,
-  PanelRight,
-  AlignJustify,
-  Heading1,
-  Heading2,
-  TrendingUp,
-  SeparatorHorizontal,
-} from 'lucide-vue-next'
+import { STRUCTURE_REGISTRY } from '@/lib/layoutDefinitions'
+import type { SlideStructure } from '@/types'
+import { Square, Columns2, Rows2, Grid2x2 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
 
-const LAYOUT_ICONS: Record<string, typeof BarChart3> = {
-  'full-chart':         BarChart3,
-  'full-table':         Table2,
-  'commentary-only':    FileText,
-  'chart-commentary':   PanelLeft,
-  'table-commentary':   Columns2,
-  'quadrant-2c':        Rows3,
-  'quadrant-1c1t':      PanelRight,
-  'mixed':              LayoutGrid,
-  'quadrant-2c1t1text': Grid2x2,
-  'quadrant-2c2t':      AlignJustify,
-  'title-content':      Heading1,
-  'title-2col':         Heading2,
-  'kpi-highlight':      TrendingUp,
-  'section-divider':    SeparatorHorizontal,
+const STRUCTURE_ICONS: Record<SlideStructure, typeof Square> = {
+  'blank':    Square,
+  'two-col':  Columns2,
+  'two-row':  Rows2,
+  'grid-2x2': Grid2x2,
 }
 
-const CATEGORY_ORDER: LayoutCategory[] = [
-  'full_width',
-  'two_column',
-  'grid',
-  'title',
-  'kpi',
-  'section',
-]
+const activeStructure = computed(() => slidesStore.activeSlide?.structure)
 
-const activeLayout = computed(() => slidesStore.activeSlide?.layout)
-
-function setLayout(layoutId: string) {
+function setStructure(id: SlideStructure) {
   if (slidesStore.activeSlideId) {
-    slidesStore.updateSlideLayout(slidesStore.activeSlideId, layoutId as LayoutType)
+    slidesStore.updateSlideStructure(slidesStore.activeSlideId, id)
   }
 }
 </script>
 
 <template>
-  <!-- Single-row scrollable strip: [label · btn btn | label · btn | ...] -->
-  <div class="flex items-center gap-0 border-b border-border bg-background/60 overflow-x-auto no-scrollbar h-9 px-3">
+  <div class="flex items-center gap-2 border-b border-border bg-background/60 h-12 px-4">
+    <span class="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground/50 mr-1 select-none">
+      Structure
+    </span>
 
-    <template v-for="(category, ci) in CATEGORY_ORDER" :key="category">
-      <!-- Vertical divider between groups (skip before first) -->
+    <button
+      v-for="def in STRUCTURE_REGISTRY"
+      :key="def.id"
+      :title="def.tooltip"
+      class="group flex items-center gap-2 px-3 h-8 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all duration-150 select-none"
+      :class="
+        activeStructure === def.id
+          ? 'bg-amber-500/[0.14] text-amber-500 ring-1 ring-amber-500/30 shadow-[0_1px_6px_rgba(245,158,11,0.12)]'
+          : 'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05] ring-1 ring-transparent hover:ring-border'
+      "
+      @click="setStructure(def.id)"
+    >
+      <!-- Mini structural preview -->
       <div
-        v-if="ci > 0"
-        class="w-px self-stretch bg-border mx-2 my-1.5 flex-shrink-0"
-      />
+        class="w-5 h-4 rounded-[2px] border overflow-hidden flex-shrink-0 transition-colors duration-150"
+        :class="
+          activeStructure === def.id
+            ? 'border-amber-500/40'
+            : 'border-muted-foreground/20 group-hover:border-muted-foreground/40'
+        "
+      >
+        <!-- Blank: single block -->
+        <div v-if="def.id === 'blank'" class="w-full h-full"
+          :class="activeStructure === def.id ? 'bg-amber-500/25' : 'bg-muted-foreground/10'"
+        />
 
-      <!-- Category label -->
-      <span class="text-[8.5px] font-mono uppercase tracking-[0.13em] text-muted-foreground/50 mr-1.5 flex-shrink-0 select-none leading-none">
-        {{ CATEGORY_LABELS[category] }}
-      </span>
+        <!-- Two-col: vertical divider -->
+        <div v-else-if="def.id === 'two-col'" class="w-full h-full flex">
+          <div class="flex-1" :class="activeStructure === def.id ? 'bg-amber-500/25' : 'bg-muted-foreground/10'" />
+          <div class="w-px" :class="activeStructure === def.id ? 'bg-amber-500/40' : 'bg-muted-foreground/20'" />
+          <div class="flex-1" :class="activeStructure === def.id ? 'bg-amber-500/15' : 'bg-muted-foreground/5'" />
+        </div>
 
-      <!-- Layout buttons -->
-      <div class="flex items-center gap-0.5 flex-shrink-0">
-        <button
-          v-for="layout in LAYOUTS_BY_CATEGORY[category]"
-          :key="layout.id"
-          :title="layout.tooltip"
-          class="group flex items-center gap-1.5 px-2.5 h-6 rounded-[5px] text-[10.5px] font-medium whitespace-nowrap transition-all duration-100 select-none"
-          :class="
-            activeLayout === layout.id
-              ? 'bg-amber-500/[0.14] text-amber-500 ring-1 ring-amber-500/30 shadow-[0_1px_6px_rgba(245,158,11,0.1)]'
-              : 'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05] ring-1 ring-transparent hover:ring-border'
-          "
-          @click="setLayout(layout.id)"
+        <!-- Two-row: horizontal divider -->
+        <div v-else-if="def.id === 'two-row'" class="w-full h-full flex flex-col">
+          <div class="flex-1" :class="activeStructure === def.id ? 'bg-amber-500/25' : 'bg-muted-foreground/10'" />
+          <div class="h-px" :class="activeStructure === def.id ? 'bg-amber-500/40' : 'bg-muted-foreground/20'" />
+          <div class="flex-1" :class="activeStructure === def.id ? 'bg-amber-500/15' : 'bg-muted-foreground/5'" />
+        </div>
+
+        <!-- 2x2 grid -->
+        <div v-else class="w-full h-full grid grid-cols-2 grid-rows-2 gap-px"
+          :class="activeStructure === def.id ? 'bg-amber-500/40' : 'bg-muted-foreground/20'"
         >
-          <component
-            :is="LAYOUT_ICONS[layout.id] ?? FileText"
-            :size="11"
-            :stroke-width="activeLayout === layout.id ? 2 : 1.5"
-            class="flex-shrink-0 transition-all duration-100"
-            :class="activeLayout === layout.id ? 'text-amber-500' : 'text-muted-foreground/60 group-hover:text-muted-foreground'"
-          />
-          {{ layout.label }}
-        </button>
+          <div :class="activeStructure === def.id ? 'bg-amber-500/25' : 'bg-muted-foreground/10'" />
+          <div :class="activeStructure === def.id ? 'bg-amber-500/20' : 'bg-muted-foreground/8'" />
+          <div :class="activeStructure === def.id ? 'bg-amber-500/15' : 'bg-muted-foreground/6'" />
+          <div :class="activeStructure === def.id ? 'bg-amber-500/10' : 'bg-muted-foreground/4'" />
+        </div>
       </div>
-    </template>
 
+      {{ def.label }}
+    </button>
   </div>
 </template>
-
-<style scoped>
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-</style>

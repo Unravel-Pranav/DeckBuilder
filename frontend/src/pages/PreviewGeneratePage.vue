@@ -7,7 +7,7 @@ import { usePresentationStore } from '@/stores/presentation'
 import { useDeckTemplateStore } from '@/stores/deckTemplate'
 import { transformToBackendFormat, generatePPT, downloadFile, deckTemplatePptDownloadUrl } from '@/lib/api'
 import { mockSections } from '@/lib/mockData'
-import { LAYOUT_BY_ID, CATEGORY_LABELS } from '@/lib/layoutDefinitions'
+import { STRUCTURE_BY_ID, CATEGORY_LABELS } from '@/lib/layoutDefinitions'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -20,18 +20,9 @@ import {
   BarChart3,
   Table2,
   FileText,
-  Layers,
-  PanelLeft,
   Columns2,
   Rows3,
-  PanelRight,
-  LayoutGrid,
   Grid2x2,
-  AlignJustify,
-  Heading1,
-  Heading2,
-  TrendingUp,
-  SeparatorHorizontal,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -125,34 +116,18 @@ async function generatePPTAction() {
   }
 }
 
-const currentLayoutDef = computed(() =>
-  currentSlide.value ? LAYOUT_BY_ID[currentSlide.value.layout] : null,
+const currentStructureDef = computed(() =>
+  currentSlide.value ? STRUCTURE_BY_ID[currentSlide.value.structure] : null,
 )
-const currentLayoutCategoryLabel = computed(() =>
-  currentLayoutDef.value ? CATEGORY_LABELS[currentLayoutDef.value.category] : '',
+const currentStructureLabel = computed(() =>
+  currentStructureDef.value ? CATEGORY_LABELS[currentStructureDef.value.id] ?? currentStructureDef.value.label : '',
 )
 
-const layoutIcons: Record<string, typeof BarChart3> = {
-  // full_width
-  'full-chart':          BarChart3,
-  'full-table':          Table2,
-  'commentary-only':     FileText,
-  // two_column
-  'chart-commentary':    PanelLeft,
-  'table-commentary':    Columns2,
-  'quadrant-2c':         Rows3,
-  'quadrant-1c1t':       PanelRight,
-  // grid
-  'mixed':               Layers,
-  'quadrant-2c1t1text':  Grid2x2,
-  'quadrant-2c2t':       AlignJustify,
-  // title
-  'title-content':       Heading1,
-  'title-2col':          Heading2,
-  // kpi
-  'kpi-highlight':       TrendingUp,
-  // section
-  'section-divider':     SeparatorHorizontal,
+const structureIcons: Record<string, typeof BarChart3> = {
+  'blank':    FileText,
+  'two-col':  Columns2,
+  'two-row':  Rows3,
+  'grid-2x2': Grid2x2,
 }
 </script>
 
@@ -180,13 +155,15 @@ const layoutIcons: Record<string, typeof BarChart3> = {
               <div class="text-center">
                 <div class="flex items-center justify-center gap-2 mb-1">
                   <span
-                    v-if="currentLayoutCategoryLabel"
+                    v-if="currentStructureLabel"
                     class="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 border border-border rounded px-1.5 py-0.5"
-                  >{{ currentLayoutCategoryLabel }}</span>
-                  <span class="text-[9px] font-mono text-muted-foreground/50">{{ currentLayoutDef?.label }}</span>
+                  >{{ currentStructureLabel }}</span>
+                  <span class="text-[9px] font-mono text-muted-foreground/50">
+                    {{ currentSlide.regions.filter(r => r.component).length }}/{{ currentSlide.regions.length }} regions filled
+                  </span>
                 </div>
                 <component
-                  :is="layoutIcons[currentSlide.layout] ?? FileText"
+                  :is="structureIcons[currentSlide.structure] ?? FileText"
                   :size="48"
                   :stroke-width="1"
                   class="mx-auto mb-4 mt-2 text-amber-500/40"

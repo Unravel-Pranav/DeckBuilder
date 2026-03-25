@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
 import { useTemplatesStore } from '@/stores/templates'
+import { STRUCTURE_REGISTRY } from '@/lib/layoutDefinitions'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog,
@@ -12,17 +13,19 @@ import {
 import {
   Plus,
   FileText,
+  Square,
+  Columns2,
+  Rows2,
+  Grid2x2,
   PanelTop,
   SplitSquareVertical,
   CalendarCheck,
   Users,
   Clock,
-  Columns2,
-  Quote,
-  Square,
   Presentation,
 } from 'lucide-vue-next'
-import type { LayoutType, SlideTemplate, SlidePreviewData, SlideComponent } from '@/types'
+import type { SlideStructure, SlideTemplate, SlidePreviewData, SlideComponent } from '@/types'
+import { createRegions } from '@/types'
 
 const slidesStore = useSlidesStore()
 const templatesStore = useTemplatesStore()
@@ -30,16 +33,26 @@ const templatesStore = useTemplatesStore()
 const showAddDialog = ref(false)
 const addToSectionId = ref<string | null>(null)
 
+const STRUCTURE_ICONS: Record<SlideStructure, typeof Square> = {
+  'blank': Square,
+  'two-col': Columns2,
+  'two-row': Rows2,
+  'grid-2x2': Grid2x2,
+}
+
+const STRUCTURE_LABELS: Record<SlideStructure, string> = {
+  'blank': 'Blank',
+  'two-col': 'V-Split',
+  'two-row': 'H-Split',
+  'grid-2x2': '2×2',
+}
+
 const slideKindIcons: Record<string, typeof PanelTop> = {
   title: PanelTop,
   'section-divider': SplitSquareVertical,
   closing: CalendarCheck,
-  agenda: FileText,
   team: Users,
   timeline: Clock,
-  comparison: Columns2,
-  quote: Quote,
-  kpi: Plus,
   content: FileText,
   blank: Square,
 }
@@ -49,28 +62,28 @@ function openAddDialog(sectionId: string) {
   showAddDialog.value = true
 }
 
-function addBlankSlide() {
+function addWithStructure(structure: SlideStructure) {
   if (!addToSectionId.value) return
-  slidesStore.addSlide(addToSectionId.value, 'chart-commentary' as LayoutType)
+  slidesStore.addSlide(addToSectionId.value, structure)
   showAddDialog.value = false
 }
 
 function addFromTemplate(tmpl: SlideTemplate) {
   if (!addToSectionId.value) return
   const sectionId = addToSectionId.value
-  const layout = tmpl.defaultLayout ?? 'commentary-only'
+  const structure = tmpl.defaultStructure ?? 'blank'
 
-  slidesStore.addSlide(sectionId, layout)
+  slidesStore.addSlide(sectionId, structure)
 
   const slide = slidesStore.activeSlide
   if (!slide) return
 
   slide.title = tmpl.name
   if (tmpl.defaultComponents?.length) {
-    slidesStore.updateSlideComponents(
-      slide.id,
-      tmpl.defaultComponents.map((c) => ({ ...c, id: crypto.randomUUID() })) as SlideComponent[],
-    )
+    const comps = tmpl.defaultComponents.map((c) => ({ ...c, id: crypto.randomUUID() })) as SlideComponent[]
+    for (let i = 0; i < Math.min(comps.length, slide.regions.length); i++) {
+      slide.regions[i].component = comps[i]
+    }
   }
   const textComp = tmpl.defaultComponents?.find((c) => c.type === 'text')
   if (textComp && 'data' in textComp && (textComp.data as any)?.content) {
@@ -126,7 +139,8 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                     : 'border-border bg-muted'
                 "
               >
-                <FileText
+                <component
+                  :is="STRUCTURE_ICONS[slide.structure] ?? FileText"
                   :size="10"
                   :stroke-width="1.5"
                   :class="slidesStore.activeSlideId === slide.id ? 'text-amber-500' : 'text-muted-foreground/50'"
@@ -140,7 +154,10 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                 >
                   {{ slide.title }}
                 </p>
-                <p class="text-[9px] font-mono text-muted-foreground/50 truncate">{{ slide.layout }}</p>
+                <p class="text-[9px] font-mono text-muted-foreground/50 truncate">
+                  {{ STRUCTURE_LABELS[slide.structure] ?? slide.structure }}
+                  · {{ slide.regions.filter(r => r.component).length }}/{{ slide.regions.length }} filled
+                </p>
               </div>
             </button>
 
@@ -157,7 +174,7 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
       </div>
     </ScrollArea>
 
-    <!-- Add slide dialog (template picker) -->
+    <!-- Add slide dialog -->
     <Dialog v-model:open="showAddDialog">
       <DialogContent class="bg-popover border-border rounded-xl max-w-md max-h-[70vh] overflow-hidden flex flex-col">
         <DialogHeader>
@@ -165,19 +182,33 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
         </DialogHeader>
 
         <div class="flex-1 overflow-y-auto space-y-4 pr-1">
-          <!-- Blank slide option -->
-          <button
-            class="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-200 text-left"
-            @click="addBlankSlide"
-          >
-            <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-              <Plus :size="18" :stroke-width="1.5" class="text-muted-foreground" />
+          <!-- Structure options -->
+          <div>
+            <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-2 px-1">
+              Choose Structure
+            </p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                v-for="def in STRUCTURE_REGISTRY"
+                :key="def.id"
+                class="flex items-center gap-3 p-3 rounded-lg border border-border bg-[var(--glass-bg)] hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-200 text-left group"
+                @click="addWithStructure(def.id)"
+              >
+                <div class="w-8 h-8 rounded-lg bg-foreground/5 group-hover:bg-amber-500/10 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <component
+                    :is="STRUCTURE_ICONS[def.id]"
+                    :size="14"
+                    :stroke-width="1.5"
+                    class="text-muted-foreground group-hover:text-amber-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-foreground/80 group-hover:text-amber-500 transition-colors">{{ def.label }}</p>
+                  <p class="text-[9px] text-muted-foreground/60">{{ def.regionCount }} region{{ def.regionCount > 1 ? 's' : '' }}</p>
+                </div>
+              </button>
             </div>
-            <div>
-              <p class="text-sm font-medium text-foreground/80">Blank Slide</p>
-              <p class="text-[10px] text-muted-foreground/70">Start from scratch with Chart + Text layout</p>
-            </div>
-          </button>
+          </div>
 
           <!-- Slide templates -->
           <div>
@@ -191,7 +222,6 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                 class="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-[var(--glass-bg)] hover:border-[color:var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)] transition-all duration-200 text-left"
                 @click="addFromTemplate(tmpl)"
               >
-                <!-- Slide kind icon -->
                 <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
                   <component
                     :is="slideKindIcons[tmpl.slideKind ?? 'content'] ?? Presentation"
@@ -200,8 +230,6 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                     class="text-amber-500"
                   />
                 </div>
-
-                <!-- Mini preview -->
                 <div
                   class="flex-shrink-0 w-14 h-10 rounded border border-border bg-[var(--preview-surface)] relative overflow-hidden"
                 >
@@ -220,7 +248,6 @@ function isSlidePreviewData(data: unknown): data is SlidePreviewData {
                     />
                   </template>
                 </div>
-
                 <div class="flex-1 min-w-0">
                   <p class="text-xs font-medium text-foreground/80 truncate">{{ tmpl.name }}</p>
                   <p class="text-[10px] text-muted-foreground/70 line-clamp-1">{{ tmpl.description }}</p>

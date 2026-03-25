@@ -1,18 +1,26 @@
 import type { Section, Slide, SlideComponent, Presentation, ChartDataset } from '@/types'
-import { LAYOUT_BY_ID, getBackendPreference } from '@/lib/layoutDefinitions'
+import { getBackendPreference } from '@/lib/layoutDefinitions'
 
-// Re-export for backward compatibility with any component that imported LAYOUT_TO_BACKEND
 export { getBackendPreference as LAYOUT_TO_BACKEND }
 
-// Resolve the dominant layout_preference for a section from its slides
 function resolveLayoutPreference(slides: Slide[]): string {
   if (!slides.length) return 'Content (2x2 Grid)'
-  return getBackendPreference(slides[0].layout)
+  return getBackendPreference(slides[0].structure)
+}
+
+/**
+ * Maps a region index to a quadrant_position for the backend.
+ * blank → 0, two-col → 0|1, two-row → 0|2, grid-2x2 → 0|1|2|3
+ */
+function regionToQuadrant(structure: string, regionIndex: number): number {
+  switch (structure) {
+    case 'two-row': return regionIndex === 0 ? 0 : 2
+    default: return regionIndex
+  }
 }
 
 /**
  * Transforms frontend presentation data to the format expected by the backend PPT engine.
- * @param deckTemplateId — DB `templates.id` with an attached .pptx; used as base deck for export.
  */
 export function transformToBackendFormat(
   presentation: Presentation,
@@ -32,28 +40,29 @@ export function transformToBackendFormat(
       id: section.id,
       name: section.name,
       display_order: section.order,
-      // Wire the frontend layout selection to the backend orchestrator
       layout_preference: resolveLayoutPreference(section.slides),
       elements: section.slides.reduce((acc: any[], slide: Slide, slideIdx: number) => {
-        // Resolve layout definition from the registry (falls back gracefully to undefined)
-        const layoutDef = LAYOUT_BY_ID[slide.layout]
-        const useFullTable = layoutDef?.fullTableMode ?? false
-        const quadrantPositions = layoutDef?.quadrantPositions ?? null
+        const slideElements: any[] = []
+        const structure = slide.structure
+        const isFullWidth = structure === 'blank'
+        const layoutCategory = isFullWidth ? 'full_width'
+          : (structure === 'grid-2x2' ? 'grid' : 'two_column')
 
-        // Flatten slides into elements for the backend orchestrator
-        const slideElements = slide.components.map((comp: SlideComponent, compIdx: number) => {
-          const quadrantPin =
-            quadrantPositions != null ? (quadrantPositions[compIdx] ?? null) : null
+        slide.regions.forEach((region, regionIdx) => {
+          if (!region.component) return
+          const comp = region.component
+
+          const quadrantPosition = regionToQuadrant(structure, regionIdx)
 
           const element: any = {
             id: comp.id,
             element_type: comp.type === 'text' ? 'commentary' : comp.type,
             label: slide.title,
-            display_order: slideIdx * 10 + compIdx,
+            display_order: slideIdx * 10 + regionIdx,
             slide_group: slideIdx,
             config: {
-              layout_category: layoutDef?.category ?? 'full_width',
-              ...(quadrantPin != null ? { quadrant_position: quadrantPin } : {}),
+              layout_category: layoutCategory,
+              ...(structure !== 'blank' ? { quadrant_position: quadrantPosition } : {}),
             },
           }
 
@@ -86,7 +95,7 @@ export function transformToBackendFormat(
               ...element.config,
               table_data: tableData,
               figure_name: slide.title,
-              ...(useFullTable ? { render_full_table: true } : {}),
+              render_full_table: isFullWidth,
             }
           } else if (comp.type === 'text') {
             element.config = {
@@ -95,17 +104,17 @@ export function transformToBackendFormat(
             }
           }
 
-          return element
+          slideElements.push(element)
         })
 
         // Preserve slide-level commentary even when there is no explicit text component.
-        const hasTextComponent = slide.components.some((c) => c.type === 'text')
-        if (!hasTextComponent && slide.commentary?.trim()) {
+        const hasTextInRegion = slide.regions.some((r) => r.component?.type === 'text')
+        if (!hasTextInRegion && slide.commentary?.trim()) {
           slideElements.push({
             id: `${slide.id}-commentary`,
             element_type: 'commentary',
             label: slide.title,
-            display_order: slideIdx * 10 + slide.components.length,
+            display_order: slideIdx * 10 + slide.regions.length,
             slide_group: slideIdx,
             config: {
               commentary_text: slide.commentary.trim(),
@@ -114,8 +123,8 @@ export function transformToBackendFormat(
         }
 
         return [...acc, ...slideElements]
-      }, [])
-    }))
+      }, []),
+    })),
   }
 }
 
@@ -134,7 +143,6 @@ function mapChartType(type: string): string {
 const envApi = import.meta.env.VITE_API_BASE_URL as string | undefined
 export const API_BASE_URL = envApi ?? 'http://localhost:8000/api/v1'
 
-/** FastAPI often returns `detail` as a string or a validation error list. */
 export function formatFastApiDetail(detail: unknown): string | null {
   if (detail == null) return null
   if (typeof detail === 'string') return detail
@@ -167,9 +175,6 @@ export async function generatePPT(payload: any) {
   return await response.json()
 }
 
-/**
- * Downloads a file from the server
- */
 export function downloadFile(fileId: string, fileName: string) {
   const url = `${API_BASE_URL}/generation/download/${fileId}`
   const link = document.createElement('a')
@@ -180,10 +185,6 @@ export function downloadFile(fileId: string, fileName: string) {
   document.body.removeChild(link)
 }
 
-/**
- * Fetches available PPT templates from the backend filesystem.
- * No database required — reads from the individual_templates directory.
- */
 export interface BackendTemplate {
   filename: string
   stem: string
@@ -208,7 +209,6 @@ export async function fetchPptTemplates(): Promise<BackendTemplatesResponse> {
   return await response.json()
 }
 
-/** DB template row (reusable presentation structure) from DeckBuilder API. */
 export interface DeckTemplate {
   id: number
   name: string

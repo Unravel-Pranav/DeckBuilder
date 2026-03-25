@@ -27,7 +27,8 @@ import {
   FileText,
   PenLine,
 } from 'lucide-vue-next'
-import type { LayoutType } from '@/types'
+import type { SlideStructure } from '@/types'
+import { STRUCTURE_REGISTRY } from '@/lib/layoutDefinitions'
 
 const router = useRouter()
 const slidesStore = useSlidesStore()
@@ -43,14 +44,6 @@ const editName = ref('')
 
 const showLayoutDialog = ref(false)
 const pendingSectionId = ref<string | null>(null)
-const layoutOptions: { id: LayoutType; label: string; description: string }[] = [
-  { id: 'chart-commentary', label: 'Chart + Commentary', description: 'Chart on the left with text commentary on the right' },
-  { id: 'table-commentary', label: 'Table + Commentary', description: 'Data table with supporting commentary' },
-  { id: 'full-chart', label: 'Full Chart', description: 'Full-width chart without commentary' },
-  { id: 'full-table', label: 'Full Table', description: 'Full-width data table' },
-  { id: 'mixed', label: 'Mixed', description: 'Multiple charts and tables on one slide' },
-  { id: 'commentary-only', label: 'Commentary Only', description: 'Text-only slide for insights or summaries' },
-]
 
 function toggleExpand(sectionId: string) {
   if (expandedSections.value.has(sectionId)) {
@@ -86,9 +79,9 @@ function openLayoutSelector(sectionId: string) {
   showLayoutDialog.value = true
 }
 
-function addSlideWithLayout(layout: LayoutType) {
+function addSlideWithStructure(structure: SlideStructure) {
   if (pendingSectionId.value) {
-    slidesStore.addSlide(pendingSectionId.value, layout)
+    slidesStore.addSlide(pendingSectionId.value, structure)
   }
   showLayoutDialog.value = false
   pendingSectionId.value = null
@@ -123,13 +116,11 @@ function handleContinue() {
   router.push('/builder')
 }
 
-const layoutLabels: Record<string, string> = {
-  'chart-commentary': 'Chart + Commentary',
-  'table-commentary': 'Table + Commentary',
-  'full-chart': 'Full Chart',
-  'full-table': 'Full Table',
-  mixed: 'Mixed',
-  'commentary-only': 'Commentary',
+const structureLabels: Record<string, string> = {
+  'blank': 'Blank',
+  'two-col': 'V-Split',
+  'two-row': 'H-Split',
+  'grid-2x2': '2×2 Grid',
 }
 </script>
 
@@ -272,7 +263,7 @@ const layoutLabels: Record<string, string> = {
                         <FileText :size="14" :stroke-width="1.5" class="text-muted-foreground/70 flex-shrink-0" />
                         <span class="text-sm text-muted-foreground flex-1 truncate">{{ slide.title }}</span>
                         <span class="text-[10px] font-mono text-muted-foreground/70 bg-muted/50 px-2 py-0.5 rounded">
-                          {{ layoutLabels[slide.layout] ?? slide.layout }}
+                          {{ structureLabels[slide.structure] ?? slide.structure }}
                         </span>
                         <button
                           class="p-1 rounded text-muted-foreground/50 hover:text-red-400 transition-colors"
@@ -353,23 +344,23 @@ const layoutLabels: Record<string, string> = {
       </DialogContent>
     </Dialog>
 
-    <!-- Layout Selector Dialog -->
+    <!-- Structure Selector Dialog -->
     <Dialog v-model:open="showLayoutDialog">
       <DialogContent class="bg-popover border-border rounded-xl max-w-lg">
         <DialogHeader>
-          <DialogTitle class="font-display tracking-tight">Choose Slide Layout</DialogTitle>
+          <DialogTitle class="font-display tracking-tight">Choose Slide Structure</DialogTitle>
         </DialogHeader>
         <div class="grid grid-cols-2 gap-3 py-2">
           <button
-            v-for="layout in layoutOptions"
-            :key="layout.id"
+            v-for="def in STRUCTURE_REGISTRY"
+            :key="def.id"
             class="p-4 rounded-xl border border-border bg-[var(--glass-bg)] hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-200 text-left group"
-            @click="addSlideWithLayout(layout.id)"
+            @click="addSlideWithStructure(def.id)"
           >
             <h4 class="text-sm font-medium text-foreground/80 group-hover:text-amber-500 transition-colors mb-1">
-              {{ layout.label }}
+              {{ def.label }}
             </h4>
-            <p class="text-[10px] text-muted-foreground/70 leading-relaxed">{{ layout.description }}</p>
+            <p class="text-[10px] text-muted-foreground/70 leading-relaxed">{{ def.tooltip }}</p>
           </button>
         </div>
         <DialogFooter>

@@ -4,18 +4,11 @@ import type {
   SlideComponent,
   SectionRecommendation,
   PresentationIntent,
-  LayoutType,
+  SlideStructure,
   ChartType,
 } from '@/types'
+import { createRegions } from '@/types'
 import { slideTemplates } from './mockData'
-
-/**
- * AI Pre-Build Step: Auto-generates fully populated slides
- * from accepted section recommendations + presentation intent.
- *
- * This bridges the gap between abstract AI recommendations
- * and concrete slide structures the builder can work with.
- */
 
 interface GenerationContext {
   intent: PresentationIntent
@@ -40,14 +33,14 @@ function pickChartType(intent: PresentationIntent, index: number): ChartType {
   return prefs[index % prefs.length]
 }
 
-function pickLayout(templateType: string): LayoutType {
-  const map: Record<string, LayoutType> = {
-    'chart-heavy': 'chart-commentary',
-    'table-heavy': 'table-commentary',
-    commentary: 'commentary-only',
-    mixed: 'mixed',
+function pickStructure(templateType: string): SlideStructure {
+  const map: Record<string, SlideStructure> = {
+    'chart-heavy': 'two-col',
+    'table-heavy': 'two-col',
+    commentary: 'blank',
+    mixed: 'grid-2x2',
   }
-  return map[templateType] ?? 'chart-commentary'
+  return map[templateType] ?? 'two-col'
 }
 
 function generateChartComponent(chartType: ChartType, label: string): SlideComponent {
@@ -142,31 +135,33 @@ function generateSlideFromTemplate(
   intent: PresentationIntent,
   slideIndex: number,
 ): Slide {
-  const layout = pickLayout(template.type)
-  const components: SlideComponent[] = []
+  const structure = pickStructure(template.type)
+  const regions = createRegions(structure)
 
-  if (template.type === 'chart-heavy' || template.type === 'mixed') {
-    components.push(generateChartComponent(
-      pickChartType(intent, slideIndex),
-      `${sectionName} — ${template.name}`,
-    ))
-  }
-
-  if (template.type === 'table-heavy' || template.type === 'mixed') {
-    components.push(generateTableComponent(sectionName))
-  }
-
-  if (template.type === 'commentary') {
-    components.push(generateTextComponent(
-      generateCommentary(sectionName, intent),
-    ))
+  if (template.type === 'chart-heavy') {
+    regions[0].component = generateChartComponent(pickChartType(intent, slideIndex), `${sectionName} — ${template.name}`)
+    if (regions.length > 1) {
+      regions[1].component = generateTextComponent(generateCommentary(sectionName, intent))
+    }
+  } else if (template.type === 'table-heavy') {
+    regions[0].component = generateTableComponent(sectionName)
+    if (regions.length > 1) {
+      regions[1].component = generateTextComponent(generateCommentary(sectionName, intent))
+    }
+  } else if (template.type === 'commentary') {
+    regions[0].component = generateTextComponent(generateCommentary(sectionName, intent))
+  } else if (template.type === 'mixed') {
+    regions[0].component = generateChartComponent(pickChartType(intent, slideIndex), `${sectionName} — Chart 1`)
+    if (regions.length > 1) regions[1].component = generateChartComponent(pickChartType(intent, slideIndex + 1), `${sectionName} — Chart 2`)
+    if (regions.length > 2) regions[2].component = generateTableComponent(sectionName)
+    if (regions.length > 3) regions[3].component = generateTextComponent(generateCommentary(sectionName, intent))
   }
 
   return {
     id: crypto.randomUUID(),
     title: template.name,
-    layout,
-    components,
+    structure,
+    regions,
     commentary: generateCommentary(sectionName, intent),
     commentarySource: 'ai',
     order: slideIndex,
@@ -174,10 +169,6 @@ function generateSlideFromTemplate(
   }
 }
 
-/**
- * Main auto-generation function.
- * Called after AI recommendations are accepted, before entering the builder.
- */
 export function autoGenerateSlides(ctx: GenerationContext): Section[] {
   const { intent, acceptedSections } = ctx
   const totalSections = acceptedSections.length
@@ -186,15 +177,16 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
     const slides: Slide[] = []
     let contentSlidesGenerated = 0
 
-    // In custom mode, avoid auto-inserting title/closing placeholders.
     if (sectionIndex === 0 && intent.type !== 'custom') {
       const titleTmpl = slideTemplates.find((t) => t.slideKind === 'title')
       if (titleTmpl?.defaultComponents) {
+        const regions = createRegions('blank')
+        regions[0].component = { ...titleTmpl.defaultComponents[0], id: crypto.randomUUID() } as SlideComponent
         slides.push({
           id: crypto.randomUUID(),
           title: 'Title Page',
-          layout: 'commentary-only',
-          components: titleTmpl.defaultComponents.map((c) => ({ ...c, id: crypto.randomUUID() })) as SlideComponent[],
+          structure: 'blank',
+          regions,
           commentary: '',
           commentarySource: 'manual',
           order: 0,
@@ -206,17 +198,17 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
     if (totalSections > 2) {
       const dividerTmpl = slideTemplates.find((t) => t.slideKind === 'section-divider')
       if (dividerTmpl?.defaultComponents) {
+        const regions = createRegions('blank')
+        const comp = { ...dividerTmpl.defaultComponents[0], id: crypto.randomUUID() } as SlideComponent
+        if (comp.type === 'text') {
+          comp.data = { content: `${String(sectionIndex + 1).padStart(2, '0')}\n\n${rec.name}\n\n${rec.description}` }
+        }
+        regions[0].component = comp
         slides.push({
           id: crypto.randomUUID(),
           title: rec.name,
-          layout: 'commentary-only',
-          components: dividerTmpl.defaultComponents.map((c) => {
-            const comp = { ...c, id: crypto.randomUUID() } as SlideComponent
-            if (comp.type === 'text') {
-              comp.data = { content: `${String(sectionIndex + 1).padStart(2, '0')}\n\n${rec.name}\n\n${rec.description}` }
-            }
-            return comp
-          }),
+          structure: 'blank',
+          regions,
           commentary: '',
           commentarySource: 'manual',
           order: slides.length,
@@ -226,24 +218,17 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
     }
 
     rec.suggestedTemplates.forEach((tmpl) => {
-      slides.push(generateSlideFromTemplate(
-        tmpl,
-        rec.name,
-        intent,
-        slides.length,
-      ))
+      slides.push(generateSlideFromTemplate(tmpl, rec.name, intent, slides.length))
       contentSlidesGenerated += 1
     })
 
-    // Ensure every section has at least one content slide.
-    // This prevents custom flows from ending up with title/closing-only output.
     if (contentSlidesGenerated === 0) {
       slides.push(generateSlideFromTemplate(
         {
           id: crypto.randomUUID(),
           name: 'Custom Bar',
           type: 'chart-heavy',
-          layout: 'chart-commentary',
+          structure: 'two-col',
           previewDescription: 'Default chart slide for custom flow',
         },
         rec.name,
@@ -255,11 +240,13 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
     if (sectionIndex === totalSections - 1 && intent.type !== 'custom') {
       const closingTmpl = slideTemplates.find((t) => t.slideKind === 'closing')
       if (closingTmpl?.defaultComponents) {
+        const regions = createRegions('blank')
+        regions[0].component = { ...closingTmpl.defaultComponents[0], id: crypto.randomUUID() } as SlideComponent
         slides.push({
           id: crypto.randomUUID(),
           title: 'Thank You',
-          layout: 'commentary-only',
-          components: closingTmpl.defaultComponents.map((c) => ({ ...c, id: crypto.randomUUID() })) as SlideComponent[],
+          structure: 'blank',
+          regions,
           commentary: '',
           commentarySource: 'manual',
           order: slides.length,

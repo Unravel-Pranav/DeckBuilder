@@ -6,39 +6,63 @@ export type FontStyle = 'modern' | 'corporate' | 'minimal'
 export type ColorScheme = 'dark' | 'light' | 'brand'
 export type CommentarySource = 'ai' | 'manual' | 'prompt'
 
-/**
- * layout_category — broad grouping that drives backend routing and UI organisation.
- * Mirrors the LayoutCategory type in lib/layoutDefinitions.ts.
- */
-export type LayoutCategory =
-  | 'full_width'   // Single element spans full slide
-  | 'two_column'   // Two side-by-side panels
-  | 'grid'         // Full 2×2 four-quadrant grid
-  | 'title'        // Title / intro slide
-  | 'kpi'          // KPI / highlight numbers
-  | 'section'      // Section divider
+// ─── Structural Slide Layouts ─────────────────────────────────────────────────
 
+/**
+ * SlideStructure — the physical grid layout of a slide.
+ * Content is added into regions independently.
+ */
+export type SlideStructure =
+  | 'blank'       // 1 region  — full slide
+  | 'two-col'     // 2 regions — left / right
+  | 'two-row'     // 2 regions — top / bottom
+  | 'grid-2x2'    // 4 regions — TL / TR / BL / BR
+
+/**
+ * A slot inside a slide that can hold exactly one component.
+ */
+export interface SlideRegion {
+  id: string
+  component: SlideComponent | null
+}
+
+export function getRegionCount(structure: SlideStructure): number {
+  switch (structure) {
+    case 'blank':    return 1
+    case 'two-col':  return 2
+    case 'two-row':  return 2
+    case 'grid-2x2': return 4
+  }
+}
+
+export function createRegions(structure: SlideStructure): SlideRegion[] {
+  return Array.from({ length: getRegionCount(structure) }, () => ({
+    id: crypto.randomUUID(),
+    component: null,
+  }))
+}
+
+export const REGION_LABELS: Record<SlideStructure, string[]> = {
+  'blank':    ['Full Slide'],
+  'two-col':  ['Left', 'Right'],
+  'two-row':  ['Top', 'Bottom'],
+  'grid-2x2': ['Top Left', 'Top Right', 'Bottom Left', 'Bottom Right'],
+}
+
+// ─── Legacy LayoutType (deprecated, kept for backward compat) ─────────────────
+
+/** @deprecated Use SlideStructure instead */
+export type LayoutCategory =
+  | 'full_width' | 'two_column' | 'grid' | 'title' | 'kpi' | 'section'
+
+/** @deprecated Use SlideStructure instead */
 export type LayoutType =
-  // ── full_width ──────────────────────────────────────────────────────────────
-  | 'full-chart'          // One chart, full slide width
-  | 'full-table'          // One table, full slide width — all rows shown
-  | 'commentary-only'     // Text commentary, full width
-  // ── two_column ─────────────────────────────────────────────────────────────
-  | 'chart-commentary'    // Chart (left) + commentary text (right)
-  | 'table-commentary'    // Table (left) + commentary text (right)
-  | 'quadrant-2c'         // 2 charts side-by-side
-  | 'quadrant-1c1t'       // 1 chart (left) + 1 table (right)
-  // ── grid (4-quadrant) ───────────────────────────────────────────────────────
-  | 'mixed'               // Auto-ordered: charts → tables → commentary
-  | 'quadrant-2c1t1text'  // 2 Charts (top) + Table (BL) + Commentary (BR)
-  | 'quadrant-2c2t'       // 2 Charts (top) + 2 Tables (bottom) — all rows shown
-  // ── title ───────────────────────────────────────────────────────────────────
-  | 'title-content'       // Bold title + body text / commentary
-  | 'title-2col'          // Bold title + two content columns
-  // ── kpi ─────────────────────────────────────────────────────────────────────
-  | 'kpi-highlight'       // Large KPI numbers with supporting context
-  // ── section ─────────────────────────────────────────────────────────────────
-  | 'section-divider'     // Visual section break slide
+  | 'full-chart' | 'full-table' | 'commentary-only'
+  | 'chart-commentary' | 'table-commentary' | 'quadrant-2c' | 'quadrant-1c1t'
+  | 'mixed' | 'quadrant-2c1t1text' | 'quadrant-2c2t'
+  | 'title-content' | 'title-2col'
+  | 'kpi-highlight'
+  | 'section-divider'
 
 export type ChartType = 'bar' | 'pie' | 'line' | 'doughnut' | 'area' | 'scatter'
 
@@ -183,7 +207,7 @@ export interface SlideTemplate {
   description: string
   previewData: ChartData | TableData | string | SlidePreviewData
   schemaHint: string
-  defaultLayout?: LayoutType
+  defaultStructure?: SlideStructure
   defaultComponents?: Omit<SlideComponent, 'id'>[]
   intelligence?: TemplateIntelligence
 }
@@ -193,8 +217,8 @@ export interface SlideTemplate {
 export interface Slide {
   id: string
   title: string
-  layout: LayoutType
-  components: SlideComponent[]
+  structure: SlideStructure
+  regions: SlideRegion[]
   commentary: string
   commentarySource: CommentarySource
   order: number
@@ -268,7 +292,7 @@ export interface TemplateRecommendation {
   id: string
   name: string
   type: 'chart-heavy' | 'table-heavy' | 'commentary' | 'mixed'
-  layout: LayoutType
+  structure: SlideStructure
   previewDescription: string
   templateRef?: string
 }

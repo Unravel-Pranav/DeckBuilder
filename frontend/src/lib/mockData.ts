@@ -1,4 +1,5 @@
-import type { Presentation, Section, Slide, ChartData, TableData, SlideTemplate, SlidePreviewData, SlideComponent } from '@/types'
+import type { Presentation, Section, Slide, ChartData, TableData, SlideTemplate, SlidePreviewData, SlideComponent, SlideStructure } from '@/types'
+import { createRegions } from '@/types'
 
 export const mockChartData: Record<string, ChartData> = {
   revenue: {
@@ -258,7 +259,7 @@ export const slideTemplates: SlideTemplate[] = [
       accentPosition: 'top',
     } as SlidePreviewData,
     schemaHint: '{ "title": "...", "subtitle": "...", "author": "...", "date": "...", "company": "..." }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: 'Presentation Title\n\nSubtitle or tagline goes here\n\nAuthor Name · March 2026 · Company' }, config: { format: 'paragraph' } },
     ],
@@ -281,7 +282,7 @@ export const slideTemplates: SlideTemplate[] = [
       accentPosition: 'center',
     } as SlidePreviewData,
     schemaHint: '{ "number": "01", "title": "...", "description": "..." }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: '01\n\nSection Title\n\nBrief description of what this section covers.' }, config: { format: 'paragraph' } },
     ],
@@ -304,7 +305,7 @@ export const slideTemplates: SlideTemplate[] = [
       accentPosition: 'left',
     } as SlidePreviewData,
     schemaHint: '{ "items": [{ "number": "01", "title": "..." }, ...], "duration": "45 min" }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: 'Agenda\n\n01  Executive Summary\n02  Market Overview\n03  Financial Analysis\n04  Key Insights\n05  Next Steps' }, config: { format: 'paragraph' } },
     ],
@@ -328,7 +329,7 @@ export const slideTemplates: SlideTemplate[] = [
       accentPosition: 'center',
     } as SlidePreviewData,
     schemaHint: '{ "heading": "Thank You", "subtitle": "Questions?", "email": "...", "phone": "..." }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: 'Thank You\n\nQuestions & Discussion\n\nname@company.com · +1 (555) 123-4567' }, config: { format: 'paragraph' } },
     ],
@@ -355,7 +356,7 @@ export const slideTemplates: SlideTemplate[] = [
       ],
     } as SlidePreviewData,
     schemaHint: '{ "members": [{ "name": "...", "role": "...", "photo?": "url" }, ...] }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: 'Our Team\n\nJane Doe — CEO\nJohn Smith — CTO\nAlex Chen — CFO\nSam Lee — COO' }, config: { format: 'paragraph' } },
     ],
@@ -382,7 +383,7 @@ export const slideTemplates: SlideTemplate[] = [
       ],
     } as SlidePreviewData,
     schemaHint: '{ "milestones": [{ "period": "Q1", "title": "...", "description": "..." }, ...] }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: 'Key Milestones\n\nQ1 — Research: Initial market research and validation\nQ2 — Prototype: Build MVP and run pilot tests\nQ3 — Launch: Public launch and marketing push\nQ4 — Scale: Expand to new markets' }, config: { format: 'paragraph' } },
     ],
@@ -407,7 +408,7 @@ export const slideTemplates: SlideTemplate[] = [
       ],
     } as SlidePreviewData,
     schemaHint: '{ "title": "A vs B", "optionA": { "name": "...", "pros": [...], "cons": [...] }, "optionB": {...}, "recommendation": "..." }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: 'Option A vs Option B\n\nOption A:\n✓ Lower cost\n✓ Faster deployment\n✗ Less scalable\n\nOption B:\n✓ More scalable\n✓ Better long-term value\n✗ Higher upfront cost\n\nRecommendation: Option B for long-term growth' }, config: { format: 'paragraph' } },
     ],
@@ -429,7 +430,7 @@ export const slideTemplates: SlideTemplate[] = [
       accentPosition: 'left',
     } as SlidePreviewData,
     schemaHint: '{ "quote": "...", "attribution": "— Author Name" }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: '"Innovation distinguishes between a leader and a follower."\n\n— Steve Jobs' }, config: { format: 'paragraph' } },
     ],
@@ -452,7 +453,7 @@ export const slideTemplates: SlideTemplate[] = [
       accentPosition: 'center',
     } as SlidePreviewData,
     schemaHint: '{ "value": "$45.2M", "label": "Total Revenue", "context": "Up 23% YoY" }',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [
       { type: 'text', data: { content: '$45.2M\n\nTotal Revenue\nUp 23% Year-over-Year · Exceeded target by $5.2M' }, config: { format: 'paragraph' } },
     ],
@@ -468,7 +469,7 @@ export const slideTemplates: SlideTemplate[] = [
       elements: [],
     } as SlidePreviewData,
     schemaHint: 'No schema — add components manually',
-    defaultLayout: 'commentary-only',
+    defaultStructure: 'blank',
     defaultComponents: [],
   },
 ]
@@ -481,25 +482,34 @@ export const allTemplates: SlideTemplate[] = [
 ]
 
 function buildMockSlides(sectionName: string): Slide[] {
+  const chartRegions = createRegions('two-col')
+  chartRegions[0].component = {
+    id: crypto.randomUUID(),
+    type: 'chart',
+    data: mockChartData.revenue,
+    config: {},
+  }
+  chartRegions[1].component = {
+    id: crypto.randomUUID(),
+    type: 'text',
+    data: { content: 'Key highlights and analysis for this section.' },
+    config: { format: 'paragraph' },
+  } as SlideComponent
+
+  const tableRegions = createRegions('two-col')
+  tableRegions[0].component = {
+    id: crypto.randomUUID(),
+    type: 'table',
+    data: mockTableData.competitors,
+    config: {},
+  }
+
   const slides: Slide[] = [
     {
       id: crypto.randomUUID(),
       title: `${sectionName} — Overview`,
-      layout: 'chart-commentary',
-      components: [
-        {
-          id: crypto.randomUUID(),
-          type: 'chart',
-          data: mockChartData.revenue,
-          config: {},
-        },
-        {
-          id: crypto.randomUUID(),
-          type: 'text',
-          data: { content: 'Key highlights and analysis for this section.' },
-          config: { format: 'paragraph' },
-        },
-      ] as SlideComponent[],
+      structure: 'two-col',
+      regions: chartRegions,
       commentary:
         'This section provides a comprehensive overview of the key metrics and trends observed during the reporting period.',
       commentarySource: 'ai',
@@ -508,15 +518,8 @@ function buildMockSlides(sectionName: string): Slide[] {
     {
       id: crypto.randomUUID(),
       title: `${sectionName} — Details`,
-      layout: 'table-commentary',
-      components: [
-        {
-          id: crypto.randomUUID(),
-          type: 'table',
-          data: mockTableData.competitors,
-          config: {},
-        },
-      ] as SlideComponent[],
+      structure: 'two-col',
+      regions: tableRegions,
       commentary:
         'Detailed breakdown of performance metrics across key dimensions.',
       commentarySource: 'ai',
