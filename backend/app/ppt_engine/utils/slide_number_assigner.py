@@ -611,14 +611,15 @@ def assign_slide_numbers(json_data: Dict[str, Any]) -> Dict[str, Any]:
 
 def _apply_title_only_first_slide_slide_bump(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    When report.title_only_first_slide is True, reserve slide 1 for the cover/title
-    template only: shift every element's slide_number by +1 and remap layouts that
-    were assigned for the first-slide KPI row (base_slide) so content starts on
-    slide 2 with a normal grid/full-width layout.
+    Reserve slide 1 for the cover/title template only: shift every element's
+    slide_number by +1 and remap layouts that were assigned for the first-slide
+    KPI row (base_slide) so content starts on slide 2 with a normal layout.
+
+    Always applied because the rendering pipeline loads a first_slide template
+    (cover) for every property_sub_type.  Content must never be rendered on top
+    of the cover; it belongs on new slides starting at slide 2.
     """
     report = data.get("report") or {}
-    if not report.get("title_only_first_slide"):
-        return data
 
     property_sub_type = (
         (report.get("property_sub_type") or DEFAULT_PROPERTY_SUB_TYPE).strip().lower()
@@ -1169,7 +1170,8 @@ def _assign_section_elements(
     # Determine layout type FIRST (before section boundary check)
     # Use normalized_layout if provided, otherwise determine from criteria
     # For first slide, layout preference is ignored, so use criteria
-    if is_first_slide and start_slide == 1:
+    was_first_slide_for_layout = is_first_slide and start_slide == 1
+    if was_first_slide_for_layout:
         determined_layout = determine_layout_type_from_criteria(
             property_sub_type=layout.property_sub_type or DEFAULT_PROPERTY_SUB_TYPE,
             is_first_slide=True,
@@ -1216,6 +1218,19 @@ def _assign_section_elements(
             print(f"   ⚠️  Starting new section on fresh slide {current_slide} ({share_reason})")
     else:
         current_slide = start_slide
+    
+    # Re-determine layout if the boundary check moved us off the first slide.
+    # The initial determination used is_first_slide=True which hardcodes base_slide,
+    # but the section actually landed on a non-first slide. Re-compute using the
+    # section's actual normalized preference so it gets the correct layout.
+    if was_first_slide_for_layout and not is_first_slide:
+        determined_layout = determine_layout_type_from_criteria(
+            property_sub_type=layout.property_sub_type or DEFAULT_PROPERTY_SUB_TYPE,
+            is_first_slide=False,
+            normalized_preference=normalized_layout,
+            elements=selected_elements,
+        )
+        print(f"   🔄 Re-determined layout after moving to slide {current_slide}: {determined_layout}")
     
     # Set the layout for the current slide (if not already set)
     if current_slide_layout is None:

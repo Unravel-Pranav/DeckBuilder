@@ -79,73 +79,6 @@ class PresentationGenerator:
         with open(file_path, "wb") as f:
             f.write(xml_decl + xml_bytes)
 
-    def _create_initial_prs(
-        self,
-        metadata: dict | None,
-        property_sub_type: str | None,
-        *,
-        has_base_slide_hint: bool | None = None,
-    ) -> tuple[object, bool]:
-        """
-        Build the starter python-pptx Presentation and whether slide 0 is a kept cover.
-
-        If metadata contains user_deck_path (uploaded .pptx), that file is loaded; extra
-        slides beyond the first are removed so generated content appends after the user's cover.
-        """
-        from pptx import Presentation
-
-        md = metadata or {}
-        user_path = md.get("user_deck_path")
-        if isinstance(user_path, str) and user_path and os.path.isfile(user_path):
-            print(f"   Using user-uploaded deck as base: {user_path}")
-            prs = Presentation(user_path)
-            while len(prs.slides) > 1:
-                xml_slides = prs.slides._sldIdLst
-                xml_slides.remove(xml_slides[-1])
-            first_slide_available = len(prs.slides) > 0
-            if has_base_slide_hint is True:
-                print("   Preserving first slide from user deck for BASE_SLIDE layout")
-            elif has_base_slide_hint is False:
-                print("   Keeping first slide from user deck as intro cover")
-            return prs, first_slide_available
-
-
-        template_config = get_ppt_template_config(property_sub_type)
-        template_dir = os.path.join(
-            os.path.dirname(__file__), "..", "individual_templates"
-        )
-        template_dir = os.path.abspath(template_dir)
-        first_slide_template = (
-            os.path.join(template_dir, template_config.first_slide)
-            if template_config.first_slide
-            else None
-        )
-        base_template_path = os.path.join(template_dir, template_config.base_slide)
-        first_slide_available = bool(
-            first_slide_template and os.path.exists(first_slide_template)
-        )
-
-        if first_slide_available:
-            print(f"   Using first slide template: {first_slide_template}")
-            prs = Presentation(first_slide_template)
-            if has_base_slide_hint is True:
-                print("   Preserving template first slide for BASE_SLIDE layout")
-            elif has_base_slide_hint is False:
-                print("   Keeping template first slide as intro cover")
-        elif os.path.exists(base_template_path):
-            print(f"   Using base template: {base_template_path}")
-            prs = Presentation(base_template_path)
-            while len(prs.slides) > 0:
-                xml_slides = prs.slides._sldIdLst
-                xml_slides.remove(xml_slides[0])
-            first_slide_available = False
-        else:
-            print("   No templates found, using blank presentation")
-            prs = Presentation()
-            first_slide_available = False
-
-        return prs, first_slide_available
-
     def generate_presentation(
         self,
         sections: List[Section],
@@ -349,10 +282,45 @@ class PresentationGenerator:
         Returns:
             Path to generated PowerPoint file
         """
+        from pptx import Presentation
+
         property_sub_type = metadata.get("property_sub_type") if metadata else None
-        prs, first_slide_available = self._create_initial_prs(
-            metadata, property_sub_type, has_base_slide_hint=None
+        template_config = get_ppt_template_config(property_sub_type)
+
+        # Template paths
+        template_dir = os.path.join(
+            os.path.dirname(__file__), "..", "individual_templates"
         )
+        template_dir = os.path.abspath(template_dir)
+
+        first_slide_template = (
+            os.path.join(template_dir, template_config.first_slide)
+            if template_config.first_slide
+            else None
+        )
+        base_template_path = os.path.join(template_dir, template_config.base_slide)
+
+        first_slide_available = first_slide_template and os.path.exists(
+            first_slide_template
+        )
+
+        if first_slide_available:
+            print(
+                f"   Using first slide template for empty presentation: {first_slide_template}"
+            )
+            prs = Presentation(first_slide_template)
+        elif os.path.exists(base_template_path):
+            print(
+                f"   Using base template for empty presentation: {base_template_path}"
+            )
+            prs = Presentation(base_template_path)
+            # Remove existing slides from template to create empty PPT
+            while len(prs.slides) > 0:
+                xml_slides = prs.slides._sldIdLst
+                xml_slides.remove(xml_slides[0])
+        else:
+            print("   No templates found, creating blank empty presentation")
+            prs = Presentation()
 
         # Populate template placeholders if metadata is provided and we have a first slide
         if first_slide_available and metadata and len(prs.slides) > 0:
@@ -750,25 +718,51 @@ class PresentationGenerator:
         template_config = get_ppt_template_config(property_sub_type)
         slide_constraints = get_slide_constraint_profile(property_sub_type)
 
+        # Template paths - using individual_templates for chart-type-based templates
+        template_dir = os.path.join(
+            os.path.dirname(__file__), "..", "individual_templates"
+        )
+        template_dir = os.path.abspath(template_dir)
+
+        base_template_path = os.path.join(template_dir, template_config.base_slide)
+        first_slide_template = (
+            os.path.join(template_dir, template_config.first_slide)
+            if template_config.first_slide
+            else None
+        )
+
+        # Check if we have any BASE_SLIDE layouts
         has_base_slide = any(
             layout.layout_type.value == "base_slide" for layout in all_layouts
         )
-        prs, first_slide_available = self._create_initial_prs(
-            metadata, property_sub_type, has_base_slide_hint=has_base_slide
+        first_slide_available = first_slide_template and os.path.exists(
+            first_slide_template
         )
 
-        # When the user supplied their own deck, the first slide is a decorative
-        # cover that should stay untouched.  All generated content must go on
-        # *new* slides appended after that cover – never overwriting it.
-        using_user_cover = bool((metadata or {}).get("user_deck_path"))
+        if first_slide_available:
+            print(f"   Using first slide template: {first_slide_template}")
+            prs = Presentation(first_slide_template)
+            if has_base_slide:
+                print("   Preserving template first slide for BASE_SLIDE layout")
+            else:
+                print("   Keeping template first slide as intro cover")
+        elif os.path.exists(base_template_path):
+            print(f"   Using base template: {base_template_path}")
+            prs = Presentation(base_template_path)
+            # Remove existing slides from template
+            while len(prs.slides) > 0:
+                xml_slides = prs.slides._sldIdLst
+                xml_slides.remove(xml_slides[0])
+        else:
+            print("   No templates found, using blank presentation")
+            prs = Presentation()
 
         # Populate template placeholders if metadata is provided and we have a first slide
         if first_slide_available and metadata and len(prs.slides) > 0:
             self._populate_template_placeholders(prs, title, author, metadata)
 
         should_populate_hero = (
-            first_slide_available and not using_user_cover
-            and metadata and metadata.get("hero_fields")
+            first_slide_available and metadata and metadata.get("hero_fields")
         )
 
         prs.core_properties.title = title
@@ -861,21 +855,16 @@ class PresentationGenerator:
             # 1. This is the first slide to render (slide_idx == 0)
             # 2. First slide template is available
             # 3. The layout's slide_number is 1 (content intended for first slide, not overflow)
-            # CRITICAL: If slide_number > 1, content was moved to a continuation slide
-            # and should NOT use the first slide template
+            # 4. The layout is a base_slide (cover/hero layout designed for the template)
+            # CRITICAL: If the layout is a chart/table/commentary, it must go on a NEW
+            # slide after the cover — never rendered on top of the template first slide.
             using_existing_first_slide = False
             is_first_slide_content = (
                 layout.slide_number == 1
             )  # Check actual slide number, not render order
+            is_base_slide_layout = layout.layout_type.value == "base_slide"
 
-            # When a user-uploaded cover is present, never render generated content
-            # on top of it – always append a fresh slide after the cover.
-            if (
-                slide_idx == 0
-                and first_slide_available
-                and is_first_slide_content
-                and not using_user_cover
-            ):
+            if slide_idx == 0 and first_slide_available and is_first_slide_content and is_base_slide_layout:
                 if len(prs.slides) > 0:
                     slide = prs.slides[0]
                     using_existing_first_slide = True
@@ -1060,11 +1049,8 @@ class PresentationGenerator:
         #     ])
         #     print(f"   Including market stats tables for Industrial property type")
 
-        # Add configured last slide template only when explicitly requested
-        # (avoid appending placeholder back slides by default).
         will_add_last_slide = False
-        include_last_slide = bool((metadata or {}).get("include_last_slide", False))
-        if template_config.last_slide and include_last_slide:
+        if template_config.last_slide:
             custom_template_files.append(
                 os.path.join(template_dir, template_config.last_slide)
             )
