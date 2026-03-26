@@ -59,6 +59,14 @@ async def upload_template_ppt(
     return TemplateResponse.model_validate(tpl)
 
 
+@router.get("/{template_id}/slides")
+async def list_template_slides(template_id: int, session: AsyncSessionDep):
+    """Return metadata for each slide in the uploaded template .pptx."""
+    svc = TemplateService(session)
+    slides = await svc.extract_slide_metadata(template_id)
+    return {"template_id": template_id, "slides": slides}
+
+
 @router.get("/{template_id}/ppt/download")
 async def download_template_ppt(template_id: int, session: AsyncSessionDep):
     """Download the stored template deck (if any)."""

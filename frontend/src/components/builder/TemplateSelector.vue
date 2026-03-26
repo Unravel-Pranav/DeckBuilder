@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
+import { useDeckTemplateStore } from '@/stores/deckTemplate'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { chartTemplates, tableTemplates, textTemplates } from '@/lib/mockData'
-import type { SlideTemplate, ChartData, TableData, SlideComponent, SlidePreviewData } from '@/types'
+import { fetchTemplateSlides, type UploadedSlideInfo } from '@/lib/api'
+import type { SlideTemplate, ChartData, TableData, SlideComponent, SlidePreviewData, UploadedSlideData } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import {
   BarChart3,
@@ -13,24 +15,53 @@ import {
   FileText,
   Check,
   GripVertical,
+  Upload,
+  Loader2,
 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
+const deckTemplateStore = useDeckTemplateStore()
 const { startDrag, endDrag } = useDragDrop()
 
-const activeCategory = ref<'chart' | 'table' | 'text'>('chart')
+const activeCategory = ref<'chart' | 'table' | 'text' | 'uploaded'>('chart')
 
-const categories = [
+const uploadedSlides = ref<UploadedSlideInfo[]>([])
+const uploadedLoading = ref(false)
+
+const categories = computed(() => [
   { id: 'chart' as const, label: 'Charts', icon: BarChart3, count: chartTemplates.length },
   { id: 'table' as const, label: 'Tables', icon: Table2, count: tableTemplates.length },
   { id: 'text' as const, label: 'Text', icon: FileText, count: textTemplates.length },
-]
+  ...(deckTemplateStore.selectedTemplateId
+    ? [{ id: 'uploaded' as const, label: 'Uploaded', icon: Upload, count: uploadedSlides.value.length }]
+    : []),
+])
 
 const filteredTemplates = computed(() => {
   if (activeCategory.value === 'chart') return chartTemplates
   if (activeCategory.value === 'table') return tableTemplates
+  if (activeCategory.value === 'uploaded') return [] as SlideTemplate[]
   return textTemplates
 })
+
+onMounted(async () => {
+  if (deckTemplateStore.selectedTemplateId) {
+    await loadUploadedSlides()
+  }
+})
+
+async function loadUploadedSlides() {
+  const id = deckTemplateStore.selectedTemplateId
+  if (!id) return
+  uploadedLoading.value = true
+  try {
+    uploadedSlides.value = await fetchTemplateSlides(id)
+  } catch {
+    uploadedSlides.value = []
+  } finally {
+    uploadedLoading.value = false
+  }
+}
 
 const appliedTemplateIds = computed(() => {
   const slide = slidesStore.activeSlide
@@ -103,6 +134,44 @@ function onTemplateDragStart(event: DragEvent, template: SlideTemplate) {
   })
 }
 
+function applyUploadedSlide(slide: UploadedSlideInfo) {
+  if (!slidesStore.activeSlideId || !deckTemplateStore.selectedTemplateId) return
+
+  const data: UploadedSlideData = {
+    templateId: deckTemplateStore.selectedTemplateId,
+    slideIndex: slide.index,
+    title: slide.title,
+    layoutName: slide.layout_name,
+  }
+  const component: SlideComponent = {
+    id: crypto.randomUUID(),
+    type: 'uploaded_slide',
+    templateId: `uploaded-${data.templateId}-${data.slideIndex}`,
+    data,
+    config: {},
+  }
+  slidesStore.setRegionComponent(
+    slidesStore.activeSlideId,
+    slidesStore.activeRegionIndex,
+    component,
+  )
+}
+
+function onUploadedSlideDragStart(event: DragEvent, slide: UploadedSlideInfo) {
+  if (!deckTemplateStore.selectedTemplateId) return
+  const data: UploadedSlideData = {
+    templateId: deckTemplateStore.selectedTemplateId,
+    slideIndex: slide.index,
+    title: slide.title,
+    layoutName: slide.layout_name,
+  }
+  startDrag(event, {
+    componentType: 'uploaded_slide',
+    component: { type: 'uploaded_slide' as const, templateId: `uploaded-${data.templateId}-${data.slideIndex}`, data, config: {} },
+    label: slide.title,
+  })
+}
+
 function getBarHeights(data: number[]): number[] {
   const max = Math.max(...data)
   return data.map((v) => (max > 0 ? (v / max) * 100 : 0))
@@ -133,7 +202,56 @@ function getBarHeights(data: number[]): number[] {
 
     <!-- Template grid -->
     <div class="px-4 py-3 overflow-x-auto">
-      <div class="flex gap-3" style="min-width: max-content">
+      <div v-if="activeCategory === 'uploaded'" class="flex gap-3" style="min-width: max-content">
+        <div v-if="uploadedLoading" class="flex items-center gap-2 text-sm text-muted-foreground py-4">
+          <Loader2 :size="14" class="animate-spin text-amber-500" />
+          Loading slides…
+        </div>
+        <div v-else-if="uploadedSlides.length === 0" class="text-xs text-muted-foreground/70 py-4">
+          No uploaded template found. Upload a .pptx first.
+        </div>
+        <button
+          v-for="slide in uploadedSlides"
+          :key="slide.index"
+          class="group relative flex-shrink-0 w-44 rounded-lg border p-3 text-left transition-all duration-200 cursor-grab active:cursor-grabbing"
+          :class="
+            appliedTemplateIds.has(`uploaded-${deckTemplateStore.selectedTemplateId}-${slide.index}`)
+              ? 'border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+              : 'border-border bg-[var(--glass-bg)] hover:border-[color:var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]'
+          "
+          draggable="true"
+          @click="applyUploadedSlide(slide)"
+          @dragstart="onUploadedSlideDragStart($event, slide)"
+          @dragend="endDrag"
+        >
+          <div
+            v-if="appliedTemplateIds.has(`uploaded-${deckTemplateStore.selectedTemplateId}-${slide.index}`)"
+            class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center"
+          >
+            <Check :size="10" :stroke-width="3" class="text-[#09090B]" />
+          </div>
+          <div
+            v-else
+            class="absolute top-2 right-2 opacity-0 group-hover:opacity-50 transition-opacity"
+          >
+            <GripVertical :size="12" class="text-muted-foreground" />
+          </div>
+
+          <div class="h-16 mb-2 rounded bg-[var(--preview-surface)] border border-border flex items-center justify-center gap-2">
+            <Upload :size="16" :stroke-width="1.5" class="text-amber-500/50" />
+            <span class="text-lg font-bold text-amber-500/40">{{ slide.index + 1 }}</span>
+          </div>
+          <p class="text-[11px] font-medium truncate text-foreground/80">{{ slide.title }}</p>
+          <p class="text-[9px] text-muted-foreground/70 line-clamp-1 mt-0.5">{{ slide.layout_name }}</p>
+          <Badge
+            variant="secondary"
+            class="mt-1.5 text-[8px] bg-foreground/5 text-muted-foreground rounded-full px-1.5 py-0 inline-flex items-center gap-0.5 border-none"
+          >
+            {{ slide.shape_count }} shapes
+          </Badge>
+        </button>
+      </div>
+      <div v-else class="flex gap-3" style="min-width: max-content">
         <button
           v-for="tmpl in filteredTemplates"
           :key="tmpl.id"

@@ -209,9 +209,7 @@ class FrontendJSONProcessor:
             if "layout_preference" not in section_data:
                 section_data["layout_preference"] = "Content (2x2 Grid)"
 
-            # Force first slide to use base template
             if idx == 0:
-                section_data["layout_preference"] = "First Slide (Base with KPIs)"
                 section_data["is_first_slide"] = True
 
             # Create blocks with data (data is populated from element config)
@@ -580,6 +578,23 @@ class FrontendJSONProcessor:
                     data=transformed_data,  # Pass transformed data
                     figure_counter=figure_counter,
                 )
+
+            elif element_type == "uploaded_slide":
+                source_template_id = config.get("source_template_id")
+                source_slide_index = config.get("source_slide_index", 0)
+                print(
+                    f"      📎 Uploaded slide element {element_id}: "
+                    f"template={source_template_id}, slide={source_slide_index}"
+                )
+                block = TextBlock(
+                    id=element_id,
+                    text=f"[Uploaded Slide {source_slide_index + 1}]",
+                )
+                block.metadata = {
+                    "is_uploaded_slide": True,
+                    "source_template_id": source_template_id,
+                    "source_slide_index": source_slide_index,
+                }
 
             else:
                 print(f"⚠️  Unknown element type: {element_type}")

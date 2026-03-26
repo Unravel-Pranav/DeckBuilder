@@ -452,13 +452,20 @@ class OrchestratorRenderer:
                     section_title=section_title_for_block,
                 )
             elif block.type == ContentType.TEXT:
-                output_file = self._render_text(
-                    block=block,
-                    cell=cell,
-                    current_file=output_file,
-                    slide_index=slide_index,
-                    section_title=section_title_for_block,
-                )
+                if getattr(block, "metadata", None) and block.metadata.get("is_uploaded_slide"):
+                    output_file = self._render_uploaded_slide(
+                        block=block,
+                        current_file=output_file,
+                        slide_index=slide_index,
+                    )
+                else:
+                    output_file = self._render_text(
+                        block=block,
+                        cell=cell,
+                        current_file=output_file,
+                        slide_index=slide_index,
+                        section_title=section_title_for_block,
+                    )
 
         # Add quadrant divider lines for GRID_2x2 layouts with multiple blocks
         if layout.layout_type == LayoutType.GRID_2x2 and len(layout.assigned_blocks) > 1:
@@ -1510,6 +1517,62 @@ class OrchestratorRenderer:
 
             traceback.print_exc()
             return current_file
+
+    def _render_uploaded_slide(
+        self,
+        block: TextBlock,
+        current_file: str,
+        slide_index: int,
+    ) -> str:
+        """Copy shapes from an uploaded template slide into the current presentation."""
+        from app.core.paths import backend_root
+        from app.core.config import settings
+        from pathlib import Path
+
+        meta = block.metadata or {}
+        source_template_id = meta.get("source_template_id")
+        source_slide_index = meta.get("source_slide_index", 0)
+
+        if source_template_id is None:
+            print(f"    ⚠ Uploaded slide block {block.id} has no source_template_id")
+            return current_file
+
+        rel_key = f"{settings.template_decks_dir}/{source_template_id}.pptx"
+        source_path = (backend_root() / Path(rel_key.replace("\\", "/"))).resolve()
+        if not source_path.is_file():
+            print(f"    ⚠ Uploaded template file not found: {source_path}")
+            return current_file
+
+        try:
+            source_prs = Presentation(str(source_path))
+            if source_slide_index >= len(source_prs.slides):
+                print(f"    ⚠ Slide index {source_slide_index} out of range (max {len(source_prs.slides) - 1})")
+                return current_file
+
+            src_slide = source_prs.slides[source_slide_index]
+            dest_prs = Presentation(current_file)
+
+            if slide_index < len(dest_prs.slides):
+                dest_slide = dest_prs.slides[slide_index]
+            else:
+                layout_to_use = dest_prs.slide_layouts[0]
+                dest_slide = dest_prs.slides.add_slide(layout_to_use)
+
+            from pptx.oxml.ns import qn
+            from copy import deepcopy
+
+            for shape in src_slide.shapes:
+                el = deepcopy(shape._element)
+                dest_slide.shapes._spTree.append(el)
+
+            dest_prs.save(current_file)
+            print(f"    ✓ Copied uploaded slide {source_slide_index} from template {source_template_id}")
+        except Exception as e:
+            print(f"    ✗ Error copying uploaded slide: {e}")
+            import traceback
+            traceback.print_exc()
+
+        return current_file
 
     def _add_quadrant_dividers(
         self,

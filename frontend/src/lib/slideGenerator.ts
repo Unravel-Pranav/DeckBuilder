@@ -162,8 +162,8 @@ function generateSlideFromTemplate(
     title: template.name,
     structure,
     regions,
-    commentary: generateCommentary(sectionName, intent),
-    commentarySource: 'ai',
+    commentary: '',
+    commentarySource: 'manual',
     order: slideIndex,
     templateId: template.id,
   }

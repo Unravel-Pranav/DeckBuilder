@@ -1169,15 +1169,18 @@ def _assign_section_elements(
     
     # Determine layout type FIRST (before section boundary check)
     # Use normalized_layout if provided, otherwise determine from criteria
-    # For first slide, layout preference is ignored, so use criteria
     was_first_slide_for_layout = is_first_slide and start_slide == 1
     if was_first_slide_for_layout:
-        determined_layout = determine_layout_type_from_criteria(
-            property_sub_type=layout.property_sub_type or DEFAULT_PROPERTY_SUB_TYPE,
-            is_first_slide=True,
-            normalized_preference=None,  # First slide ignores preferences
-            elements=selected_elements,
-        )
+        if normalized_layout and normalized_layout != "base_slide":
+            # User explicitly chose a non-default layout (e.g. grid_2x2) — respect it
+            determined_layout = normalized_layout
+        else:
+            determined_layout = determine_layout_type_from_criteria(
+                property_sub_type=layout.property_sub_type or DEFAULT_PROPERTY_SUB_TYPE,
+                is_first_slide=True,
+                normalized_preference=None,
+                elements=selected_elements,
+            )
     else:
         # For middle slides, use normalized_layout if provided, otherwise use criteria
         determined_layout = determine_layout_type_from_criteria(
@@ -1247,9 +1250,8 @@ def _assign_section_elements(
     if current_slide != start_slide:
         cumulative_height = 0.0
 
-    if is_first_slide:
+    if is_first_slide and forced_layout_type == "base_slide":
         slide_capacity = layout.first_slide_capacity
-        # For first slide, determine if it uses grid or full_width
         uses_grid_for_first = layout.property_sub_type in ("figures", "submarket")
     else:
         slide_capacity = layout.regular_slide_capacity
@@ -1700,8 +1702,20 @@ def _assign_section_elements(
             if element_type == "commentary":
                 needs_full_slide = False  # Commentary can share and overflow vertically
             
+            # Commentary/text without a quadrant_position lives below the grid
+            # and should not consume a grid slot.
+            is_below_grid_element = (
+                element_type in ("commentary", "text")
+                and element.get("config", {}).get("quadrant_position") is None
+            )
+
             # Decide placement
-            if needs_full_slide:
+            if is_below_grid_element and not needs_full_slide:
+                element["config"]["slide_number"] = current_slide
+                element["config"]["layout"] = forced_layout_type if forced_layout_type else "grid_2x2"
+                elements_on_current_slide_list.append(element)
+                print(f"      [{current_slide}] {element_type} '{element_label}' (GRID_2X2 - below grid, no capacity impact)")
+            elif needs_full_slide:
                 # Element needs its own slide (too large for grid or doesn't meet min dimensions)
                 reason = "too large for grid" if not can_fit else "minimum dimensions not met in grid"
                 

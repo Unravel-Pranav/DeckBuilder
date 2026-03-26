@@ -4,7 +4,7 @@ import { useSlidesStore } from '@/stores/slides'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { STRUCTURE_BY_ID } from '@/lib/layoutDefinitions'
 import EmptyState from '@/components/shared/EmptyState.vue'
-import type { ChartData, TableData, SlideRegion, SlideComponent } from '@/types'
+import type { ChartData, TableData, UploadedSlideData, SlideRegion, SlideComponent } from '@/types'
 import {
   BarChart3,
   Table2,
@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Plus,
   GripVertical,
+  Upload,
 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
@@ -342,6 +343,25 @@ function regionLabel(index: number): string {
                 <p class="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-line line-clamp-6">
                   {{ (region.component.data as { content: string }).content }}
                 </p>
+              </template>
+
+              <!-- Uploaded slide component -->
+              <template v-else-if="region.component.type === 'uploaded_slide'">
+                <div class="flex items-center gap-2 mb-2">
+                  <Upload :size="12" :stroke-width="1.5" class="text-amber-500/70" />
+                  <span class="text-[9px] font-mono text-muted-foreground/60">Uploaded Slide</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-amber-500/20 bg-amber-500/[0.03] p-3">
+                  <div class="w-12 h-12 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <span class="text-xl font-bold text-amber-500/60">{{ (region.component.data as UploadedSlideData).slideIndex + 1 }}</span>
+                  </div>
+                  <p class="text-[10px] font-medium text-foreground/70 text-center truncate max-w-full">
+                    {{ (region.component.data as UploadedSlideData).title }}
+                  </p>
+                  <p class="text-[8px] text-muted-foreground/50 font-mono">
+                    {{ (region.component.data as UploadedSlideData).layoutName }}
+                  </p>
+                </div>
               </template>
             </div>
           </div>

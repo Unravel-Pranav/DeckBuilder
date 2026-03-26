@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -108,3 +110,31 @@ class TemplateService:
         if not path.is_file():
             return None
         return path
+
+    async def extract_slide_metadata(self, template_id: int) -> list[dict[str, Any]]:
+        """Open the stored .pptx and return metadata for each slide."""
+        from pptx import Presentation
+
+        model = await self._repo.get_by_id(template_id)
+        if not model:
+            raise NotFoundException("Template", template_id)
+
+        path = self.resolve_template_ppt_path(model)
+        if not path:
+            raise NotFoundException("Attached template PPT", template_id)
+
+        prs = Presentation(str(path))
+        slides: list[dict[str, Any]] = []
+        for idx, slide in enumerate(prs.slides):
+            title = ""
+            if slide.shapes.title and slide.shapes.title.has_text_frame:
+                title = slide.shapes.title.text_frame.text
+
+            slides.append({
+                "index": idx,
+                "title": title or f"Slide {idx + 1}",
+                "layout_name": slide.slide_layout.name if slide.slide_layout else "Unknown",
+                "shape_count": len(slide.shapes),
+            })
+
+        return slides
