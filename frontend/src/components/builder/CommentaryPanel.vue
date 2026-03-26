@@ -53,7 +53,7 @@ watch([commentaryMode, () => slidesStore.activeSlideId], () => {
 async function generateFromData() {
   if (!slidesStore.activeSlideId) return
   const text = await aiStore.generateCommentary(fullContext.value)
-  slidesStore.updateSlideCommentary(slidesStore.activeSlideId, text, 'ai')
+  slidesStore.updateSlideCommentary(slidesStore.activeSlideId, text, 'prompt')
 }
 
 async function generateFromPrompt() {

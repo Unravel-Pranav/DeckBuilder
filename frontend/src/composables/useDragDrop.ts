@@ -2,7 +2,7 @@ import { ref, readonly } from 'vue'
 import type { SlideComponent } from '@/types'
 
 export interface DragPayload {
-  componentType: 'chart' | 'table' | 'text'
+  componentType: 'chart' | 'table' | 'text' | 'uploaded_slide'
   component: SlideComponent | Omit<SlideComponent, 'id'>
   label: string
   /** Set when dragging an existing component between regions (internal move) */

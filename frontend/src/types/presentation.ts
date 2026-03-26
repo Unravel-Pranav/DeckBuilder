@@ -66,7 +66,7 @@ export type LayoutType =
 
 export type ChartType = 'bar' | 'pie' | 'line' | 'doughnut' | 'area' | 'scatter'
 
-export type TemplateCategory = 'chart' | 'table' | 'text' | 'slide'
+export type TemplateCategory = 'chart' | 'table' | 'text' | 'slide' | 'uploaded'
 
 export type SlideKind =
   | 'title'
@@ -151,7 +151,22 @@ export interface TextComponent {
   config: TextConfig
 }
 
-export type SlideComponent = ChartComponent | TableComponent | TextComponent
+export interface UploadedSlideData {
+  templateId: number
+  slideIndex: number
+  title: string
+  layoutName: string
+}
+
+export interface UploadedSlideComponent {
+  id: string
+  type: 'uploaded_slide'
+  templateId?: string
+  data: UploadedSlideData
+  config: Record<string, unknown>
+}
+
+export type SlideComponent = ChartComponent | TableComponent | TextComponent | UploadedSlideComponent
 
 // Legacy-compatible helper
 export function isChartComponent(c: SlideComponent): c is ChartComponent {
@@ -162,6 +177,9 @@ export function isTableComponent(c: SlideComponent): c is TableComponent {
 }
 export function isTextComponent(c: SlideComponent): c is TextComponent {
   return c.type === 'text'
+}
+export function isUploadedSlideComponent(c: SlideComponent): c is UploadedSlideComponent {
+  return c.type === 'uploaded_slide'
 }
 
 // ─── Schema Contract ───

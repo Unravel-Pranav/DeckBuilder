@@ -102,14 +102,25 @@ export function transformToBackendFormat(
               ...element.config,
               commentary_text: comp.data?.content || '',
             }
+          } else if (comp.type === 'uploaded_slide') {
+            element.element_type = 'uploaded_slide'
+            element.config = {
+              ...element.config,
+              source_template_id: comp.data.templateId,
+              source_slide_index: comp.data.slideIndex,
+            }
           }
 
           slideElements.push(element)
         })
 
-        // Preserve slide-level commentary even when there is no explicit text component.
+        // Only include slide-level commentary when the user deliberately wrote or
+        // requested it (manual entry or prompt-based generation). Auto-populated
+        // boilerplate from template generation is excluded. If commentary was
+        // placed in a region as a text component it is already handled above.
         const hasTextInRegion = slide.regions.some((r) => r.component?.type === 'text')
-        if (!hasTextInRegion && slide.commentary?.trim()) {
+        const wasUserAuthored = slide.commentarySource === 'manual' || slide.commentarySource === 'prompt'
+        if (!hasTextInRegion && slide.commentary?.trim() && wasUserAuthored) {
           slideElements.push({
             id: `${slide.id}-commentary`,
             element_type: 'commentary',
@@ -237,6 +248,22 @@ export async function fetchDeckTemplates(): Promise<DeckTemplateListResponse> {
 
 export function deckTemplatePptDownloadUrl(templateId: number): string {
   return `${API_BASE_URL}/templates/${templateId}/ppt/download`
+}
+
+export interface UploadedSlideInfo {
+  index: number
+  title: string
+  layout_name: string
+  shape_count: number
+}
+
+export async function fetchTemplateSlides(templateId: number): Promise<UploadedSlideInfo[]> {
+  const response = await fetch(`${API_BASE_URL}/templates/${templateId}/slides`)
+  if (!response.ok) {
+    throw new Error('Failed to fetch template slides')
+  }
+  const data = await response.json()
+  return data.slides
 }
 
 export async function uploadDeckTemplatePpt(

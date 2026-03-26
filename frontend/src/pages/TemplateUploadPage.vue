@@ -107,7 +107,13 @@ function openDownload() {
   window.open(deckTemplatePptDownloadUrl(id), '_blank', 'noopener,noreferrer')
 }
 
-function handleContinue() {
+function handleContinueToBuilder() {
+  uiStore.completeStep('upload')
+  uiStore.setCurrentStep('builder')
+  router.push('/builder')
+}
+
+function handleContinueToPreview() {
   uiStore.completeStep('upload')
   uiStore.setCurrentStep('preview')
   router.push('/preview')
@@ -251,12 +257,20 @@ function resetUpload() {
             </Button>
           </GlassCard>
 
-          <div class="flex justify-end">
+          <div class="flex justify-end gap-3">
             <Button
-              class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
-              @click="handleContinue"
+              variant="outline"
+              class="font-medium h-11 px-6 rounded-xl border-border text-foreground/80 transition-all duration-200 active:scale-[0.98]"
+              @click="handleContinueToPreview"
             >
               Continue to Preview
+              <ArrowRight :size="16" :stroke-width="2" class="ml-1.5" />
+            </Button>
+            <Button
+              class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-11 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98]"
+              @click="handleContinueToBuilder"
+            >
+              Use in Builder
               <ArrowRight :size="16" :stroke-width="2" class="ml-1.5" />
             </Button>
           </div>
