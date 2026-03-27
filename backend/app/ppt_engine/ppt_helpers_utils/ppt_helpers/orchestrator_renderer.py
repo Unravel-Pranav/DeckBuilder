@@ -380,6 +380,24 @@ class OrchestratorRenderer:
                 # Fallback to first block in list
                 first_block_per_section[section_id] = blocks[0].id
 
+        # For GRID_2x2 layouts with section titles, render a full-width heading
+        # above the grid cells (the grid was shifted down in _compute_grid_positions
+        # to make room). Individual blocks won't get their own section title label.
+        _grid_heading_rendered = False
+        if layout.layout_type == LayoutType.GRID_2x2 and layout.metadata.get("has_section_title"):
+            _heading_text = None
+            for _, bid in layout.assigned_blocks:
+                b = block_dict.get(bid)
+                if b:
+                    _heading_text = getattr(b, "section_name", None) or section.title
+                    if _heading_text:
+                        break
+            if _heading_text:
+                output_file = self._render_slide_section_heading(
+                    output_file, slide_index, _heading_text, resolved_constraints,
+                )
+                _grid_heading_rendered = True
+
         # Render each assigned block
         for cell_idx, block_id in layout.assigned_blocks:
             block = block_dict.get(block_id)
@@ -393,42 +411,35 @@ class OrchestratorRenderer:
             print(f'    Position: ({cell.left:.2f}", {cell.top:.2f}")')
             print(f'    Size: {cell.width:.2f}" × {cell.height:.2f}"')
 
-            # Determine if we should pass section title to this block
-            # Get the logical section this block belongs to
-            block_section_id = getattr(block, "section_id", None) or section.id
-
-            # Determine section title for this block (use section_name from block, fallback to section.title)
-            # When blocks are from different logical sections on same slide, they each get their own section title
-            block_section_title = getattr(block, "section_name", None) or section.title
-
-            # Pass section title to first block of each logical section (regardless of type)
+            # For GRID_2x2 slides the section heading is already rendered as a
+            # full-width element above the grid; skip per-block section titles.
+            # For FULL_WIDTH layouts (title/thank-you pages) skip section titles
+            # entirely — the user only wants headings on content slides.
             section_title_for_block = None
-            is_first_block_of_section = block_id == first_block_per_section.get(
-                block_section_id
-            )
-            already_rendered = self._first_block_rendered_per_section.get(
-                block_section_id, False
-            )
+            if not _grid_heading_rendered and layout.layout_type not in (LayoutType.FULL_WIDTH,):
+                block_section_id = getattr(block, "section_id", None) or section.id
+                block_section_title = getattr(block, "section_name", None) or section.title
 
-            # Check if section titles should be shown (from section style config)
-            show_section_title = (
-                section.style.get("show_title", True)
-                if hasattr(section, "style") and section.style
-                else True
-            )
-
-            # Only pass section title to the FIRST block of each section, if configured to show titles
-            if (
-                is_first_block_of_section
-                and not already_rendered
-                and block_section_title
-                and show_section_title
-            ):
-                section_title_for_block = block_section_title
-                self._first_block_rendered_per_section[block_section_id] = True
-                print(
-                    f"    [SECTION TITLE] Adding to first element: '{block_section_title}' (type={block.type.value})"
+                is_first_block_of_section = block_id == first_block_per_section.get(
+                    block_section_id
                 )
+
+                show_section_title = (
+                    section.style.get("show_title", True)
+                    if hasattr(section, "style") and section.style
+                    else True
+                )
+
+                if (
+                    is_first_block_of_section
+                    and block_section_title
+                    and show_section_title
+                ):
+                    section_title_for_block = block_section_title
+                    self._first_block_rendered_per_section[block_section_id] = True
+                    print(
+                        f"    [SECTION TITLE] Adding to first element: '{block_section_title}' (type={block.type.value})"
+                    )
 
             # Render based on type
             if block.type == ContentType.CHART:
@@ -467,13 +478,80 @@ class OrchestratorRenderer:
                         section_title=section_title_for_block,
                     )
 
-        # Add quadrant divider lines for GRID_2x2 layouts with multiple blocks
-        if layout.layout_type == LayoutType.GRID_2x2 and len(layout.assigned_blocks) > 1:
-            output_file = self._add_quadrant_dividers(
-                output_file, slide_index, layout, resolved_constraints
-            )
+        # Quadrant divider lines disabled — the side-by-side layout should
+        # look seamless without visible grid boundaries.
 
         return output_file
+
+    def _render_slide_section_heading(
+        self,
+        pptx_file: str,
+        slide_index: int,
+        heading_text: str,
+        constraints: Optional[SlideConstraints] = None,
+    ) -> str:
+        """Render a full-width section heading at the top of a grid slide.
+
+        The heading is placed at the slide's original margin_top position,
+        spanning the full content width. The grid cells have already been
+        shifted down by _compute_grid_positions to make room.
+        """
+        try:
+            from pptx.util import Inches, Pt
+            from pptx.enum.text import PP_ALIGN
+            from pptx.dml.color import RGBColor
+            from app.ppt_engine.ppt_helpers_utils.services.template_config import (
+                get_element_dimensions,
+            )
+
+            constraint_profile = constraints or SlideConstraints()
+            element_dims = get_element_dimensions()
+
+            prs = Presentation(pptx_file)
+            slide = prs.slides[slide_index]
+
+            content_width = (
+                constraint_profile.slide_width
+                - constraint_profile.margin_left
+                - constraint_profile.margin_right
+            )
+            heading_height = element_dims.figure_label_height
+
+            heading_box = slide.shapes.add_textbox(
+                Inches(constraint_profile.margin_left),
+                Inches(constraint_profile.margin_top),
+                Inches(content_width),
+                Inches(heading_height),
+            )
+            frame = heading_box.text_frame
+            frame.text = heading_text
+            frame.margin_left = Inches(0)
+            frame.margin_right = Inches(0)
+            frame.margin_top = Inches(0)
+            frame.margin_bottom = Inches(0)
+            frame.word_wrap = True
+
+            p = frame.paragraphs[0]
+            p.font.size = Pt(16)
+            p.font.bold = False
+            p.font.name = "Financier Display (Headings)"
+            p.font.color.rgb = RGBColor(70, 82, 84)
+            p.alignment = PP_ALIGN.LEFT
+
+            temp_output = os.path.join(
+                self.temp_dir, f"temp_heading_{self.temp_counter}.pptx"
+            )
+            self.temp_counter += 1
+            prs.save(temp_output)
+
+            print(f"    [SECTION HEADING] Full-width: '{heading_text}' on slide {slide_index}")
+            return temp_output
+
+        except Exception as e:
+            print(f"    ⚠ Failed to add section heading: {e}")
+            import traceback
+            traceback.print_exc()
+            return pptx_file
 
     def _render_chart(
         self,

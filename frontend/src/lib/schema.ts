@@ -190,6 +190,105 @@ export function validateSchema(data: unknown, expectedType: 'chart' | 'table' | 
   return { valid: true, errors: [], warnings: [] }
 }
 
+export function validateDataForChartType(data: unknown, chartType: ChartType): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const chartLabel = chartType.charAt(0).toUpperCase() + chartType.slice(1)
+
+  if (typeof data !== 'object' || data === null) {
+    return { valid: false, errors: [`Data must be a JSON object for ${chartLabel} chart`], warnings }
+  }
+
+  const obj = data as Record<string, unknown>
+
+  if (Array.isArray(obj.headers) && Array.isArray(obj.rows)) {
+    errors.push(`This data is formatted as a table, not a ${chartLabel} chart. Provide "x_axis"/"labels" and "y_axis"/"values" or "series" instead.`)
+    return { valid: false, errors, warnings }
+  }
+
+  const labels = obj.x_axis ?? obj.labels
+  const values = obj.y_axis ?? obj.values
+  const series = obj.series
+
+  if (chartType === 'pie' || chartType === 'doughnut') {
+    if (!labels || !Array.isArray(labels)) {
+      errors.push(`${chartLabel} chart requires a "labels" array (e.g. ["Segment A", "Segment B", "Other"])`)
+    }
+    if (series) {
+      errors.push(`${chartLabel} chart does not support "series". Use "labels" and "values" instead.`)
+    } else if (!values || !Array.isArray(values)) {
+      errors.push(`${chartLabel} chart requires a "values" array of numbers (e.g. [45, 35, 20])`)
+    } else {
+      if (!(values as unknown[]).every((v) => typeof v === 'number')) {
+        errors.push(`All values must be numbers for ${chartLabel} chart`)
+      }
+      if ((values as number[]).some((v) => v < 0)) {
+        warnings.push(`${chartLabel} charts work best with non-negative values`)
+      }
+    }
+    if (Array.isArray(labels) && Array.isArray(values) && (labels as unknown[]).length !== (values as unknown[]).length) {
+      warnings.push(`Label count (${(labels as unknown[]).length}) doesn't match value count (${(values as unknown[]).length})`)
+    }
+  } else if (chartType === 'scatter') {
+    if (!labels || !Array.isArray(labels)) {
+      errors.push('Scatter chart requires "x_axis" (or "labels") with numeric values')
+    } else if (!(labels as unknown[]).every((l) => !isNaN(Number(l)))) {
+      warnings.push('Scatter chart labels should be numeric for proper positioning')
+    }
+    if (!values && !series) {
+      errors.push('Scatter chart requires "y_axis" (or "values") with numeric values')
+    }
+    if (Array.isArray(values) && !(values as unknown[]).every((v) => typeof v === 'number')) {
+      errors.push('All values must be numbers for Scatter chart')
+    }
+  } else {
+    if (!labels && !series) {
+      errors.push(`${chartLabel} chart requires "x_axis" (or "labels") array`)
+    } else if (labels && !Array.isArray(labels)) {
+      errors.push(`"x_axis" / "labels" must be an array for ${chartLabel} chart`)
+    }
+    if (!values && !series) {
+      errors.push(`${chartLabel} chart requires "y_axis" (or "values") or "series" array`)
+    }
+    if (values && !Array.isArray(values)) {
+      errors.push(`"y_axis" / "values" must be an array of numbers for ${chartLabel} chart`)
+    } else if (values && Array.isArray(values)) {
+      if (!(values as unknown[]).every((v) => typeof v === 'number')) {
+        errors.push(`All values in "y_axis" must be numbers for ${chartLabel} chart`)
+      }
+      if (Array.isArray(labels) && (values as unknown[]).length !== (labels as unknown[]).length) {
+        warnings.push(`Label count (${(labels as unknown[]).length}) doesn't match value count (${(values as unknown[]).length})`)
+      }
+    }
+    if (series) {
+      if (!Array.isArray(series)) {
+        errors.push(`"series" must be an array of { label, data } objects for ${chartLabel} chart`)
+      } else {
+        const labelCount = Array.isArray(labels) ? (labels as unknown[]).length : null
+        for (let i = 0; i < (series as unknown[]).length; i++) {
+          const entry = (series as unknown[])[i] as Record<string, unknown> | null
+          if (!entry || typeof entry !== 'object') {
+            errors.push(`series[${i}] must be an object with "label" and "data"`)
+            continue
+          }
+          if (!Array.isArray(entry.data)) {
+            errors.push(`series[${i}] is missing a "data" array`)
+          } else {
+            if (!(entry.data as unknown[]).every((v) => typeof v === 'number')) {
+              errors.push(`series[${i}].data must contain only numbers`)
+            }
+            if (labelCount != null && (entry.data as unknown[]).length !== labelCount) {
+              warnings.push(`series[${i}].data length (${(entry.data as unknown[]).length}) doesn't match label count (${labelCount})`)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors, warnings }
+}
+
 // ─── Data → Component Mapping ───
 
 export function mapDataToChartComponent(

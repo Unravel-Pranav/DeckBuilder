@@ -31,6 +31,8 @@ _CHART_ENGINE_STEMS: FrozenSet[str] = frozenset(
     {
         "line_chart",
         "multi_line_chart",
+        "area_chart",
+        "multi_area_chart",
         "bar_chart",
         "horizontal_bar_chart",
         "stacked_bar_chart",

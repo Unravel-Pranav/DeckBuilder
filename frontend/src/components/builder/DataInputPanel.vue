@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
 import { useDragDrop } from '@/composables/useDragDrop'
-import { validateSchema, mapDataToChartComponent, mapDataToTableComponent, detectDataType } from '@/lib/schema'
+import { validateDataForChartType, validateTableSchema, mapDataToChartComponent, mapDataToTableComponent } from '@/lib/schema'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -42,17 +42,23 @@ const validationErrors = ref<string[]>([])
 const validationWarnings = ref<string[]>([])
 const validationState = ref<'idle' | 'valid' | 'invalid' | 'schema-error'>('idle')
 const activeTab = ref<'json' | 'csv'>('json')
-const csvTargetType = ref<'auto' | ChartType | 'table'>('auto')
 
 const dataPatterns = [
-  { id: 'revenue', icon: 'BarChart3', label: 'Bar — Quarterly Revenue', data: { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Revenue ($M)' } },
-  { id: 'user-growth', icon: 'TrendingUp', label: 'Line — Monthly Users', data: { type: 'line', x_axis: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], y_axis: [5000, 6200, 7500, 8100, 8900, 9100], label: 'Active Users' } },
-  { id: 'multi-line', icon: 'TrendingUp', label: 'Multi-Line — Rev vs Profit', data: { type: 'line', x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ label: 'Revenue', data: [120, 150, 180, 210] }, { label: 'Profit', data: [40, 55, 70, 90] }] } },
-  { id: 'market-share', icon: 'PieChart', label: 'Pie — Market Share', data: { labels: ['Company A', 'Company B', 'Others'], values: [45, 30, 25] } },
-  { id: 'doughnut', icon: 'Circle', label: 'Doughnut — Segments', data: { type: 'doughnut', labels: ['Product', 'Services', 'Licensing', 'Other'], values: [40, 30, 20, 10] } },
-  { id: 'area', icon: 'Layers', label: 'Area — Growth Trend', data: { type: 'area', x_axis: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], y_axis: [200, 350, 480, 520, 680, 790], label: 'Cumulative Users' } },
-  { id: 'financials', icon: 'Table2', label: 'Table — Financial Summary', data: { headers: ['Metric', 'Current', '% Change'], rows: [['Revenue', '$45.2M', '+12%'], ['EBITDA', '$18.1M', '+8%'], ['Net Margin', '40%', '+2pp']] } },
+  { id: 'revenue', chartType: 'bar' as ChartType, componentType: 'chart' as const, icon: 'BarChart3', label: 'Bar — Quarterly Revenue', data: { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Revenue ($M)' } },
+  { id: 'user-growth', chartType: 'line' as ChartType, componentType: 'chart' as const, icon: 'TrendingUp', label: 'Line — Monthly Users', data: { type: 'line', x_axis: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], y_axis: [5000, 6200, 7500, 8100, 8900, 9100], label: 'Active Users' } },
+  { id: 'multi-line', chartType: 'line' as ChartType, componentType: 'chart' as const, icon: 'TrendingUp', label: 'Multi-Line — Rev vs Profit', data: { type: 'line', x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ label: 'Revenue', data: [120, 150, 180, 210] }, { label: 'Profit', data: [40, 55, 70, 90] }] } },
+  { id: 'market-share', chartType: 'pie' as ChartType, componentType: 'chart' as const, icon: 'PieChart', label: 'Pie — Market Share', data: { labels: ['Company A', 'Company B', 'Others'], values: [45, 30, 25] } },
+  { id: 'doughnut', chartType: 'doughnut' as ChartType, componentType: 'chart' as const, icon: 'Circle', label: 'Doughnut — Segments', data: { type: 'doughnut', labels: ['Product', 'Services', 'Licensing', 'Other'], values: [40, 30, 20, 10] } },
+  { id: 'area', chartType: 'area' as ChartType, componentType: 'chart' as const, icon: 'Layers', label: 'Area — Growth Trend', data: { type: 'area', x_axis: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], y_axis: [200, 350, 480, 520, 680, 790], label: 'Cumulative Users' } },
+  { id: 'financials', chartType: undefined, componentType: 'table' as const, icon: 'Table2', label: 'Table — Financial Summary', data: { headers: ['Metric', 'Current', '% Change'], rows: [['Revenue', '$45.2M', '+12%'], ['EBITDA', '$18.1M', '+8%'], ['Net Margin', '40%', '+2pp']] } },
 ]
+
+const filteredPatterns = computed(() => {
+  if (dominantType.value === 'table') {
+    return dataPatterns.filter((p) => p.componentType === 'table')
+  }
+  return dataPatterns.filter((p) => p.componentType === 'chart')
+})
 
 function parseCSV(csv: string) {
   const delimiter = csv.includes('\t') ? '\t' : ','
@@ -110,42 +116,35 @@ function processCSVInput() {
     return
   }
 
-  const target = csvTargetType.value
+  const target = dominantType.value === 'table' ? 'table' : currentChartType.value
   const numericValues = csvColumnsAreNumeric(csv, 1)
   const colCount = csv.headers.length
+  const chartLabel = target.charAt(0).toUpperCase() + target.slice(1)
   let result: Record<string, unknown>
 
   if (target === 'table') {
     result = csvToTable(csv)
   } else if (target === 'pie' || target === 'doughnut') {
     if (!numericValues) {
-      validationErrors.value = ['Pie/Doughnut requires numeric value columns']
+      validationErrors.value = [`${chartLabel} chart requires numeric value columns`]
       return
     }
     result = csvToPieFormat(csv, target)
   } else if (target === 'scatter') {
     if (!numericValues) {
-      validationErrors.value = ['Scatter requires numeric value columns']
+      validationErrors.value = ['Scatter chart requires numeric value columns']
       return
     }
     result = csvToSingleSeries(csv, 'scatter')
-  } else if (target === 'bar' || target === 'line' || target === 'area') {
+  } else {
     if (!numericValues) {
-      validationErrors.value = [`${target} chart requires numeric value columns`]
+      validationErrors.value = [`${chartLabel} chart requires numeric value columns`]
       return
     }
     if (colCount === 2) {
       result = csvToSingleSeries(csv, target)
     } else {
       result = csvToMultiSeries(csv, target)
-    }
-  } else {
-    if (!numericValues) {
-      result = csvToTable(csv)
-    } else if (colCount === 2) {
-      result = csvToSingleSeries(csv)
-    } else {
-      result = csvToMultiSeries(csv, 'line')
     }
   }
 
@@ -234,9 +233,19 @@ watch(jsonInput, (val) => {
     return
   }
 
-  const detected = detectDataType(parsed)
-  const targetType = detected.type === 'chart' || detected.type === 'table' ? detected.type : dominantType.value
-  const result = validateSchema(parsed, targetType)
+  let result
+  if (dominantType.value === 'table') {
+    result = validateTableSchema(parsed)
+  } else {
+    result = validateDataForChartType(parsed, currentChartType.value)
+  }
+
+  if (typeof (parsed as Record<string, unknown>)?.type === 'string' && dominantType.value === 'chart') {
+    const dataType = (parsed as Record<string, unknown>).type as string
+    if (dataType !== currentChartType.value) {
+      result.warnings.push(`Data specifies type "${dataType}" but will be applied as ${currentChartType.value} chart`)
+    }
+  }
 
   validationErrors.value = result.errors
   validationWarnings.value = result.warnings
@@ -248,14 +257,12 @@ function applyData() {
 
   try {
     const parsed = JSON.parse(jsonInput.value) as Record<string, unknown>
-    const detected = detectDataType(parsed)
-
     let component: SlideComponent | null = null
 
-    if (detected.type === 'chart' || (detected.type === 'unknown' && dominantType.value === 'chart')) {
-      const chartData = mapDataToChartComponent(parsed, detected.chartType ?? currentChartType.value)
+    if (dominantType.value === 'chart') {
+      const chartData = mapDataToChartComponent(parsed, currentChartType.value)
       component = { id: crypto.randomUUID(), type: 'chart', data: chartData, config: {} }
-    } else if (detected.type === 'table' || (detected.type === 'unknown' && dominantType.value === 'table')) {
+    } else if (dominantType.value === 'table') {
       const tableData = mapDataToTableComponent(parsed)
       component = { id: crypto.randomUUID(), type: 'table', data: tableData, config: {} }
     }
@@ -284,16 +291,14 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
   const d = pattern.data as Record<string, unknown>
   let component: Omit<SlideComponent, 'id'>
 
-  if ('headers' in d && 'rows' in d) {
+  if (pattern.componentType === 'table') {
     component = {
       type: 'table',
       data: { headers: d.headers as string[], rows: d.rows as string[][] },
       config: {},
     }
   } else {
-    const detected = detectDataType(d)
-    const chartType = detected.chartType ?? 'bar'
-    const mapped = mapDataToChartComponent(d, chartType)
+    const mapped = mapDataToChartComponent(d, pattern.chartType!)
     component = { type: 'chart', data: mapped, config: {} }
   }
 
@@ -353,7 +358,7 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
         <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 px-1">Quick Templates</span>
         <div class="grid grid-cols-2 gap-2">
           <button
-            v-for="pattern in dataPatterns"
+            v-for="pattern in filteredPatterns"
             :key="pattern.id"
             class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03] border border-border hover:bg-foreground/[0.06] hover:border-amber-500/30 transition-all text-left group cursor-grab active:cursor-grabbing"
             draggable="true"
@@ -437,31 +442,14 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
 
     <!-- CSV upload -->
     <div v-else class="space-y-4">
-      <!-- Target type selector -->
-      <div class="space-y-1.5">
-        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 px-1">Convert To</span>
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="opt in [
-              { id: 'auto', label: 'Auto' },
-              { id: 'bar', label: 'Bar' },
-              { id: 'line', label: 'Line' },
-              { id: 'area', label: 'Area' },
-              { id: 'pie', label: 'Pie' },
-              { id: 'doughnut', label: 'Doughnut' },
-              { id: 'scatter', label: 'Scatter' },
-              { id: 'table', label: 'Table' },
-            ]"
-            :key="opt.id"
-            class="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all duration-150"
-            :class="csvTargetType === opt.id
-              ? 'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30'
-              : 'bg-foreground/[0.03] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground/80'"
-            @click="csvTargetType = opt.id as typeof csvTargetType"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
+      <div class="p-2 rounded-lg bg-foreground/[0.03]">
+        <span class="text-[10px] font-mono text-muted-foreground/70">
+          CSV will be converted to
+          <span class="text-amber-500 font-medium">
+            {{ dominantType === 'table' ? 'Table' : currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1) + ' Chart' }}
+          </span>
+          format based on your selected template.
+        </span>
       </div>
 
       <Textarea
@@ -476,7 +464,7 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
         class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
         @click="processCSVInput"
       >
-        Transform to {{ csvTargetType === 'auto' ? 'Data' : csvTargetType === 'table' ? 'Table' : csvTargetType.charAt(0).toUpperCase() + csvTargetType.slice(1) + ' Chart' }}
+        Transform to {{ dominantType === 'table' ? 'Table' : currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1) + ' Chart' }}
       </Button>
     </div>
   </div>

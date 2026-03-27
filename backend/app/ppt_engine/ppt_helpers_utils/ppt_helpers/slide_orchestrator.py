@@ -1640,9 +1640,16 @@ class SlideOrchestrator:
         constraints = section.constraints
         layout_config = get_slide_layout_config(self.property_sub_type)
 
-        # Get grid dimensions from config (2x2 for standard grid)
-        rows = 2
-        cols = 2
+        # Dynamic grid dimensions: use only as many rows as needed so that
+        # two side-by-side elements span the full slide height instead of
+        # being squeezed into the top-left quadrant of a 2×2 grid.
+        n = len(blocks)
+        if n <= 2:
+            rows = 1
+            cols = min(n, 2)
+        else:
+            rows = 2
+            cols = 2
 
         # Get margins and gutters from config
         if (
@@ -1682,6 +1689,15 @@ class SlideOrchestrator:
             margin_bottom = constraints.margin_bottom
             gutter_h = constraints.gutter_horizontal
             gutter_v = constraints.gutter_vertical
+
+        # Reserve dedicated vertical space at the top of the grid for a
+        # full-width section heading (rendered by the orchestrator_renderer).
+        _has_section_title = any(getattr(b, "section_name", None) for b in blocks)
+        _section_title_space = 0.0
+        if _has_section_title:
+            _el_dims = get_element_dimensions()
+            _section_title_space = _el_dims.figure_label_height + _el_dims.section_title_gap + 0.08
+            margin_top += _section_title_space
 
         # Calculate content area
         content_width = constraints.slide_width - margin_left - margin_right
@@ -1795,6 +1811,8 @@ class SlideOrchestrator:
                 "rows": rows,
                 "cols": cols,
                 "fixed_layout": True,
+                "has_section_title": _has_section_title,
+                "section_title_space": _section_title_space,
             },
         )
 
