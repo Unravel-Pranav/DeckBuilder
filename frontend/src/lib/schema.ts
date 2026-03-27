@@ -11,6 +11,8 @@ export interface DetectionResult {
   errors: string[]
 }
 
+const VALID_CHART_TYPES = new Set<ChartType>(['bar', 'pie', 'line', 'doughnut', 'area', 'scatter'])
+
 export function detectDataType(raw: unknown): DetectionResult {
   if (typeof raw === 'string') {
     return { type: 'text', confidence: 1, errors: [] }
@@ -22,22 +24,27 @@ export function detectDataType(raw: unknown): DetectionResult {
 
   const obj = raw as Record<string, unknown>
 
+  const explicitType = typeof obj.type === 'string' && VALID_CHART_TYPES.has(obj.type as ChartType)
+    ? (obj.type as ChartType)
+    : undefined
+
   if (Array.isArray(obj.headers) && Array.isArray(obj.rows)) {
     return { type: 'table', confidence: 0.95, errors: [] }
   }
 
   if (Array.isArray(obj.labels) && Array.isArray(obj.values)) {
-    const chartType = inferChartType(obj.values as number[], obj.labels as string[])
+    const chartType = explicitType ?? inferChartType(obj.values as number[], obj.labels as string[])
     return { type: 'chart', confidence: 0.9, chartType, errors: [] }
   }
 
   if (Array.isArray(obj.x_axis) && Array.isArray(obj.y_axis)) {
-    const chartType = inferChartType(obj.y_axis as number[], obj.x_axis as string[])
+    const chartType = explicitType ?? inferChartType(obj.y_axis as number[], obj.x_axis as string[])
     return { type: 'chart', confidence: 0.95, chartType, errors: [] }
   }
 
   if (Array.isArray(obj.series)) {
-    return { type: 'chart', confidence: 0.85, chartType: 'bar', errors: [] }
+    const chartType = explicitType ?? inferSeriesChartType(obj)
+    return { type: 'chart', confidence: 0.85, chartType, errors: [] }
   }
 
   if (typeof obj.content === 'string' || typeof obj.text === 'string') {
@@ -47,11 +54,22 @@ export function detectDataType(raw: unknown): DetectionResult {
   return { type: 'unknown', confidence: 0, errors: ['Could not determine data type'] }
 }
 
+function inferSeriesChartType(obj: Record<string, unknown>): ChartType {
+  const series = obj.series as Array<{ data?: number[] }>
+  const labels = (obj.x_axis ?? obj.labels) as string[] | undefined
+  const pointCount = labels?.length ?? series[0]?.data?.length ?? 0
+
+  if (series.length >= 2 || pointCount > 6) return 'line'
+  return 'bar'
+}
+
 function inferChartType(values: number[], labels?: (string | number)[]): ChartType {
   const allNonNegative = values.every((v) => v >= 0)
   const labelsAreNumeric = labels != null && labels.every((l) => !isNaN(Number(l)))
 
-  if (!labelsAreNumeric && allNonNegative && values.length >= 2 && values.length <= 5) {
+  if (labelsAreNumeric && values.length >= 3) return 'scatter'
+
+  if (!labelsAreNumeric && allNonNegative && values.length >= 2 && values.length <= 6) {
     const sum = values.reduce((a, b) => a + b, 0)
     const looksLikeProportions = (sum > 90 && sum < 110) || (sum > 0.9 && sum < 1.1)
     if (looksLikeProportions) return 'pie'
@@ -102,8 +120,29 @@ export function validateChartSchema(data: unknown): ValidationResult {
     }
   }
 
-  if (series && !Array.isArray(series)) {
-    errors.push('"series" must be an array of { label, data } objects')
+  if (series) {
+    if (!Array.isArray(series)) {
+      errors.push('"series" must be an array of { label, data } objects')
+    } else {
+      const labelCount = Array.isArray(labels) ? (labels as unknown[]).length : null
+      for (let i = 0; i < series.length; i++) {
+        const entry = series[i] as Record<string, unknown> | null
+        if (!entry || typeof entry !== 'object') {
+          errors.push(`series[${i}] must be an object with "label" and "data"`)
+          continue
+        }
+        if (!Array.isArray(entry.data)) {
+          errors.push(`series[${i}] is missing a "data" array`)
+        } else {
+          if (!(entry.data as unknown[]).every((v) => typeof v === 'number')) {
+            errors.push(`series[${i}].data must contain only numbers`)
+          }
+          if (labelCount != null && (entry.data as unknown[]).length !== labelCount) {
+            warnings.push(`series[${i}].data length (${(entry.data as unknown[]).length}) doesn't match label count (${labelCount})`)
+          }
+        }
+      }
+    }
   }
 
   return { valid: errors.length === 0, errors, warnings }
