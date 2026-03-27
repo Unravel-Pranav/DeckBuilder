@@ -20,6 +20,8 @@ import {
   Table2,
   TrendingUp,
   GripVertical,
+  Circle,
+  Layers,
 } from 'lucide-vue-next'
 
 const iconMap: Record<string, any> = {
@@ -27,6 +29,8 @@ const iconMap: Record<string, any> = {
   PieChart,
   Table2,
   TrendingUp,
+  Circle,
+  Layers,
 }
 
 const slidesStore = useSlidesStore()
@@ -38,12 +42,16 @@ const validationErrors = ref<string[]>([])
 const validationWarnings = ref<string[]>([])
 const validationState = ref<'idle' | 'valid' | 'invalid' | 'schema-error'>('idle')
 const activeTab = ref<'json' | 'csv'>('json')
+const csvTargetType = ref<'auto' | ChartType | 'table'>('auto')
 
 const dataPatterns = [
-  { id: 'revenue', icon: 'BarChart3', label: 'Quarterly Revenue (Chart)', data: { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Revenue ($M)' } },
-  { id: 'market-share', icon: 'PieChart', label: 'Market Share (Pie)', data: { labels: ['Company A', 'Company B', 'Others'], values: [45, 30, 25] } },
-  { id: 'financials', icon: 'Table2', label: 'Financial Summary (Table)', data: { headers: ['Metric', 'Current', '% Change'], rows: [['Revenue', '$45.2M', '+12%'], ['EBITDA', '$18.1M', '+8%'], ['Net Margin', '40%', '+2pp']] } },
-  { id: 'user-growth', icon: 'TrendingUp', label: 'Monthly Users (Line)', data: { x_axis: ['Jan', 'Feb', 'Mar', 'Apr'], y_axis: [5000, 6200, 7500, 9100], label: 'Active Users' } },
+  { id: 'revenue', icon: 'BarChart3', label: 'Bar — Quarterly Revenue', data: { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Revenue ($M)' } },
+  { id: 'user-growth', icon: 'TrendingUp', label: 'Line — Monthly Users', data: { type: 'line', x_axis: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], y_axis: [5000, 6200, 7500, 8100, 8900, 9100], label: 'Active Users' } },
+  { id: 'multi-line', icon: 'TrendingUp', label: 'Multi-Line — Rev vs Profit', data: { type: 'line', x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ label: 'Revenue', data: [120, 150, 180, 210] }, { label: 'Profit', data: [40, 55, 70, 90] }] } },
+  { id: 'market-share', icon: 'PieChart', label: 'Pie — Market Share', data: { labels: ['Company A', 'Company B', 'Others'], values: [45, 30, 25] } },
+  { id: 'doughnut', icon: 'Circle', label: 'Doughnut — Segments', data: { type: 'doughnut', labels: ['Product', 'Services', 'Licensing', 'Other'], values: [40, 30, 20, 10] } },
+  { id: 'area', icon: 'Layers', label: 'Area — Growth Trend', data: { type: 'area', x_axis: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], y_axis: [200, 350, 480, 520, 680, 790], label: 'Cumulative Users' } },
+  { id: 'financials', icon: 'Table2', label: 'Table — Financial Summary', data: { headers: ['Metric', 'Current', '% Change'], rows: [['Revenue', '$45.2M', '+12%'], ['EBITDA', '$18.1M', '+8%'], ['Net Margin', '40%', '+2pp']] } },
 ]
 
 function parseCSV(csv: string) {
@@ -55,13 +63,39 @@ function parseCSV(csv: string) {
   return { headers, rows }
 }
 
-function convertCSVToChart(csv: any) {
-  if (csv.headers.length >= 2) {
-    const x_axis = csv.rows.map((r: any) => r[0])
-    const y_values = csv.rows.map((r: any) => parseFloat(r[1]) || 0)
-    return { x_axis, y_axis: y_values, label: csv.headers[1] || 'Value' }
+function csvColumnsAreNumeric(csv: { headers: string[]; rows: string[][] }, fromCol: number): boolean {
+  return csv.rows.every((row) =>
+    row.slice(fromCol).every((cell) => cell === '' || !isNaN(parseFloat(cell)))
+  )
+}
+
+function csvToTable(csv: { headers: string[]; rows: string[][] }) {
+  return { headers: csv.headers, rows: csv.rows }
+}
+
+function csvToSingleSeries(csv: { headers: string[]; rows: string[][] }, chartType?: string) {
+  const labels = csv.rows.map((r) => r[0])
+  const values = csv.rows.map((r) => parseFloat(r[1]) || 0)
+  const result: Record<string, unknown> = { x_axis: labels, y_axis: values, label: csv.headers[1] || 'Value' }
+  if (chartType) result.type = chartType
+  return result
+}
+
+function csvToPieFormat(csv: { headers: string[]; rows: string[][] }, chartType: 'pie' | 'doughnut') {
+  return {
+    type: chartType,
+    labels: csv.rows.map((r) => r[0]),
+    values: csv.rows.map((r) => parseFloat(r[1]) || 0),
   }
-  return null
+}
+
+function csvToMultiSeries(csv: { headers: string[]; rows: string[][] }, chartType: string) {
+  const x_axis = csv.rows.map((r) => r[0])
+  const series = csv.headers.slice(1).map((header, colIdx) => ({
+    label: header,
+    data: csv.rows.map((r) => parseFloat(r[colIdx + 1]) || 0),
+  }))
+  return { type: chartType, x_axis, series }
 }
 
 function processCSVInput() {
@@ -71,16 +105,53 @@ function processCSVInput() {
     return
   }
 
-  if (csv.headers.length === 2) {
-    const chartData = convertCSVToChart(csv)
-    if (chartData) {
-      jsonInput.value = JSON.stringify(chartData, null, 2)
-      activeTab.value = 'json'
+  if (csv.headers.length < 2) {
+    validationErrors.value = ['CSV needs at least 2 columns']
+    return
+  }
+
+  const target = csvTargetType.value
+  const numericValues = csvColumnsAreNumeric(csv, 1)
+  const colCount = csv.headers.length
+  let result: Record<string, unknown>
+
+  if (target === 'table') {
+    result = csvToTable(csv)
+  } else if (target === 'pie' || target === 'doughnut') {
+    if (!numericValues) {
+      validationErrors.value = ['Pie/Doughnut requires numeric value columns']
+      return
+    }
+    result = csvToPieFormat(csv, target)
+  } else if (target === 'scatter') {
+    if (!numericValues) {
+      validationErrors.value = ['Scatter requires numeric value columns']
+      return
+    }
+    result = csvToSingleSeries(csv, 'scatter')
+  } else if (target === 'bar' || target === 'line' || target === 'area') {
+    if (!numericValues) {
+      validationErrors.value = [`${target} chart requires numeric value columns`]
+      return
+    }
+    if (colCount === 2) {
+      result = csvToSingleSeries(csv, target)
+    } else {
+      result = csvToMultiSeries(csv, target)
     }
   } else {
-    jsonInput.value = JSON.stringify(csv, null, 2)
-    activeTab.value = 'json'
+    if (!numericValues) {
+      result = csvToTable(csv)
+    } else if (colCount === 2) {
+      result = csvToSingleSeries(csv)
+    } else {
+      result = csvToMultiSeries(csv, 'line')
+    }
   }
+
+  jsonInput.value = JSON.stringify(result, null, 2)
+  activeTab.value = 'json'
+  validationErrors.value = []
 }
 
 const activeRegionLabel = computed(() => {
@@ -113,6 +184,12 @@ const currentChartType = computed<ChartType>(() => {
   return region.component.data.type
 })
 
+const isMultiSeries = computed(() => {
+  const region = slidesStore.activeRegion
+  if (!region?.component || region.component.type !== 'chart') return false
+  return region.component.data.datasets.length > 1
+})
+
 const schemaExample = computed(() => {
   if (dominantType.value === 'table') {
     return JSON.stringify(
@@ -120,8 +197,21 @@ const schemaExample = computed(() => {
       null, 2,
     )
   }
+  if (isMultiSeries.value) {
+    return JSON.stringify(
+      { type: currentChartType.value, x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ label: 'Revenue', data: [100, 200, 150, 280] }, { label: 'Profit', data: [40, 80, 60, 120] }] },
+      null, 2,
+    )
+  }
+  const ct = currentChartType.value
+  if (ct === 'pie' || ct === 'doughnut') {
+    return JSON.stringify(
+      { type: ct, labels: ['Segment A', 'Segment B', 'Other'], values: [45, 35, 20] },
+      null, 2,
+    )
+  }
   return JSON.stringify(
-    { x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [100, 200, 150, 280], label: 'Revenue ($M)' },
+    { type: ct, x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [100, 200, 150, 280], label: 'Revenue ($M)' },
     null, 2,
   )
 })
@@ -200,29 +290,11 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
       data: { headers: d.headers as string[], rows: d.rows as string[][] },
       config: {},
     }
-  } else if ('labels' in d && 'values' in d) {
-    component = {
-      type: 'chart',
-      data: {
-        type: 'pie' as const,
-        labels: d.labels as string[],
-        datasets: [{ label: 'Share', data: d.values as number[] }],
-      },
-      config: {},
-    }
-  } else if ('x_axis' in d && 'y_axis' in d) {
-    const chartType = pattern.icon === 'TrendingUp' ? 'line' as const : 'bar' as const
-    component = {
-      type: 'chart',
-      data: {
-        type: chartType,
-        labels: d.x_axis as string[],
-        datasets: [{ label: (d.label as string) ?? 'Value', data: d.y_axis as number[] }],
-      },
-      config: {},
-    }
   } else {
-    return
+    const detected = detectDataType(d)
+    const chartType = detected.chartType ?? 'bar'
+    const mapped = mapDataToChartComponent(d, chartType)
+    component = { type: 'chart', data: mapped, config: {} }
   }
 
   startDrag(event, {
@@ -365,17 +437,38 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
 
     <!-- CSV upload -->
     <div v-else class="space-y-4">
-      <div class="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3">
-        <p class="text-[10px] text-amber-500">
-          <strong>Tip:</strong> Paste your spreadsheet data below. Two columns (Name, Value) will be mapped to a Chart. Three or more will be mapped to a Table.
-        </p>
+      <!-- Target type selector -->
+      <div class="space-y-1.5">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 px-1">Convert To</span>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="opt in [
+              { id: 'auto', label: 'Auto' },
+              { id: 'bar', label: 'Bar' },
+              { id: 'line', label: 'Line' },
+              { id: 'area', label: 'Area' },
+              { id: 'pie', label: 'Pie' },
+              { id: 'doughnut', label: 'Doughnut' },
+              { id: 'scatter', label: 'Scatter' },
+              { id: 'table', label: 'Table' },
+            ]"
+            :key="opt.id"
+            class="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all duration-150"
+            :class="csvTargetType === opt.id
+              ? 'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30'
+              : 'bg-foreground/[0.03] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground/80'"
+            @click="csvTargetType = opt.id as typeof csvTargetType"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
 
       <Textarea
         v-model="csvInput"
         rows="8"
         class="font-mono text-xs bg-[var(--glass-bg)] border-border rounded-lg resize-vertical max-h-[40vh] overflow-y-auto placeholder:text-muted-foreground/50"
-        placeholder="Month,Revenue&#10;Jan,100&#10;Feb,150&#10;Mar,200"
+        placeholder="Month,Revenue,Profit&#10;Jan,100,40&#10;Feb,150,55&#10;Mar,200,70"
       />
 
       <Button
@@ -383,13 +476,8 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
         class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
         @click="processCSVInput"
       >
-        Transform to Data
+        Transform to {{ csvTargetType === 'auto' ? 'Data' : csvTargetType === 'table' ? 'Table' : csvTargetType.charAt(0).toUpperCase() + csvTargetType.slice(1) + ' Chart' }}
       </Button>
-
-      <div class="mt-4 pt-4 border-t border-border text-center">
-        <Upload :size="24" :stroke-width="1.5" class="mx-auto mb-2 text-muted-foreground/50 opacity-50" />
-        <p class="text-[10px] text-muted-foreground/70">File upload integration coming soon</p>
-      </div>
     </div>
   </div>
 </template>

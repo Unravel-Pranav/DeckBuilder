@@ -16,6 +16,11 @@ import {
   Upload,
 } from 'lucide-vue-next'
 
+const emit = defineEmits<{
+  'commentary-click': []
+  'region-click': [componentType: string | null]
+}>()
+
 const slidesStore = useSlidesStore()
 const slide = computed(() => slidesStore.activeSlide)
 const { isDragging, hoverRegionIndex, payload, startDrag, endDrag, setHoverRegion, consumePayload } = useDragDrop()
@@ -95,11 +100,25 @@ const gridClass = computed(() => structureDef.value?.gridClass ?? 'grid-cols-1')
 
 function selectRegion(index: number) {
   slidesStore.setActiveRegion(index)
+  const region = slide.value?.regions[index]
+  emit('region-click', region?.component?.type ?? null)
 }
+
+const CHART_COLORS = ['#F59E0B', '#71717A', '#3B82F6', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4']
 
 function getBarHeights(data: number[]): number[] {
   const max = Math.max(...data, 1)
   return data.map((v) => (v / max) * 100)
+}
+
+function getMultiBarMax(datasets: { data: number[] }[]): number {
+  let max = 1
+  for (const ds of datasets) {
+    for (const v of ds.data) {
+      if (v > max) max = v
+    }
+  }
+  return max
 }
 
 function getLinePoints(data: number[], width: number, height: number): string {
@@ -108,6 +127,18 @@ function getLinePoints(data: number[], width: number, height: number): string {
   return data
     .map((v, i) => `${(i / (data.length - 1)) * width},${height - (v / max) * (height - 4)}`)
     .join(' ')
+}
+
+function getScatterPoints(data: number[], labels: string[]): { x: number; y: number }[] {
+  if (data.length === 0) return []
+  const xVals = labels.map(Number)
+  const xMin = Math.min(...xVals)
+  const xMax = Math.max(...xVals, xMin + 1)
+  const yMax = Math.max(...data, 1)
+  return data.map((v, i) => ({
+    x: ((xVals[i] - xMin) / (xMax - xMin)) * 190 + 5,
+    y: 76 - (v / yMax) * 72,
+  }))
 }
 
 function regionLabel(index: number): string {
@@ -136,7 +167,7 @@ function regionLabel(index: number): string {
       </div>
 
       <!-- Canvas area -->
-      <div class="flex-1 p-6 overflow-y-auto">
+      <div class="flex-1 p-6 overflow-y-auto" @click.self="emit('region-click', null)">
         <div
           class="w-full max-w-4xl mx-auto aspect-[16/9] rounded-xl border border-border p-4 grid gap-3"
           :class="gridClass"
@@ -212,15 +243,25 @@ function regionLabel(index: number): string {
                   </span>
                 </div>
 
-                <!-- Bar -->
+                <!-- Bar (supports multi-series grouped bars) -->
                 <template v-if="(region.component.data as ChartData).type === 'bar'">
                   <div class="flex-1 flex items-end gap-1.5 px-1">
                     <div
-                      v-for="(val, i) in getBarHeights((region.component.data as ChartData).datasets[0].data)"
-                      :key="i"
-                      class="flex-1 rounded-t transition-all duration-500"
-                      :style="{ height: `${val}%`, backgroundColor: 'rgba(245,158,11,0.5)', minHeight: '3px' }"
-                    />
+                      v-for="(_, labelIdx) in (region.component.data as ChartData).labels"
+                      :key="labelIdx"
+                      class="flex-1 flex items-end gap-px"
+                    >
+                      <div
+                        v-for="(ds, dsi) in (region.component.data as ChartData).datasets"
+                        :key="dsi"
+                        class="flex-1 rounded-t transition-all duration-500"
+                        :style="{
+                          height: `${(ds.data[labelIdx] / getMultiBarMax((region.component.data as ChartData).datasets)) * 100}%`,
+                          backgroundColor: CHART_COLORS[dsi % CHART_COLORS.length] + '80',
+                          minHeight: '3px',
+                        }"
+                      />
+                    </div>
                   </div>
                   <div class="flex justify-between mt-1.5 px-0.5">
                     <span v-for="(label, i) in (region.component.data as ChartData).labels" :key="i"
@@ -232,22 +273,22 @@ function regionLabel(index: number): string {
                 <template v-else-if="(region.component.data as ChartData).type === 'line' || (region.component.data as ChartData).type === 'area'">
                   <div class="flex-1 px-1">
                     <svg class="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
-                      <polygon
-                        v-if="(region.component.data as ChartData).type === 'area'"
-                        :points="`0,80 ${getLinePoints((region.component.data as ChartData).datasets[0].data, 200, 80)} 200,80`"
-                        fill="rgba(245,158,11,0.1)"
-                      />
-                      <polyline
-                        v-for="(ds, dsi) in (region.component.data as ChartData).datasets"
-                        :key="dsi"
-                        fill="none"
-                        :stroke="dsi === 0 ? '#F59E0B' : '#71717A'"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        :points="getLinePoints(ds.data, 200, 80)"
-                        :opacity="0.8"
-                      />
+                      <template v-for="(ds, dsi) in (region.component.data as ChartData).datasets" :key="dsi">
+                        <polygon
+                          v-if="(region.component.data as ChartData).type === 'area'"
+                          :points="`0,80 ${getLinePoints(ds.data, 200, 80)} 200,80`"
+                          :fill="CHART_COLORS[dsi % CHART_COLORS.length] + '18'"
+                        />
+                        <polyline
+                          fill="none"
+                          :stroke="CHART_COLORS[dsi % CHART_COLORS.length]"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          :points="getLinePoints(ds.data, 200, 80)"
+                          :opacity="0.8"
+                        />
+                      </template>
                     </svg>
                   </div>
                 </template>
@@ -261,7 +302,7 @@ function regionLabel(index: number): string {
                         background: (() => {
                           const data = (region.component!.data as ChartData).datasets[0].data
                           const total = data.reduce((a: number, b: number) => a + b, 0) || 1
-                          const colors = (region.component!.data as ChartData).datasets[0].backgroundColor ?? ['#F59E0B','#FBBF24','#D97706','#92400E']
+                          const colors = (region.component!.data as ChartData).datasets[0].backgroundColor ?? CHART_COLORS
                           let pct = 0
                           return 'conic-gradient(' + data.map((v: number, i: number) => {
                             const start = pct; pct += (v / total) * 100
@@ -281,9 +322,26 @@ function regionLabel(index: number): string {
                     <span v-for="(label, i) in (region.component.data as ChartData).labels" :key="i"
                       class="text-[8px] font-mono text-muted-foreground/50 flex items-center gap-0.5">
                       <span class="w-1.5 h-1.5 rounded-full"
-                        :style="{ backgroundColor: ((region.component.data as ChartData).datasets[0].backgroundColor ?? ['#F59E0B','#FBBF24','#D97706'])[i % 3] }" />
+                        :style="{ backgroundColor: ((region.component.data as ChartData).datasets[0].backgroundColor ?? CHART_COLORS)[i % CHART_COLORS.length] }" />
                       {{ label }}
                     </span>
+                  </div>
+                </template>
+
+                <!-- Scatter -->
+                <template v-else-if="(region.component.data as ChartData).type === 'scatter'">
+                  <div class="flex-1 px-1">
+                    <svg class="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
+                      <circle
+                        v-for="(pt, pi) in getScatterPoints((region.component.data as ChartData).datasets[0].data, (region.component.data as ChartData).labels)"
+                        :key="pi"
+                        :cx="pt.x"
+                        :cy="pt.y"
+                        r="3"
+                        fill="#F59E0B"
+                        opacity="0.7"
+                      />
+                    </svg>
                   </div>
                 </template>
 
@@ -368,7 +426,11 @@ function regionLabel(index: number): string {
         </div>
 
         <!-- Slide-level commentary (below canvas) -->
-        <div v-if="slide.commentary" class="w-full max-w-4xl mx-auto mt-3 px-1">
+        <div
+          v-if="slide.commentary"
+          class="w-full max-w-4xl mx-auto mt-3 px-1 cursor-pointer rounded-lg p-2 -m-1 transition-colors hover:bg-amber-500/[0.04]"
+          @click="emit('commentary-click')"
+        >
           <div class="flex items-center gap-1.5 mb-1">
             <FileText :size="10" :stroke-width="1.5" class="text-muted-foreground/40" />
             <span class="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40">Commentary</span>
