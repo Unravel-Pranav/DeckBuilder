@@ -1107,6 +1107,80 @@ def _can_section_share_slide(
     return _check_layout_specific_sharing(new_section_layout, slide_state, layout_metrics)
 
 
+_FRONTEND_LAYOUT_MAP = {
+    "full_width": "full_width",
+    "two_column": "grid_2x2",
+    "grid": "grid_2x2",
+}
+
+
+def _assign_with_frontend_layout(
+    selected_elements: List[Dict[str, Any]],
+    start_slide: int,
+    elements_on_current_slide: int,
+    is_first_slide: bool,
+    layout: SlideLayoutMetrics,
+    current_slide_layout: Optional[str],
+) -> tuple[int, int, bool, float, Optional[str]]:
+    """
+    Fast-path slide assignment when elements carry layout_category from the
+    DeckBuilder frontend.  Groups elements by slide_group and maps
+    layout_category to the backend layout type, preserving the exact slide
+    arrangement the user configured.
+    """
+    from collections import OrderedDict
+
+    groups: OrderedDict[int, List[Dict[str, Any]]] = OrderedDict()
+    for elem in selected_elements:
+        sg = elem.get("slide_group", 0)
+        groups.setdefault(sg, []).append(elem)
+
+    current_slide = start_slide
+    if elements_on_current_slide > 0:
+        current_slide += 1
+        elements_on_current_slide = 0
+        is_first_slide = False
+        current_slide_layout = None
+
+    last_group_size = 0
+    last_layout: Optional[str] = current_slide_layout
+
+    for sg, group_elems in groups.items():
+        cats = {
+            e.get("config", {}).get("layout_category", "full_width")
+            for e in group_elems
+        }
+        if "grid" in cats:
+            backend_layout = "grid_2x2"
+        elif "two_column" in cats:
+            backend_layout = "grid_2x2"
+        else:
+            backend_layout = "full_width"
+
+        for elem in group_elems:
+            elem.setdefault("config", {})["slide_number"] = current_slide
+            elem["config"]["layout"] = backend_layout
+
+        last_group_size = len(group_elems)
+        last_layout = backend_layout
+
+        print(
+            f"      📌 slide_group={sg}: {len(group_elems)} elements "
+            f"→ slide {current_slide} ({backend_layout})"
+        )
+
+        current_slide += 1
+        is_first_slide = False
+
+    if groups:
+        current_slide -= 1
+        elements_on_current_slide = last_group_size
+    else:
+        elements_on_current_slide = 0
+
+    return current_slide, elements_on_current_slide, is_first_slide, 0.0, last_layout
+
+
 def _assign_section_elements(
     section: Dict[str, Any],
     start_slide: int,
@@ -1149,7 +1223,21 @@ def _assign_section_elements(
     
     # Ensure layout is available
     layout = layout or _build_layout_metrics({"report": {}})
-    
+
+    # ── Frontend-driven layout assignment ──
+    # When elements carry layout_category from the DeckBuilder slide builder,
+    # use slide_group for packing instead of height/capacity heuristics.
+    # This preserves the exact slide grouping and layout the user configured.
+    _has_frontend_layout = any(
+        e.get("config", {}).get("layout_category")
+        for e in selected_elements
+    )
+    if _has_frontend_layout:
+        return _assign_with_frontend_layout(
+            selected_elements, start_slide, elements_on_current_slide,
+            is_first_slide, layout, current_slide_layout,
+        )
+
     # Pre-calculate optimal layouts for tables (before assignment)
     # This evaluates all possible layouts and selects the best one based on text wrapping
     allowed_layouts = get_allowed_layout_types(layout.property_sub_type or DEFAULT_PROPERTY_SUB_TYPE)

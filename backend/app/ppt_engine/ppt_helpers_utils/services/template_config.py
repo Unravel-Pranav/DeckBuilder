@@ -530,6 +530,10 @@ _CHART_TYPE_TO_GROUP: Dict[str, str] = {
     "line": "LINE",
     "multi_line": "LINE",
     "single_line": "LINE",
+    # AREA group (uses LINE config — area charts share the same layout)
+    "area": "LINE",
+    "single_area": "LINE",
+    "multi_area": "LINE",
     # PIE_DONUT group
     "pie": "PIE_DONUT",
     "donut": "PIE_DONUT",
@@ -1599,6 +1603,10 @@ def get_chart_group(chart_type: Optional[str]) -> str:
     # Check for pie/donut
     if "pie" in normalized or "donut" in normalized:
         return "PIE_DONUT"
+
+    # Check for area charts (similar layout to line charts)
+    if "area" in normalized and "bar" not in normalized and "combo" not in normalized:
+        return "LINE"
 
     # Check for line charts (check before bar since some charts might have both)
     if "line" in normalized and "bar" not in normalized:

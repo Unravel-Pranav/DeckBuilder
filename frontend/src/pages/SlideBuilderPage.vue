@@ -109,12 +109,12 @@ function handleContinue() {
     <Transition name="slide-panel">
       <div
         v-if="rightPanelOpen"
-        class="w-80 flex-shrink-0 flex flex-col border-l border-border"
+        class="w-80 flex-shrink-0 flex flex-col border-l border-border overflow-hidden"
         :style="{ background: 'var(--surface-elevated)' }"
       >
         <Tabs
           v-model="rightTab"
-          class="flex flex-col h-full"
+          class="flex flex-col h-full min-h-0"
         >
           <TabsList class="w-full grid grid-cols-2 bg-foreground/[0.03] rounded-none border-b border-border h-auto p-0">
             <TabsTrigger
@@ -133,7 +133,7 @@ function handleContinue() {
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea class="flex-1">
+          <ScrollArea class="flex-1 min-h-0">
             <div class="p-4">
               <TabsContent value="data" class="mt-0">
                 <DataInputPanel />

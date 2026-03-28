@@ -70,18 +70,28 @@ export function transformToBackendFormat(
             const chartData = []
             const labels = comp.data.labels
             for (let i = 0; i < labels.length; i++) {
-              const row: any = { quarter: labels[i] }
+              const row: any = { category: labels[i] }
               comp.data.datasets.forEach((ds: ChartDataset) => {
                 row[ds.label] = ds.data[i]
               })
               chartData.push(row)
             }
+            const isMultiAxis = comp.data.type === 'scatter' && comp.data.datasets.length > 1
             element.config = {
               ...element.config,
-              chart_type: mapChartType(comp.data.type),
+              chart_type: mapChartType(comp.data.type, comp.data.datasets.length),
               chart_name: slide.title,
               chart_data: chartData,
               primary_y_axis_title: comp.data.datasets[0]?.label || '',
+              axisConfig: {
+                xAxis: [{ key: 'category', name: 'Category' }],
+                yAxis: comp.data.datasets.map((ds: ChartDataset, i: number) => ({
+                  key: ds.label,
+                  name: ds.label,
+                  isPrimary: i === 0,
+                })),
+                isMultiAxis,
+              },
             }
           } else if (comp.type === 'table') {
             const tableData = comp.data.rows.map((row: string[]) => {
@@ -139,13 +149,17 @@ export function transformToBackendFormat(
   }
 }
 
-function mapChartType(type: string): string {
+function mapChartType(type: string, datasetCount: number = 1): string {
+  if (type === 'line') {
+    return datasetCount > 1 ? 'Line - Multi axis' : 'Line - Single axis'
+  }
+  if (type === 'area') {
+    return datasetCount > 1 ? 'Area - Multi axis' : 'Area - Single axis'
+  }
   const map: Record<string, string> = {
     bar: 'Bar Chart',
-    line: 'Line - Single axis',
     pie: 'Pie Chart',
     doughnut: 'Donut Chart',
-    area: 'Combo - Area + Bar',
     scatter: 'Line - Multi axis',
   }
   return map[type] || 'Bar Chart'

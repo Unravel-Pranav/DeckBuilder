@@ -1254,6 +1254,7 @@ class ChartDataPopulator:
                 "single_bar",
                 "single_column",
                 "line_single_axis",
+                "single_area",
             ]:
                 # Single series charts: use first numerical column
                 if numerical_columns:

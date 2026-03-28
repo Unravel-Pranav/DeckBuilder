@@ -89,6 +89,8 @@ function onDrop(targetIndex: number) {
   }
 
   slidesStore.setActiveRegion(targetIndex)
+  const droppedRegion = slide.value.regions[targetIndex]
+  emit('region-click', droppedRegion?.component?.type ?? null)
 }
 
 const structureDef = computed(() => {
@@ -226,11 +228,88 @@ function regionLabel(index: number): string {
             <!-- Region content -->
             <div class="flex-1 p-3 flex flex-col min-h-0">
 
-              <!-- Empty region placeholder -->
+              <!-- Empty region — ghost scaffolding -->
               <template v-if="!region.component">
-                <div class="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground/30">
-                  <Plus :size="20" :stroke-width="1.5" />
-                  <span class="text-[10px] font-mono">Add Component</span>
+                <div class="flex-1 flex flex-col min-h-0 relative select-none">
+
+                  <!-- Bar chart scaffolding -->
+                  <template v-if="ri % 4 === 0">
+                    <div class="flex items-center gap-2 mb-2 opacity-[0.18]">
+                      <BarChart3 :size="12" :stroke-width="1.5" class="text-muted-foreground" />
+                      <span class="text-[9px] font-mono text-muted-foreground">bar chart</span>
+                    </div>
+                    <div class="flex-1 px-1">
+                      <svg class="w-full h-full" viewBox="0 0 200 100" preserveAspectRatio="none">
+                        <line v-for="y in [20, 40, 60, 80]" :key="y" x1="0" :y1="y" x2="200" :y2="y" stroke="currentColor" stroke-dasharray="3 5" class="text-muted-foreground/[0.06]" />
+                        <rect v-for="(h, i) in [60, 40, 85, 30, 68, 52]" :key="i"
+                          :x="i * 33 + 3" width="27" :y="100 - h" :height="h" rx="2"
+                          :fill="CHART_COLORS[i % CHART_COLORS.length]" fill-opacity="0.12"
+                        />
+                      </svg>
+                    </div>
+                    <div class="flex justify-between mt-1.5 px-1">
+                      <span v-for="i in 6" :key="i" class="h-1 rounded-full bg-muted-foreground/[0.07]" :style="{ width: `${10 + i * 2}px` }" />
+                    </div>
+                  </template>
+
+                  <!-- Line chart scaffolding -->
+                  <template v-else-if="ri % 4 === 1">
+                    <div class="flex items-center gap-2 mb-2 opacity-[0.18]">
+                      <TrendingUp :size="12" :stroke-width="1.5" class="text-muted-foreground" />
+                      <span class="text-[9px] font-mono text-muted-foreground">line chart</span>
+                    </div>
+                    <div class="flex-1 px-1">
+                      <svg class="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
+                        <line v-for="y in [20, 40, 60]" :key="y" x1="0" :y1="y" x2="200" :y2="y" stroke="currentColor" stroke-dasharray="3 5" class="text-muted-foreground/[0.06]" />
+                        <polygon points="0,80 0,60 33,48 66,52 100,32 133,38 166,22 200,16 200,80" fill="#F59E0B" opacity="0.05" />
+                        <polyline fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="0,60 33,48 66,52 100,32 133,38 166,22 200,16" opacity="0.14" />
+                        <circle v-for="(pt, pi) in [{x:0,y:60},{x:33,y:48},{x:66,y:52},{x:100,y:32},{x:133,y:38},{x:166,y:22},{x:200,y:16}]" :key="pi" :cx="pt.x" :cy="pt.y" r="2.5" fill="#F59E0B" opacity="0.12" />
+                      </svg>
+                    </div>
+                  </template>
+
+                  <!-- Table scaffolding -->
+                  <template v-else-if="ri % 4 === 2">
+                    <div class="flex items-center gap-2 mb-2 opacity-[0.18]">
+                      <Table2 :size="12" :stroke-width="1.5" class="text-muted-foreground" />
+                      <span class="text-[9px] font-mono text-muted-foreground">table</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-0">
+                      <div class="flex gap-2 pb-1.5 mb-0.5 border-b border-muted-foreground/[0.1]">
+                        <span v-for="w in [55, 40, 35, 45]" :key="w" class="h-2 rounded bg-amber-500/[0.08]" :style="{ width: `${w}%`, flex: 1 }" />
+                      </div>
+                      <div v-for="r in 4" :key="r" class="flex gap-2 py-[5px] border-b border-muted-foreground/[0.04]">
+                        <span v-for="c in 4" :key="c" class="flex-1 h-1.5 rounded bg-muted-foreground/[0.05]" />
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Pie chart scaffolding -->
+                  <template v-else>
+                    <div class="flex items-center gap-2 mb-2 opacity-[0.18]">
+                      <BarChart3 :size="12" :stroke-width="1.5" class="text-muted-foreground" />
+                      <span class="text-[9px] font-mono text-muted-foreground">chart</span>
+                    </div>
+                    <div class="flex-1 flex items-center justify-center">
+                      <div class="w-16 h-16 rounded-full opacity-[0.14]"
+                        :style="{ background: `conic-gradient(${CHART_COLORS[0]} 0% 40%, ${CHART_COLORS[1]} 40% 65%, ${CHART_COLORS[2]} 65% 82%, ${CHART_COLORS[3]} 82% 100%)` }"
+                      />
+                    </div>
+                    <div class="flex justify-center gap-3 mt-1">
+                      <span v-for="i in 4" :key="i" class="flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full opacity-[0.14]" :style="{ backgroundColor: CHART_COLORS[i - 1] }" />
+                        <span class="h-1 w-5 rounded-full bg-muted-foreground/[0.07]" />
+                      </span>
+                    </div>
+                  </template>
+
+                  <!-- Hover overlay -->
+                  <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                    <div class="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl bg-background/80 backdrop-blur-sm shadow-sm border border-border/50">
+                      <Plus :size="16" :stroke-width="1.5" class="text-amber-500/70" />
+                      <span class="text-[10px] font-medium text-muted-foreground/70">Drop Component</span>
+                    </div>
+                  </div>
                 </div>
               </template>
 
@@ -245,22 +324,24 @@ function regionLabel(index: number): string {
 
                 <!-- Bar (supports multi-series grouped bars) -->
                 <template v-if="(region.component.data as ChartData).type === 'bar'">
-                  <div class="flex-1 flex items-end gap-1.5 px-1">
-                    <div
-                      v-for="(_, labelIdx) in (region.component.data as ChartData).labels"
-                      :key="labelIdx"
-                      class="flex-1 flex items-end gap-px"
-                    >
+                  <div class="flex-1 relative px-1">
+                    <div class="absolute inset-0 flex items-end gap-1.5">
                       <div
-                        v-for="(ds, dsi) in (region.component.data as ChartData).datasets"
-                        :key="dsi"
-                        class="flex-1 rounded-t transition-all duration-500"
-                        :style="{
-                          height: `${(ds.data[labelIdx] / getMultiBarMax((region.component.data as ChartData).datasets)) * 100}%`,
-                          backgroundColor: CHART_COLORS[dsi % CHART_COLORS.length] + '80',
-                          minHeight: '3px',
-                        }"
-                      />
+                        v-for="(_, labelIdx) in (region.component.data as ChartData).labels"
+                        :key="labelIdx"
+                        class="flex-1 flex items-end gap-px h-full"
+                      >
+                        <div
+                          v-for="(ds, dsi) in (region.component.data as ChartData).datasets"
+                          :key="dsi"
+                          class="flex-1 rounded-t transition-all duration-500"
+                          :style="{
+                            height: `${(ds.data[labelIdx] / getMultiBarMax((region.component.data as ChartData).datasets)) * 100}%`,
+                            backgroundColor: CHART_COLORS[dsi % CHART_COLORS.length] + '80',
+                            minHeight: '3px',
+                          }"
+                        />
+                      </div>
                     </div>
                   </div>
                   <div class="flex justify-between mt-1.5 px-0.5">
@@ -347,13 +428,15 @@ function regionLabel(index: number): string {
 
                 <!-- Fallback bar -->
                 <template v-else>
-                  <div class="flex-1 flex items-end gap-1.5 px-1">
-                    <div
-                      v-for="(val, i) in getBarHeights((region.component.data as ChartData).datasets[0].data)"
-                      :key="i"
-                      class="flex-1 rounded-t"
-                      :style="{ height: `${val}%`, backgroundColor: 'rgba(245,158,11,0.4)', minHeight: '3px' }"
-                    />
+                  <div class="flex-1 relative px-1">
+                    <div class="absolute inset-0 flex items-end gap-1.5">
+                      <div
+                        v-for="(val, i) in getBarHeights((region.component.data as ChartData).datasets[0].data)"
+                        :key="i"
+                        class="flex-1 rounded-t"
+                        :style="{ height: `${val}%`, backgroundColor: 'rgba(245,158,11,0.4)', minHeight: '3px' }"
+                      />
+                    </div>
                   </div>
                 </template>
               </template>

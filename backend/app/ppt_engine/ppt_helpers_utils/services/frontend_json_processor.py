@@ -107,6 +107,8 @@ class FrontendJSONProcessor:
         self.chart_type_mapping = {
             "Line - Single axis": "line_chart",
             "Line - Multi axis": "multi_line_chart",
+            "Area - Single axis": "area_chart",
+            "Area - Multi axis": "multi_area_chart",
             "Bar Chart": "bar_chart",
             "Horizontal Bar": "horizontal_bar_chart",
             "Stacked bar": "stacked_bar_chart",
@@ -120,6 +122,8 @@ class FrontendJSONProcessor:
             # Direct template names (for when chart_type already contains template name)
             "multi_line_chart": "multi_line_chart",
             "line_chart": "line_chart",
+            "area_chart": "area_chart",
+            "multi_area_chart": "multi_area_chart",
             "bar_chart": "bar_chart",
             "horizontal_bar_chart": "horizontal_bar_chart",
             "stacked_bar_chart": "stacked_bar_chart",
