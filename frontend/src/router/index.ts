@@ -1,4 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useSlidesStore } from '@/stores/slides'
+import { usePresentationStore } from '@/stores/presentation'
+import { useAiStore } from '@/stores/ai'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -49,6 +52,38 @@ const router = createRouter({
       component: () => import('@/pages/OutputPage.vue'),
     },
   ],
+})
+
+router.beforeEach((to) => {
+  const slidesStore = useSlidesStore()
+  const presentationStore = usePresentationStore()
+  const aiStore = useAiStore()
+
+  const hasSections = slidesStore.sections.length > 0
+  const hasPresentation = !!presentationStore.currentPresentation
+  const hasRecommendations = (aiStore.recommendation?.sections?.length ?? 0) > 0
+
+  switch (to.name) {
+    case 'recommendations':
+      if (!hasPresentation) {
+        return { name: 'create' }
+      }
+      break
+
+    case 'sections':
+      if (!hasRecommendations && !hasSections) {
+        return hasPresentation ? { name: 'recommendations' } : { name: 'create' }
+      }
+      break
+
+    case 'builder':
+    case 'preview':
+    case 'output':
+      if (!hasSections) {
+        return { name: 'create' }
+      }
+      break
+  }
 })
 
 export default router

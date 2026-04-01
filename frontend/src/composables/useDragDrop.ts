@@ -19,7 +19,7 @@ export function useDragDrop() {
     _payload.value = data
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = data.sourceRegionIndex != null ? 'move' : 'copy'
-      event.dataTransfer.setData('application/x-deckbuilder', 'drag')
+      event.dataTransfer.setData('application/x-autodeck', 'drag')
     }
   }
 

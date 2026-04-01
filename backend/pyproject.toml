@@ -1,5 +1,5 @@
 [project]
-name = "deckbuilder-backend"
+name = "autodeck-backend"
 version = "0.1.0"
 description = "AI-Powered PPT Builder — FastAPI Backend"
 requires-python = ">=3.11"
@@ -17,6 +17,7 @@ dependencies = [
     "lxml>=5.0.0",
     "openpyxl>=3.1.0",
     "python-dotenv>=1.0.0",
+    "openai>=2.30.0",
 ]
 
 [project.optional-dependencies]

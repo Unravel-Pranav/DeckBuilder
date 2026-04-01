@@ -144,9 +144,13 @@ export const useSlidesStore = defineStore('slides', () => {
     source: CommentarySource,
   ) {
     const slide = allSlides.value.find((s) => s.id === slideId)
-    if (slide) {
-      slide.commentary = commentary
-      slide.commentarySource = source
+    if (!slide) return
+    slide.commentary = commentary
+    slide.commentarySource = source
+
+    const textRegion = slide.regions.find((r) => r.component?.type === 'text')
+    if (textRegion?.component && textRegion.component.type === 'text') {
+      textRegion.component.data = { content: commentary }
     }
   }
 

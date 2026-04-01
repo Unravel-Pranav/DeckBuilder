@@ -1,4 +1,4 @@
-# DeckBuilder — AI-Powered Presentation Builder
+# Auto Deck — AI-Powered Presentation Builder
 
 ## Tech Stack
 

@@ -27,6 +27,9 @@ export function transformToBackendFormat(
   sections: Section[],
   deckTemplateId?: number | null,
 ) {
+  const now = new Date()
+  const quarter = `${now.getFullYear()} Q${Math.ceil((now.getMonth() + 1) / 3)}`
+
   return {
     report: {
       id: presentation.id,
@@ -34,7 +37,7 @@ export function transformToBackendFormat(
       ...(deckTemplateId != null ? { template_id: deckTemplateId } : {}),
       property_type: presentation.intent.type === 'business' ? 'Office' : 'Industrial',
       property_sub_type: 'figures',
-      quarter: '2025 Q1',
+      quarter,
     },
     sections: sections.map((section: Section) => ({
       id: section.id,
@@ -168,6 +171,31 @@ function mapChartType(type: string, datasetCount: number = 1): string {
 const envApi = import.meta.env.VITE_API_BASE_URL as string | undefined
 export const API_BASE_URL = envApi ?? 'http://localhost:8000/api/v1'
 
+/**
+ * Standardized API response format from backend.
+ */
+export interface ApiResponse<T> {
+  success: boolean
+  error_code: string | null
+  data: T | null
+  error: {
+    message: string
+    details: string[] | null
+  } | null
+}
+
+/**
+ * Extracts data from standardized API response or throws an error.
+ */
+export function unwrapResponse<T>(response: ApiResponse<T>): T {
+  if (!response.success || response.data === null) {
+    const message = response.error?.message || 'Unknown error'
+    const details = response.error?.details?.join(', ')
+    throw new Error(details ? `${message}: ${details}` : message)
+  }
+  return response.data
+}
+
 export function formatFastApiDetail(detail: unknown): string | null {
   if (detail == null) return null
   if (typeof detail === 'string') return detail
@@ -183,7 +211,28 @@ export function formatFastApiDetail(detail: unknown): string | null {
   return null
 }
 
-export async function generatePPT(payload: any) {
+/**
+ * Formats error from new API response format.
+ */
+export function formatApiError(response: ApiResponse<unknown>): string {
+  if (response.error) {
+    const details = response.error.details?.join(', ')
+    return details ? `${response.error.message}: ${details}` : response.error.message
+  }
+  return 'Unknown error'
+}
+
+export interface GeneratePPTResult {
+  file_id: string
+  file_path: string
+  filename: string
+  created_at: string
+  title: string
+  author: string
+  sections_count: number
+}
+
+export async function generatePPT(payload: any): Promise<GeneratePPTResult> {
   const response = await fetch(`${API_BASE_URL}/generation/generate-custom`, {
     method: 'POST',
     headers: {
@@ -192,12 +241,13 @@ export async function generatePPT(payload: any) {
     body: JSON.stringify(payload),
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || 'Failed to generate PPT')
+  const json: ApiResponse<GeneratePPTResult> = await response.json()
+
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
   }
 
-  return await response.json()
+  return unwrapResponse(json)
 }
 
 export function downloadFile(fileId: string, fileName: string) {
@@ -228,10 +278,13 @@ export interface BackendTemplatesResponse {
 
 export async function fetchPptTemplates(): Promise<BackendTemplatesResponse> {
   const response = await fetch(`${API_BASE_URL}/ppt-templates/`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch PPT templates')
+  const json: ApiResponse<BackendTemplatesResponse> = await response.json()
+
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
   }
-  return await response.json()
+
+  return unwrapResponse(json)
 }
 
 export interface DeckTemplate {
@@ -254,10 +307,13 @@ export interface DeckTemplateListResponse {
 
 export async function fetchDeckTemplates(): Promise<DeckTemplateListResponse> {
   const response = await fetch(`${API_BASE_URL}/templates`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch templates')
+  const json: ApiResponse<DeckTemplateListResponse> = await response.json()
+
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
   }
-  return await response.json()
+
+  return unwrapResponse(json)
 }
 
 export function deckTemplatePptDownloadUrl(templateId: number): string {
@@ -273,11 +329,13 @@ export interface UploadedSlideInfo {
 
 export async function fetchTemplateSlides(templateId: number): Promise<UploadedSlideInfo[]> {
   const response = await fetch(`${API_BASE_URL}/templates/${templateId}/slides`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch template slides')
+  const json: ApiResponse<{ template_id: number; slides: UploadedSlideInfo[] }> = await response.json()
+
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
   }
-  const data = await response.json()
-  return data.slides
+
+  return unwrapResponse(json).slides
 }
 
 export async function uploadDeckTemplatePpt(
@@ -290,16 +348,12 @@ export async function uploadDeckTemplatePpt(
     method: 'POST',
     body,
   })
-  if (!response.ok) {
-    let message = `Failed to upload template PPT (${response.status})`
-    try {
-      const err = (await response.json()) as { detail?: unknown }
-      const d = formatFastApiDetail(err?.detail)
-      if (d) message = d
-    } catch {
-      /* ignore */
-    }
-    throw new Error(message)
+
+  const json: ApiResponse<DeckTemplate> = await response.json()
+
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
   }
-  return await response.json()
+
+  return unwrapResponse(json)
 }

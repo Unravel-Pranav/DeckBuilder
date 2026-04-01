@@ -1,0 +1,79 @@
+Based on my analysis, here's a comprehensive overview of **Auto Deck** and what's incomplete or needs attention:
+
+---
+
+## What is Auto Deck?
+
+An **AI-powered presentation builder** where users:
+1. Define intent (audience, tone, type)
+2. Get AI-suggested sections
+3. Organize sections/slides with drag-and-drop
+4. Edit in a three-panel builder (templates, data, commentary)
+5. Preview and generate a `.pptx` file
+
+---
+
+## Key Incomplete / Mock Features
+
+### **Frontend - High Priority**
+
+| Area | Issue |
+|------|-------|
+| **Dashboard** | Uses `mockPresentations` — clicking a card goes to `/builder` but doesn't load that deck |
+| **Output Page** | `downloadPPT` is a fake `setTimeout(1500)` — **doesn't actually download** |
+| **Output Page** | Version buttons have **no click handlers** |
+| **Output Page** | Share/Duplicate buttons are **decorative only** |
+| **Builder/Preview** | If sections are empty, pages inject `mockSections` — masks real flow issues |
+| **TopBar** | Bell, Settings, Avatar are **non-functional placeholders** |
+
+### **Frontend - Medium Priority**
+
+| Area | Issue |
+|------|-------|
+| **No route guards** | Users can deep-link to `/sections` or `/builder` with empty state |
+| **Create → Recommendations** | Navigates even if `fetchRecommendations` fails (error only shows on next page) |
+| **Recommendations** | "Continue" silently does nothing if no sections accepted (no toast/message) |
+| **Template previews** | Generic SVG illustrations, not actual slide renders |
+
+### **Backend - Stubs & Placeholders**
+
+| File | Issue |
+|------|-------|
+| `industrial_figures.py` | 3 explicit stubs: `fetch_snowflake_data`, `render_sql_template`, `get_quarter_end_date` return empty data |
+| `ppt_builder.py` | "Temporary adapter" returns empty deck when `report` is missing |
+| `StructureService` | Fills **hard-coded sample** chart/table data — not LLM-driven |
+| `AiService` | Falls back to **static recommendations/commentary** if no API key or LLM fails |
+
+### **Backend - Architecture Gaps**
+
+| Area | Issue |
+|------|-------|
+| **Generated files** | Stored in **in-memory dict** — lost on restart |
+| **`GeneratedReportModel`** | Table exists but **no API exposes it** |
+| **DELETE endpoints** | Return `{"deleted": false}` with **200 OK** instead of 404 |
+| **`/generation/generate-custom`** | Accepts raw `dict` — no Pydantic validation |
+| **Error handling** | PPT generation catches all exceptions and returns `{"success": false}` with **200 OK** |
+
+---
+
+## Summary Checklist
+
+**Must Fix for MVP:**
+- [ ] Wire Output page download to actual `file_id` from generation API
+- [ ] Remove mock fallbacks in Builder/Preview (or show "no data" state)
+- [ ] Add route guards or redirects for empty state
+- [ ] Persist generated files to disk/DB (not in-memory)
+
+**Should Fix:**
+- [ ] Dashboard: load real presentations from DB
+- [ ] Output page: implement Share, Duplicate, Versions
+- [ ] TopBar: implement or remove Settings/Notifications
+- [ ] DELETE endpoints: return 404 when resource doesn't exist
+- [ ] Add Pydantic schema for `/generation/generate-custom`
+
+**Nice to Have:**
+- [ ] Real template thumbnail generation
+- [ ] Replace Snowflake stubs with actual data sources (or remove)
+- [ ] Wire `GeneratedReportModel` to track PPT history
+
+Would you like me to start fixing any of these?

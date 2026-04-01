@@ -27,7 +27,11 @@ const uiStore = useUiStore()
 
 onMounted(async () => {
   if (!aiStore.recommendation) {
-    await aiStore.fetchRecommendations()
+    await aiStore.fetchRecommendations(
+      presentationStore.intent.type,
+      presentationStore.intent.audience,
+      presentationStore.intent.tone,
+    )
   }
 })
 
@@ -112,6 +116,18 @@ function handleContinue() {
     <div v-if="aiStore.isLoading" class="flex flex-col items-center py-24">
       <Loader2 :size="32" :stroke-width="1.5" class="text-amber-500 animate-spin mb-4" />
       <p class="text-sm text-muted-foreground font-mono">Analyzing your intent...</p>
+      <p class="text-xs text-muted-foreground/50 mt-2">This may take 10-20 seconds...</p>
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="aiStore.error && !aiStore.recommendation" class="flex flex-col items-center py-24">
+      <p class="text-sm text-red-400 mb-4">{{ aiStore.error }}</p>
+      <Button
+        class="bg-amber-500 text-[#09090B] hover:bg-amber-400 rounded-lg h-9 text-sm font-medium"
+        @click="aiStore.fetchRecommendations(presentationStore.intent.type, presentationStore.intent.audience, presentationStore.intent.tone)"
+      >
+        Retry
+      </Button>
     </div>
 
     <!-- Section cards with drag-and-drop -->

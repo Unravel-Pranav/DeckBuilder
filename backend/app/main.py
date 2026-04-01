@@ -1,4 +1,4 @@
-"""DeckBuilder API — FastAPI entry point with clean architecture."""
+"""Auto Deck API — FastAPI entry point with clean architecture."""
 
 from __future__ import annotations
 

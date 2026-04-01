@@ -29,7 +29,11 @@ async function handleContinue() {
     uiStore.completeStep('create')
     uiStore.setCurrentStep('recommendations')
 
-    await aiStore.fetchRecommendations()
+    await aiStore.fetchRecommendations(
+      presentationStore.intent.type,
+      presentationStore.intent.audience,
+      presentationStore.intent.tone,
+    )
     router.push('/recommendations')
   } finally {
     isSubmitting.value = false

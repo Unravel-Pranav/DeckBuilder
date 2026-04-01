@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-const LS_ID = 'deckbuilder:export_deck_template_id'
-const LS_NAME = 'deckbuilder:export_deck_template_name'
+const LS_ID = 'autodeck:export_deck_template_id'
+const LS_NAME = 'autodeck:export_deck_template_name'
 
 /**
  * DB template whose uploaded .pptx is used as the base (cover + masters) for Generate.

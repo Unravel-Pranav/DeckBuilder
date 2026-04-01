@@ -1124,7 +1124,7 @@ def _assign_with_frontend_layout(
 ) -> tuple[int, int, bool, float, Optional[str]]:
     """
     Fast-path slide assignment when elements carry layout_category from the
-    DeckBuilder frontend.  Groups elements by slide_group and maps
+    Auto Deck frontend.  Groups elements by slide_group and maps
     layout_category to the backend layout type, preserving the exact slide
     arrangement the user configured.
     """
@@ -1225,7 +1225,7 @@ def _assign_section_elements(
     layout = layout or _build_layout_metrics({"report": {}})
 
     # ── Frontend-driven layout assignment ──
-    # When elements carry layout_category from the DeckBuilder slide builder,
+    # When elements carry layout_category from the Auto Deck slide builder,
     # use slide_group for packing instead of height/capacity heuristics.
     # This preserves the exact slide grouping and layout the user configured.
     _has_frontend_layout = any(
