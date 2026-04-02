@@ -23,7 +23,7 @@ const pageTitle = computed(() => {
     preview: 'Preview & Generate',
     output: 'Your Presentation',
   }
-  return titles[route.name as string] ?? 'DeckBuilder'
+  return titles[route.name as string] ?? 'Auto Deck'
 })
 
 const showPresentationName = computed(() =>

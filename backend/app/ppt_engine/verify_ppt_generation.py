@@ -7,7 +7,7 @@ from datetime import datetime
 # Add the backend directory to the search path for imports
 # This allows 'import app' to work
 current_dir = Path(__file__).parent
-# backend_dir points to /home/harsh/Projects-TSM/DeckBuilder/backend
+# backend_dir points to this repository's backend/ directory
 backend_node_dir = current_dir.parent.parent
 sys.path.insert(0, str(backend_node_dir))
 

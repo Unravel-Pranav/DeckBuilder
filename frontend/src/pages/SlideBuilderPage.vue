@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { useUiStore } from '@/stores/ui'
-import { mockSections } from '@/lib/mockData'
 import SlideListPanel from '@/components/builder/SlideListPanel.vue'
 import LayoutSelector from '@/components/builder/LayoutSelector.vue'
 import TemplateSelector from '@/components/builder/TemplateSelector.vue'
@@ -12,13 +11,13 @@ import DataInputPanel from '@/components/builder/DataInputPanel.vue'
 import CommentaryPanel from '@/components/builder/CommentaryPanel.vue'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   ArrowRight,
   Database,
   MessageSquare,
   PanelRightOpen,
   PanelRightClose,
+  Layers,
 } from 'lucide-vue-next'
 
 const rightTab = ref<string>('data')
@@ -28,10 +27,9 @@ const router = useRouter()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
 
+const hasData = computed(() => slidesStore.sections.length > 0)
+
 onMounted(() => {
-  if (slidesStore.sections.length === 0) {
-    slidesStore.setSections(mockSections)
-  }
   if (!slidesStore.activeSlideId && slidesStore.allSlides.length > 0) {
     slidesStore.setActiveSlide(slidesStore.allSlides[0].id)
   }
@@ -70,7 +68,27 @@ function handleContinue() {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
+  <!-- Empty state when no sections -->
+  <div v-if="!hasData" class="flex h-[calc(100vh-4rem)] items-center justify-center">
+    <div class="text-center max-w-md px-6">
+      <div class="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
+        <Layers :size="32" :stroke-width="1.5" class="text-amber-500/60" />
+      </div>
+      <h2 class="text-xl font-display font-semibold mb-2">No slides to build</h2>
+      <p class="text-sm text-muted-foreground mb-6">
+        Start by creating a presentation and adding sections. Your slides will appear here once you've set up your content structure.
+      </p>
+      <Button
+        class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-10 px-6 rounded-lg"
+        @click="router.push('/create')"
+      >
+        Create Presentation
+      </Button>
+    </div>
+  </div>
+
+  <!-- Main builder UI -->
+  <div v-else class="flex h-[calc(100vh-4rem)] overflow-hidden">
     <!-- Left panel: Slide list -->
     <div class="w-56 flex-shrink-0 hidden lg:block">
       <SlideListPanel />
@@ -133,7 +151,7 @@ function handleContinue() {
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea class="flex-1 min-h-0">
+          <div class="flex-1 min-h-0 overflow-y-auto">
             <div class="p-4">
               <TabsContent value="data" class="mt-0">
                 <DataInputPanel />
@@ -142,10 +160,11 @@ function handleContinue() {
                 <CommentaryPanel />
               </TabsContent>
             </div>
-          </ScrollArea>
+          </div>
         </Tabs>
       </div>
-    </Transition>
+      </Transition>
+    </div>
   </div>
 </template>
 

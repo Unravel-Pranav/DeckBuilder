@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePresentationStore } from '@/stores/presentation'
 import { useSlidesStore } from '@/stores/slides'
 import { useAiStore } from '@/stores/ai'
 import { useUiStore } from '@/stores/ui'
+import { downloadFile } from '@/lib/api'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,16 +30,19 @@ const uiStore = useUiStore()
 
 const isDownloading = ref(false)
 
-const versions = ref([
-  { id: '1', label: 'Version 3 — Current', date: 'Mar 21, 2026 · 2:15 PM', isCurrent: true },
-  { id: '2', label: 'Version 2', date: 'Mar 21, 2026 · 1:30 PM', isCurrent: false },
-  { id: '3', label: 'Version 1 — Initial', date: 'Mar 21, 2026 · 12:45 PM', isCurrent: false },
-])
+const canDownload = computed(() => !!presentationStore.generatedFileId)
 
 async function downloadPPT() {
+  const fileId = presentationStore.generatedFileId
+  const filename = presentationStore.generatedFilename ?? 'presentation.pptx'
+  if (!fileId) return
+
   isDownloading.value = true
-  await new Promise((r) => setTimeout(r, 1500))
-  isDownloading.value = false
+  try {
+    downloadFile(fileId, filename)
+  } finally {
+    isDownloading.value = false
+  }
 }
 
 function editPresentation() {
@@ -114,7 +118,7 @@ function createNew() {
         <div class="flex flex-wrap gap-3">
           <Button
             class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-12 px-8 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98]"
-            :disabled="isDownloading"
+            :disabled="isDownloading || !canDownload"
             @click="downloadPPT"
           >
             <Download :size="18" :stroke-width="2" class="mr-2" />
@@ -148,32 +152,30 @@ function createNew() {
         </div>
       </GlassCard>
 
-      <!-- Version history -->
+      <!-- Generated file info -->
       <GlassCard>
         <div class="flex items-center gap-2 mb-4">
           <Clock :size="14" :stroke-width="1.5" class="text-muted-foreground" />
-          <h4 class="text-xs font-mono uppercase tracking-wider text-muted-foreground">Versions</h4>
+          <h4 class="text-xs font-mono uppercase tracking-wider text-muted-foreground">Generated File</h4>
         </div>
 
         <div class="space-y-2">
-          <button
-            v-for="version in versions"
-            :key="version.id"
-            class="w-full text-left py-2.5 px-3 rounded-lg transition-all duration-200"
-            :class="
-              version.isCurrent
-                ? 'bg-amber-500/10 border border-amber-500/20'
-                : 'bg-foreground/[0.02] border border-transparent hover:bg-foreground/[0.04]'
-            "
+          <div
+            v-if="canDownload"
+            class="w-full text-left py-2.5 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
           >
-            <p
-              class="text-xs font-medium"
-              :class="version.isCurrent ? 'text-amber-500' : 'text-muted-foreground'"
-            >
-              {{ version.label }}
+            <p class="text-xs font-medium text-amber-500 truncate">
+              {{ presentationStore.generatedFilename }}
             </p>
-            <p class="text-[10px] text-muted-foreground/70 mt-0.5">{{ version.date }}</p>
-          </button>
+            <p class="text-[10px] text-muted-foreground/70 mt-0.5">Ready to download</p>
+          </div>
+          <div
+            v-else
+            class="w-full text-left py-2.5 px-3 rounded-lg bg-foreground/[0.02] border border-transparent"
+          >
+            <p class="text-xs font-medium text-muted-foreground">No file generated</p>
+            <p class="text-[10px] text-muted-foreground/70 mt-0.5">Go to Preview to generate</p>
+          </div>
         </div>
       </GlassCard>
     </div>

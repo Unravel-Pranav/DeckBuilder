@@ -6,5 +6,5 @@ from pathlib import Path
 
 
 def backend_root() -> Path:
-    """Directory containing `deckbuilder.db`, `data/`, and the `app` package."""
+    """Directory containing `autodeck.db`, `data/`, and the `app` package."""
     return Path(__file__).resolve().parent.parent

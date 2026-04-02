@@ -94,9 +94,11 @@ async def list_ppt_templates():
     List all available .pptx templates from the individual_templates directory.
     No database required — reads directly from the filesystem.
     """
+    from app.schemas.response import success_response
+
     if not TEMPLATES_DIR.exists():
-        return {"templates": [], "count": 0, "directory": str(TEMPLATES_DIR)}
-    
+        return success_response({"templates": [], "count": 0, "directory": str(TEMPLATES_DIR)})
+
     templates = []
     for f in sorted(TEMPLATES_DIR.glob("*.pptx")):
         if not is_registered_ppt_template(f.name):
@@ -104,7 +106,7 @@ async def list_ppt_templates():
         info = _categorize_template(f.name)
         info["size"] = f.stat().st_size
         templates.append(info)
-    
+
     # Group by category
     categories = {}
     for t in templates:
@@ -112,27 +114,29 @@ async def list_ppt_templates():
         if cat not in categories:
             categories[cat] = []
         categories[cat].append(t)
-    
-    return {
+
+    return success_response({
         "templates": templates,
         "count": len(templates),
         "categories": categories,
         "directory": str(TEMPLATES_DIR),
-    }
+    })
 
 
 @router.get("/categories")
 async def list_template_categories():
     """Return just the category summary."""
+    from app.schemas.response import success_response
+
     if not TEMPLATES_DIR.exists():
-        return {"categories": {}}
-    
+        return success_response({"categories": {}})
+
     templates = []
     for f in sorted(TEMPLATES_DIR.glob("*.pptx")):
         if not is_registered_ppt_template(f.name):
             continue
         templates.append(_categorize_template(f.name))
-    
+
     summary: dict = {}
     for t in templates:
         cat = t["category"]
@@ -140,5 +144,5 @@ async def list_template_categories():
             summary[cat] = {"count": 0, "templates": []}
         summary[cat]["count"] += 1
         summary[cat]["templates"].append(t["name"])
-    
-    return {"categories": summary}
+
+    return success_response({"categories": summary})

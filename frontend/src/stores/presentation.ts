@@ -12,6 +12,9 @@ export const usePresentationStore = defineStore('presentation', () => {
   const currentPresentation = ref<Presentation | null>(null)
   const recentPresentations = ref<Presentation[]>([])
 
+  const generatedFileId = ref<string | null>(null)
+  const generatedFilename = ref<string | null>(null)
+
   const intent = ref<PresentationIntent>({
     type: 'business',
     audience: '',
@@ -66,8 +69,20 @@ export const usePresentationStore = defineStore('presentation', () => {
     recentPresentations.value = presentations
   }
 
+  function setGeneratedFile(fileId: string, filename: string) {
+    generatedFileId.value = fileId
+    generatedFilename.value = filename
+  }
+
+  function clearGeneratedFile() {
+    generatedFileId.value = null
+    generatedFilename.value = null
+  }
+
   function $reset() {
     currentPresentation.value = null
+    generatedFileId.value = null
+    generatedFilename.value = null
     intent.value = {
       type: 'business',
       audience: '',
@@ -83,6 +98,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     intent,
     hasIntent,
     presentationName,
+    generatedFileId,
+    generatedFilename,
     setType,
     setTone,
     setAudience,
@@ -90,6 +107,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     setReferenceFile,
     createPresentation,
     setRecentPresentations,
+    setGeneratedFile,
+    clearGeneratedFile,
     $reset,
   }
 })

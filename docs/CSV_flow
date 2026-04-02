@@ -1,4 +1,4 @@
-## Data Classification Pipeline — How DeckBuilder Picks a Chart Type
+## Data Classification Pipeline — How Auto Deck Picks a Chart Type
 
 There are **6 stages** from raw input to final `.pptx` chart. Each stage can influence the chart type.
 

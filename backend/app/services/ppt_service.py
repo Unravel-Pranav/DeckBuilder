@@ -1,11 +1,13 @@
 """PptService — wraps the PPT engine pipeline."""
 from __future__ import annotations
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.exceptions import NotFoundException
-from app.models import ReportModel
+
+from app.core.exceptions import GenerationException, NotFoundException
 from app.repositories.report_repository import ReportRepository
 from app.services.template_service import TemplateService
 from app.utils.logger import logger
+
 
 class PptService:
     def __init__(self, session: AsyncSession):
@@ -32,8 +34,27 @@ class PptService:
         logger.info("Generating PPT for report: %s (id=%d)", report.name, report.id)
         pipeline_sections = []
         for section in report.sections:
-            elements = [{"id": e.id, "element_type": e.element_type, "label": e.label, "selected": e.selected, "display_order": e.display_order, "config": e.config or {}} for e in section.elements]
-            pipeline_sections.append({"id": section.id, "key": section.key, "name": section.name, "sectionname_alias": section.sectionname_alias, "display_order": section.display_order, "selected": section.selected, "layout_preference": section.layout_preference, "elements": elements})
+            elements = [
+                {
+                    "id": e.id,
+                    "element_type": e.element_type,
+                    "label": e.label,
+                    "selected": e.selected,
+                    "display_order": e.display_order,
+                    "config": e.config or {},
+                }
+                for e in section.elements
+            ]
+            pipeline_sections.append({
+                "id": section.id,
+                "key": section.key,
+                "name": section.name,
+                "sectionname_alias": section.sectionname_alias,
+                "display_order": section.display_order,
+                "selected": section.selected,
+                "layout_preference": section.layout_preference,
+                "elements": elements,
+            })
         pipeline_input = {
             "report": {
                 "id": report.id,
@@ -63,9 +84,13 @@ class PptService:
         user_deck_path = await self._resolve_user_deck_path(tid)
         try:
             from app.ppt_engine.pptx_builder import generate_presentation
+
             file_info = await generate_presentation(json_data, user_deck_path=user_deck_path)
             logger.info("Custom PPT generated: %s", file_info.get("filename"))
-            return {"success": True, "message": "PPT generated", **file_info}
+            return file_info
         except Exception as e:
             logger.error("Custom PPT generation failed: %s", e)
-            return {"success": False, "message": str(e)}
+            raise GenerationException(
+                message="PPT generation failed",
+                details=[str(e)],
+            )

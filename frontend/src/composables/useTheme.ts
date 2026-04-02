@@ -6,7 +6,7 @@ export function useTheme() {
     attribute: 'class',
     valueDark: 'dark',
     valueLight: '',
-    storageKey: 'deckbuilder-theme',
+    storageKey: 'autodeck-theme',
   })
 
   const toggleTheme = useToggle(isDark)

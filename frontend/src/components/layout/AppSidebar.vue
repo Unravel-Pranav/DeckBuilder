@@ -55,7 +55,7 @@ function navigateTo(routePath: string) {
           v-if="!uiStore.sidebarCollapsed"
           class="font-display font-semibold text-lg tracking-tight whitespace-nowrap"
         >
-          DeckBuilder
+          Auto Deck
         </span>
       </Transition>
     </div>

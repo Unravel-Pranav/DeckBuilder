@@ -6,7 +6,7 @@ import sys
 from app.core.config import settings
 
 
-def get_logger(name: str = "deckbuilder") -> logging.Logger:
+def get_logger(name: str = "autodeck") -> logging.Logger:
     _logger = logging.getLogger(name)
     if _logger.handlers:
         return _logger

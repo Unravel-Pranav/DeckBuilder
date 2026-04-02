@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { useUiStore } from '@/stores/ui'
 import { usePresentationStore } from '@/stores/presentation'
 import { useDeckTemplateStore } from '@/stores/deckTemplate'
 import { transformToBackendFormat, generatePPT, downloadFile, deckTemplatePptDownloadUrl } from '@/lib/api'
-import { mockSections } from '@/lib/mockData'
 import { STRUCTURE_BY_ID, CATEGORY_LABELS } from '@/lib/layoutDefinitions'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
@@ -36,11 +35,7 @@ const isGenerating = ref(false)
 const generateProgress = ref(0)
 const errorMessage = ref<string | null>(null)
 
-onMounted(() => {
-  if (slidesStore.sections.length === 0) {
-    slidesStore.setSections(mockSections)
-  }
-})
+const hasData = computed(() => slidesStore.sections.length > 0)
 
 const allSlides = computed(() => slidesStore.allSlides)
 const currentSlide = computed(() => allSlides.value[currentSlideIndex.value])
@@ -99,15 +94,12 @@ async function generatePPTAction() {
     const result = await generatePPT(payload)
     generateProgress.value = 80
 
-    if (result.success && result.file_id) {
-      downloadFile(result.file_id, result.filename)
-      generateProgress.value = 100
-      uiStore.completeStep('preview')
-      uiStore.setCurrentStep('output')
-      router.push('/output')
-    } else {
-      throw new Error(result.message || 'Failed to generate PPT')
-    }
+    presentationStore.setGeneratedFile(result.file_id, result.filename)
+    downloadFile(result.file_id, result.filename)
+    generateProgress.value = 100
+    uiStore.completeStep('preview')
+    uiStore.setCurrentStep('output')
+    router.push('/output')
   } catch (err: any) {
     console.error('Generation failed:', err)
     errorMessage.value = err.message || 'An unexpected error occurred'
@@ -132,7 +124,36 @@ const structureIcons: Record<string, typeof BarChart3> = {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-4rem)]">
+  <!-- Empty state when no sections -->
+  <div v-if="!hasData" class="flex h-[calc(100vh-4rem)] items-center justify-center">
+    <div class="text-center max-w-md px-6">
+      <div class="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
+        <FileText :size="32" :stroke-width="1.5" class="text-amber-500/60" />
+      </div>
+      <h2 class="text-xl font-display font-semibold mb-2">No slides to preview</h2>
+      <p class="text-sm text-muted-foreground mb-6">
+        You need to create sections and slides before you can preview and generate your presentation.
+      </p>
+      <div class="flex gap-3 justify-center">
+        <Button
+          variant="outline"
+          class="border-border text-muted-foreground hover:bg-foreground/5 rounded-lg h-10"
+          @click="router.push('/builder')"
+        >
+          Go to Builder
+        </Button>
+        <Button
+          class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-10 px-6 rounded-lg"
+          @click="router.push('/create')"
+        >
+          Create Presentation
+        </Button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main preview UI -->
+  <div v-else class="flex h-[calc(100vh-4rem)]">
     <!-- Main preview area -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Slide viewer -->
@@ -324,6 +345,7 @@ const structureIcons: Record<string, typeof BarChart3> = {
           />
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
