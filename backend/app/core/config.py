@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # NVIDIA NIM (free-tier, OpenAI-compatible)
     nvidia_api_key: str = ""
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nvidia_model: str = "mistralai/mistral-small-3.1-24b-instruct-2503"
+    nvidia_model: str = "meta/llama-3.1-8b-instruct"
     nvidia_max_tokens: int = 1024
     nvidia_temperature: float = 0.7
 

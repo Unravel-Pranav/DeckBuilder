@@ -24,11 +24,14 @@ import {
   Grid2x2,
 } from 'lucide-vue-next'
 
+import { useAutoSave } from '@/composables/useAutoSave'
+
 const router = useRouter()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
 const presentationStore = usePresentationStore()
 const deckTemplateStore = useDeckTemplateStore()
+const { autoSaveFireAndForget } = useAutoSave()
 
 const currentSlideIndex = ref(0)
 const isGenerating = ref(false)
@@ -58,6 +61,7 @@ function editSlide() {
   if (currentSlide.value) {
     slidesStore.setActiveSlide(currentSlide.value.id)
     uiStore.setCurrentStep('builder')
+    autoSaveFireAndForget()
     router.push('/builder')
   }
 }
@@ -99,6 +103,7 @@ async function generatePPTAction() {
     generateProgress.value = 100
     uiStore.completeStep('preview')
     uiStore.setCurrentStep('output')
+    autoSaveFireAndForget()
     router.push('/output')
   } catch (err: any) {
     console.error('Generation failed:', err)
@@ -345,7 +350,6 @@ const structureIcons: Record<string, typeof BarChart3> = {
           />
         </div>
       </div>
-    </div>
     </div>
   </div>
 </template>

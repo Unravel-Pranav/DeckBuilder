@@ -2,6 +2,18 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { usePresentationStore } from '@/stores/presentation'
 import { useAiStore } from '@/stores/ai'
+import { useUiStore } from '@/stores/ui'
+import type { FlowStep } from '@/types'
+
+const ROUTE_TO_STEP: Record<string, FlowStep> = {
+  create: 'create',
+  recommendations: 'recommendations',
+  sections: 'sections',
+  builder: 'builder',
+  'template-upload': 'upload',
+  preview: 'preview',
+  output: 'output',
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -83,6 +95,15 @@ router.beforeEach((to) => {
         return { name: 'create' }
       }
       break
+  }
+})
+
+router.afterEach((to) => {
+  const routeName = to.name as string
+  const step = ROUTE_TO_STEP[routeName]
+  if (step) {
+    const uiStore = useUiStore()
+    uiStore.setCurrentStep(step)
   }
 })
 

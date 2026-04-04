@@ -30,9 +30,12 @@ import {
 import type { SlideStructure } from '@/types'
 import { STRUCTURE_REGISTRY } from '@/lib/layoutDefinitions'
 
+import { useAutoSave } from '@/composables/useAutoSave'
+
 const router = useRouter()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
+const { autoSaveFireAndForget } = useAutoSave()
 
 const expandedSections = ref<Set<string>>(new Set())
 const showAddDialog = ref(false)
@@ -113,6 +116,7 @@ function onSlideDragEnd(sectionId: string, event: SortableEvent) {
 function handleContinue() {
   uiStore.completeStep('sections')
   uiStore.setCurrentStep('builder')
+  autoSaveFireAndForget()
   router.push('/builder')
 }
 

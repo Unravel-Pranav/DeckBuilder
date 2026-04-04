@@ -3,6 +3,7 @@ import { useUiStore } from '@/stores/ui'
 import AmbientBackground from './AmbientBackground.vue'
 import AppSidebar from './AppSidebar.vue'
 import TopBar from './TopBar.vue'
+import { Toaster } from '@/components/ui/sonner'
 
 const uiStore = useUiStore()
 </script>
@@ -21,5 +22,7 @@ const uiStore = useUiStore()
         <slot />
       </main>
     </div>
+
+    <Toaster position="bottom-right" :duration="3000" />
   </div>
 </template>

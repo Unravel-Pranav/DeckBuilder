@@ -23,9 +23,12 @@ import {
 const rightTab = ref<string>('data')
 const rightPanelOpen = ref(false)
 
+import { useAutoSave } from '@/composables/useAutoSave'
+
 const router = useRouter()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
+const { autoSaveFireAndForget } = useAutoSave()
 
 const hasData = computed(() => slidesStore.sections.length > 0)
 
@@ -63,6 +66,7 @@ function onCommentaryClick() {
 function handleContinue() {
   uiStore.completeStep('builder')
   uiStore.setCurrentStep('preview')
+  autoSaveFireAndForget()
   router.push('/preview')
 }
 </script>
@@ -163,8 +167,7 @@ function handleContinue() {
           </div>
         </Tabs>
       </div>
-      </Transition>
-    </div>
+    </Transition>
   </div>
 </template>
 

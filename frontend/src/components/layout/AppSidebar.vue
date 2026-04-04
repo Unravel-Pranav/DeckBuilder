@@ -2,6 +2,9 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
+import { useAutoSave } from '@/composables/useAutoSave'
+import { toast } from 'vue-sonner'
+import type { FlowStep } from '@/types'
 import {
   LayoutDashboard,
   Sparkles,
@@ -20,6 +23,21 @@ import {
 const router = useRouter()
 const route = useRoute()
 const uiStore = useUiStore()
+const { autoSaveFireAndForget } = useAutoSave()
+
+const FLOW_ORDER: FlowStep[] = [
+  'create', 'recommendations', 'sections', 'builder', 'upload', 'preview', 'output',
+]
+
+const STEP_PREREQUISITES: Record<FlowStep, string> = {
+  create: '',
+  recommendations: 'Define Intent',
+  sections: 'AI Recommendations',
+  builder: 'Manage Sections',
+  upload: 'Build Slides',
+  preview: 'Build Slides',
+  output: 'Preview & Generate',
+}
 
 const stepIcons = {
   create: Sparkles,
@@ -34,7 +52,36 @@ const stepIcons = {
 const isOnDashboard = computed(() => route.name === 'dashboard')
 const isOnTemplates = computed(() => route.name === 'templates')
 
+function canNavigateToStep(step: typeof uiStore.steps.value[number]): boolean {
+  if (step.isActive || step.isCompleted) return true
+
+  const targetIdx = FLOW_ORDER.indexOf(step.id as FlowStep)
+  const currentIdx = uiStore.currentStepIndex
+
+  if (targetIdx <= currentIdx) return true
+
+  for (let i = 0; i < targetIdx; i++) {
+    const prevStep = FLOW_ORDER[i]
+    if (prevStep === 'upload') continue
+    if (!uiStore.completedSteps.has(prevStep)) return false
+  }
+  return true
+}
+
+function navigateToStep(step: typeof uiStore.steps.value[number]) {
+  if (!canNavigateToStep(step)) {
+    const prereq = STEP_PREREQUISITES[step.id as FlowStep]
+    toast.warning(`Complete "${prereq}" first`, {
+      description: `You need to finish the previous step before going to ${step.label}.`,
+    })
+    return
+  }
+  autoSaveFireAndForget()
+  router.push(step.route)
+}
+
 function navigateTo(routePath: string) {
+  autoSaveFireAndForget()
   router.push(routePath)
 }
 </script>
@@ -117,9 +164,11 @@ function navigateTo(routePath: string) {
               ? 'bg-[var(--accent-muted)] text-amber-500'
               : step.isCompleted
                 ? 'text-foreground/80 hover:bg-foreground/5'
-                : 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5',
+                : canNavigateToStep(step)
+                  ? 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5'
+                  : 'text-muted-foreground/40 cursor-not-allowed',
           ]"
-          @click="navigateTo(step.route)"
+          @click="navigateToStep(step)"
         >
           <!-- Step number / check -->
           <div

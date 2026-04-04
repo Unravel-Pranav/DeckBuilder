@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePresentationStore } from '@/stores/presentation'
 import { useSlidesStore } from '@/stores/slides'
 import { useAiStore } from '@/stores/ai'
 import { useUiStore } from '@/stores/ui'
 import { mockPresentations } from '@/lib/mockData'
+import { listDrafts, loadDraft } from '@/lib/api'
+import type { DraftListItem } from '@/lib/api'
+import { clearAllDraftStorage } from '@/stores/persistence'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -19,12 +22,25 @@ import {
   GraduationCap,
   Sparkles,
 } from 'lucide-vue-next'
+import type { FlowStep } from '@/types'
 
 const router = useRouter()
 const presentationStore = usePresentationStore()
 const slidesStore = useSlidesStore()
 const aiStore = useAiStore()
 const uiStore = useUiStore()
+
+const drafts = ref<DraftListItem[]>([])
+
+const STEP_ROUTES: Record<string, string> = {
+  create: '/create',
+  recommendations: '/recommendations',
+  sections: '/sections',
+  builder: '/builder',
+  upload: '/templates/upload',
+  preview: '/preview',
+  output: '/output',
+}
 
 const typeIcons = {
   financial: BarChart3,
@@ -39,8 +55,14 @@ const statusColors = {
   complete: 'text-emerald-400 bg-emerald-500/15',
 } as const
 
-onMounted(() => {
+onMounted(async () => {
   presentationStore.setRecentPresentations(mockPresentations)
+  try {
+    const resp = await listDrafts()
+    drafts.value = resp.items
+  } catch {
+    // backend unavailable — drafts panel simply stays empty
+  }
 })
 
 function createNew() {
@@ -48,7 +70,44 @@ function createNew() {
   slidesStore.$reset()
   aiStore.$reset()
   uiStore.$reset()
+  clearAllDraftStorage()
   router.push('/create')
+}
+
+async function resumeDraft(draftId: string) {
+  try {
+    const draft = await loadDraft(draftId)
+    const s = draft.state
+
+    if (s.presentation && typeof s.presentation === 'object') {
+      presentationStore.$patch({ currentPresentation: s.presentation as any })
+    }
+    if (s.intent && typeof s.intent === 'object') {
+      presentationStore.$patch({ intent: s.intent as any })
+    }
+    if (s.generatedFileId) {
+      presentationStore.setGeneratedFile(s.generatedFileId as string, (s.generatedFilename as string) ?? '')
+    }
+    if (Array.isArray(s.sections)) {
+      slidesStore.setSections(s.sections as any)
+    }
+    if (s.activeSlideId) {
+      slidesStore.setActiveSlide(s.activeSlideId as string)
+    }
+    if (s.recommendation) {
+      aiStore.$patch({ recommendation: s.recommendation as any })
+    }
+    if (Array.isArray(s.completedSteps)) {
+      uiStore.$patch({ completedSteps: new Set(s.completedSteps as FlowStep[]) })
+    }
+    const step = (draft.current_step || 'create') as FlowStep
+    uiStore.setCurrentStep(step)
+
+    const route = STEP_ROUTES[step] ?? '/create'
+    router.push(route)
+  } catch (err) {
+    console.error('Failed to load draft', err)
+  }
 }
 
 function formatDate(iso: string) {
@@ -171,5 +230,37 @@ function formatDate(iso: string) {
         Create Presentation
       </Button>
     </EmptyState>
+
+    <!-- Saved drafts from backend -->
+    <div v-if="drafts.length > 0" class="mt-12">
+      <h3 class="text-lg font-display font-semibold tracking-tight mb-4">Saved Drafts</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <GlassCard
+          v-for="draft in drafts"
+          :key="draft.id"
+          hoverable
+          @click="resumeDraft(draft.id)"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <FileText :size="18" :stroke-width="1.5" class="text-amber-500" />
+            </div>
+            <Badge
+              variant="secondary"
+              class="text-[10px] font-mono uppercase tracking-wider rounded-full px-2.5 py-0.5 text-muted-foreground bg-muted"
+            >
+              {{ draft.current_step }}
+            </Badge>
+          </div>
+          <h4 class="font-display font-semibold text-sm tracking-tight mb-1 line-clamp-1">
+            {{ draft.name }}
+          </h4>
+          <div class="flex items-center gap-1 text-[11px] text-muted-foreground/70 font-mono">
+            <Clock :size="12" :stroke-width="1.5" />
+            {{ formatDate(draft.updated_at) }}
+          </div>
+        </GlassCard>
+      </div>
+    </div>
   </div>
 </template>

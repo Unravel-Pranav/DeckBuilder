@@ -19,11 +19,14 @@ import {
   Loader2,
 } from 'lucide-vue-next'
 
+import { useAutoSave } from '@/composables/useAutoSave'
+
 const router = useRouter()
 const aiStore = useAiStore()
 const slidesStore = useSlidesStore()
 const presentationStore = usePresentationStore()
 const uiStore = useUiStore()
+const { autoSaveFireAndForget } = useAutoSave()
 
 onMounted(async () => {
   if (!aiStore.recommendation) {
@@ -70,6 +73,7 @@ function handleContinue() {
   slidesStore.setSections(sections)
   uiStore.completeStep('recommendations')
   uiStore.setCurrentStep('sections')
+  autoSaveFireAndForget()
   router.push('/sections')
 }
 </script>
