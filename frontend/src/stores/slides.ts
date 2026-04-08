@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Section, Slide, SlideComponent, SlideStructure, CommentarySource } from '@/types'
+import type { Section, Slide, SlideComponent, SlideStructure, CommentarySource, RegionCommentary } from '@/types'
 import { createRegions, getRegionCount } from '@/types'
 
 export const useSlidesStore = defineStore('slides', () => {
@@ -74,6 +74,7 @@ export const useSlidesStore = defineStore('slides', () => {
       regions: createRegions(structure),
       commentary: '',
       commentarySource: 'manual',
+      regionCommentary: {},
       order: section.slides.length,
     }
     section.slides.push(slide)
@@ -142,16 +143,35 @@ export const useSlidesStore = defineStore('slides', () => {
     slideId: string,
     commentary: string,
     source: CommentarySource,
+    regionId?: string,
+    boundElementId?: string,
   ) {
     const slide = allSlides.value.find((s) => s.id === slideId)
     if (!slide) return
+
     slide.commentary = commentary
     slide.commentarySource = source
 
-    const textRegion = slide.regions.find((r) => r.component?.type === 'text')
-    if (textRegion?.component && textRegion.component.type === 'text') {
-      textRegion.component.data = { content: commentary }
+    if (regionId) {
+      if (!slide.regionCommentary) slide.regionCommentary = {}
+      slide.regionCommentary[regionId] = { text: commentary, source, boundElementId }
+
+      const region = slide.regions.find((r) => r.id === regionId)
+      if (region?.component?.type === 'text') {
+        region.component.data = { content: commentary }
+      }
+    } else {
+      const textRegion = slide.regions.find((r) => r.component?.type === 'text')
+      if (textRegion?.component && textRegion.component.type === 'text') {
+        textRegion.component.data = { content: commentary }
+      }
     }
+  }
+
+  function getRegionCommentary(slideId: string, regionId: string): RegionCommentary | null {
+    const slide = allSlides.value.find((s) => s.id === slideId)
+    if (!slide?.regionCommentary) return null
+    return slide.regionCommentary[regionId] ?? null
   }
 
   function setActiveSlide(slideId: string | null) {
@@ -197,6 +217,7 @@ export const useSlidesStore = defineStore('slides', () => {
     clearRegion,
     getSlideComponents,
     updateSlideCommentary,
+    getRegionCommentary,
     setActiveSlide,
     setActiveRegion,
     $reset,
