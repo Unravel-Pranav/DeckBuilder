@@ -136,8 +136,10 @@ Return ONLY valid JSON array, no markdown fences, no extra text."""
 
 COMMENTARY_SYSTEM = """\
 You are a presentation commentary writer. Write concise, professional commentary \
-(2-4 sentences) for a slide in a business presentation. Be specific, data-aware, \
-and match the requested tone. Return ONLY the commentary text, no markdown fences."""
+(2-4 sentences) for a slide in a business presentation. When chart or table data is \
+provided, reference specific values, trends, and comparisons from the data. Be \
+specific, data-aware, and match the requested tone. Return ONLY the commentary \
+text, no markdown fences."""
 
 
 class AiService:
@@ -196,7 +198,10 @@ class AiService:
 
     async def generate_commentary(self, body: CommentaryRequest) -> str:
         section = body.section_name or "this section"
-        logger.info("AI commentary: section=%s, key_set=%s", section, bool(settings.nvidia_api_key))
+        logger.info(
+            "AI commentary: section=%s, element_type=%s, has_data=%s, key_set=%s",
+            section, body.element_type, body.element_data is not None, bool(settings.nvidia_api_key),
+        )
 
         if not settings.nvidia_api_key:
             return self._fallback_commentary(body)
@@ -204,11 +209,19 @@ class AiService:
         try:
             tone_label = body.intent_tone or "formal"
             user_prompt = (
+                f"Presentation: {body.presentation_name or 'Untitled'}\n"
                 f"Section: {section}\n"
+                f"Slide title: {body.slide_title or 'Untitled Slide'}\n"
                 f"Slide component type: {body.component_type}\n"
                 f"Presentation intent: {body.intent_type or 'business'}\n"
                 f"Tone: {tone_label}\n"
             )
+
+            if body.element_data:
+                user_prompt += self._format_element_data(
+                    body.element_type or body.component_type, body.element_data,
+                )
+
             if body.prompt:
                 user_prompt += f"User direction: {body.prompt}\n"
             user_prompt += "\nWrite the commentary now."
@@ -217,6 +230,34 @@ class AiService:
         except Exception as e:
             logger.warning("LLM commentary failed, using fallback: %s", e)
             return self._fallback_commentary(body)
+
+    @staticmethod
+    def _format_element_data(element_type: str, data: dict) -> str:
+        """Format chart/table data into a human-readable block for the LLM prompt."""
+        lines = [f"\n--- {element_type.upper()} DATA ---\n"]
+        if element_type == "chart":
+            chart_type = data.get("type", "bar")
+            labels = data.get("labels", [])
+            datasets = data.get("datasets", [])
+            lines.append(f"Chart type: {chart_type}")
+            lines.append(f"Categories: {', '.join(str(l) for l in labels)}")
+            for ds in datasets:
+                name = ds.get("label", "Series")
+                values = ds.get("data", [])
+                pairs = [f"{labels[i] if i < len(labels) else f'#{i}'}: {v}" for i, v in enumerate(values)]
+                lines.append(f"  {name}: {', '.join(pairs)}")
+        elif element_type == "table":
+            headers = data.get("headers", [])
+            rows = data.get("rows", [])
+            lines.append(f"Columns: {' | '.join(headers)}")
+            for row in rows[:10]:
+                lines.append(f"  {' | '.join(str(c) for c in row)}")
+            if len(rows) > 10:
+                lines.append(f"  ... and {len(rows) - 10} more rows")
+        else:
+            lines.append(json.dumps(data, default=str)[:500])
+        lines.append("--- END DATA ---\n")
+        return "\n".join(lines)
 
     def _fallback_commentary(self, body: CommentaryRequest) -> str:
         section = body.section_name or "this section"

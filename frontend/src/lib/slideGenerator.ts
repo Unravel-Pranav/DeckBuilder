@@ -164,6 +164,7 @@ function generateSlideFromTemplate(
     regions,
     commentary: '',
     commentarySource: 'manual',
+    regionCommentary: {},
     order: slideIndex,
     templateId: template.id,
   }
@@ -189,6 +190,7 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
           regions,
           commentary: '',
           commentarySource: 'manual',
+          regionCommentary: {},
           order: 0,
           templateId: titleTmpl.id,
         })
@@ -211,6 +213,7 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
           regions,
           commentary: '',
           commentarySource: 'manual',
+          regionCommentary: {},
           order: slides.length,
           templateId: dividerTmpl.id,
         })
@@ -249,6 +252,7 @@ export function autoGenerateSlides(ctx: GenerationContext): Section[] {
           regions,
           commentary: '',
           commentarySource: 'manual',
+          regionCommentary: {},
           order: slides.length,
           templateId: closingTmpl.id,
         })

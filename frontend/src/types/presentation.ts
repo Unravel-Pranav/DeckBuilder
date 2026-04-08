@@ -232,6 +232,12 @@ export interface SlideTemplate {
 
 // ─── Section → Template Binding ───
 
+export interface RegionCommentary {
+  text: string
+  source: CommentarySource
+  boundElementId?: string
+}
+
 export interface Slide {
   id: string
   title: string
@@ -239,6 +245,7 @@ export interface Slide {
   regions: SlideRegion[]
   commentary: string
   commentarySource: CommentarySource
+  regionCommentary: Record<string, RegionCommentary>
   order: number
   templateId?: string
 }

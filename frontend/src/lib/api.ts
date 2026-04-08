@@ -357,3 +357,68 @@ export async function uploadDeckTemplatePpt(
 
   return unwrapResponse(json)
 }
+
+// ─── Draft API ───
+
+export interface DraftPayload {
+  id: string
+  name: string
+  current_step: string
+  state: Record<string, unknown>
+}
+
+export interface DraftResponse {
+  id: string
+  name: string
+  current_step: string
+  state: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface DraftListItem {
+  id: string
+  name: string
+  current_step: string
+  updated_at: string
+}
+
+export async function saveDraft(payload: DraftPayload): Promise<DraftResponse> {
+  const response = await fetch(`${API_BASE_URL}/drafts`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  })
+  const json: ApiResponse<DraftResponse> = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
+  }
+  return unwrapResponse(json)
+}
+
+export async function loadDraft(draftId: string): Promise<DraftResponse> {
+  const response = await fetch(`${API_BASE_URL}/drafts/${draftId}`)
+  const json: ApiResponse<DraftResponse> = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
+  }
+  return unwrapResponse(json)
+}
+
+export async function listDrafts(): Promise<{ total_count: number; items: DraftListItem[] }> {
+  const response = await fetch(`${API_BASE_URL}/drafts`)
+  const json: ApiResponse<{ total_count: number; items: DraftListItem[] }> = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
+  }
+  return unwrapResponse(json)
+}
+
+export async function deleteDraft(draftId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/drafts/${draftId}`, { method: 'DELETE' })
+  const json: ApiResponse<unknown> = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
+  }
+}

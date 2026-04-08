@@ -34,6 +34,12 @@ class CommentaryRequest(BaseModel):
     intent_type: Optional[str] = None
     intent_tone: Optional[str] = None
     prompt: Optional[str] = None
+    slide_id: Optional[str] = None
+    element_id: Optional[str] = None
+    element_type: Optional[str] = None
+    element_data: Optional[dict] = None
+    presentation_name: Optional[str] = None
+    slide_title: Optional[str] = None
 
 class CommentaryResponse(BaseModel):
     commentary: str

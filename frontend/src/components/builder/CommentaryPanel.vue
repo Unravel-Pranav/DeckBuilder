@@ -6,13 +6,24 @@ import { useAiStore } from '@/stores/ai'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sparkles,
   RefreshCw,
   PenLine,
   MessageSquare,
   Loader2,
   Database,
+  BarChart3,
+  Table2,
 } from 'lucide-vue-next'
+import type { ChartComponent, TableComponent } from '@/types'
+import { REGION_LABELS } from '@/types'
 
 const slidesStore = useSlidesStore()
 const presentationStore = usePresentationStore()
@@ -21,12 +32,133 @@ const aiStore = useAiStore()
 const commentaryMode = ref<'ai' | 'prompt' | 'manual'>('ai')
 const promptText = ref('')
 const manualText = ref('')
+const selectedElementId = ref<string | null>(null)
 
-const currentCommentary = computed(() => slidesStore.activeSlide?.commentary ?? '')
+const activeRegionId = computed(() => slidesStore.activeRegion?.id ?? null)
+
+const activeRegionLabel = computed(() => {
+  const slide = slidesStore.activeSlide
+  if (!slide) return ''
+  const labels = REGION_LABELS[slide.structure] ?? []
+  return labels[slidesStore.activeRegionIndex] ?? `Region ${slidesStore.activeRegionIndex + 1}`
+})
+
+const currentCommentary = computed(() => {
+  const slide = slidesStore.activeSlide
+  const regionId = activeRegionId.value
+  if (!slide || !regionId) return ''
+  const rc = slide.regionCommentary?.[regionId]
+  if (rc) return rc.text
+  return slide.commentary ?? ''
+})
+
+const currentCommentarySource = computed(() => {
+  const slide = slidesStore.activeSlide
+  const regionId = activeRegionId.value
+  if (!slide || !regionId) return 'manual'
+  const rc = slide.regionCommentary?.[regionId]
+  if (rc) return rc.source
+  return slide.commentarySource ?? 'manual'
+})
 
 const sectionName = computed(() => slidesStore.activeSection?.name ?? '')
 
+interface DataElement {
+  id: string
+  label: string
+  subtitle: string
+  type: 'chart' | 'table'
+  component: ChartComponent | TableComponent
+}
+
+const dataElements = computed<DataElement[]>(() => {
+  const slide = slidesStore.activeSlide
+  if (!slide) return []
+
+  const elements: DataElement[] = []
+  let chartIdx = 0
+  let tableIdx = 0
+
+  for (const region of slide.regions) {
+    const comp = region.component
+    if (!comp) continue
+
+    if (comp.type === 'chart') {
+      chartIdx++
+      const chartComp = comp as ChartComponent
+      const typeName = chartComp.data.type
+        ? `${chartComp.data.type.charAt(0).toUpperCase()}${chartComp.data.type.slice(1)}`
+        : 'Chart'
+      const datasetNames = chartComp.data.datasets.map((ds) => ds.label).filter(Boolean)
+      const subtitle = datasetNames.length > 0
+        ? datasetNames.join(', ')
+        : chartComp.data.labels.slice(0, 3).join(', ') + (chartComp.data.labels.length > 3 ? '…' : '')
+      elements.push({
+        id: comp.id,
+        label: `${typeName} Chart ${chartIdx}`,
+        subtitle,
+        type: 'chart',
+        component: chartComp,
+      })
+    } else if (comp.type === 'table') {
+      tableIdx++
+      const tableComp = comp as TableComponent
+      const subtitle = tableComp.data.headers.slice(0, 3).join(', ') + (tableComp.data.headers.length > 3 ? '…' : '')
+      elements.push({
+        id: comp.id,
+        label: `Table ${tableIdx}`,
+        subtitle: `${tableComp.data.rows.length} rows · ${subtitle}`,
+        type: 'table',
+        component: tableComp,
+      })
+    }
+  }
+  return elements
+})
+
+const selectedElement = computed(() =>
+  dataElements.value.find((e) => e.id === selectedElementId.value) ?? null,
+)
+
+function resetPanelState() {
+  promptText.value = ''
+
+  const slide = slidesStore.activeSlide
+  const regionId = activeRegionId.value
+  if (slide && regionId) {
+    const rc = slide.regionCommentary?.[regionId]
+    if (rc?.boundElementId && dataElements.value.find((e) => e.id === rc.boundElementId)) {
+      selectedElementId.value = rc.boundElementId
+    } else {
+      selectedElementId.value = dataElements.value[0]?.id ?? null
+    }
+    manualText.value = rc?.text ?? ''
+  } else {
+    selectedElementId.value = dataElements.value[0]?.id ?? null
+    manualText.value = ''
+  }
+}
+
+watch(
+  [() => slidesStore.activeSlideId, () => slidesStore.activeRegionIndex],
+  () => resetPanelState(),
+  { immediate: true },
+)
+
+watch(dataElements, (els) => {
+  if (selectedElementId.value && !els.find((e) => e.id === selectedElementId.value)) {
+    selectedElementId.value = els[0]?.id ?? null
+  }
+})
+
+watch(commentaryMode, (mode) => {
+  if (mode === 'manual') {
+    manualText.value = currentCommentary.value
+  }
+})
+
 const dominantContext = computed(() => {
+  if (selectedElement.value) return selectedElement.value.type
   const slide = slidesStore.activeSlide
   if (!slide) return 'default'
   const components = slide.regions.map((r) => r.component).filter(Boolean)
@@ -36,35 +168,58 @@ const dominantContext = computed(() => {
   return 'default'
 })
 
+function extractElementData(el: DataElement | null): Record<string, unknown> | undefined {
+  if (!el) return undefined
+  if (el.type === 'chart') {
+    const d = (el.component as ChartComponent).data
+    return { type: d.type, labels: d.labels, datasets: d.datasets.map((ds) => ({ label: ds.label, data: ds.data })) }
+  }
+  if (el.type === 'table') {
+    const d = (el.component as TableComponent).data
+    return { headers: d.headers, rows: d.rows }
+  }
+  return undefined
+}
+
 const fullContext = computed(() => ({
   componentType: dominantContext.value as 'chart' | 'table' | 'text' | 'default',
   sectionName: sectionName.value,
   intentType: presentationStore.intent.type,
   intentTone: presentationStore.intent.tone,
   slideTitle: slidesStore.activeSlide?.title,
+  slideId: slidesStore.activeSlideId ?? undefined,
+  elementId: selectedElement.value?.id,
+  elementType: selectedElement.value?.type,
+  elementData: extractElementData(selectedElement.value),
+  presentationName: presentationStore.presentationName,
 }))
-
-watch([commentaryMode, () => slidesStore.activeSlideId], () => {
-  if (commentaryMode.value === 'manual') {
-    manualText.value = currentCommentary.value
-  }
-})
 
 async function generateFromData() {
   if (!slidesStore.activeSlideId) return
   const text = await aiStore.generateCommentary(fullContext.value)
-  slidesStore.updateSlideCommentary(slidesStore.activeSlideId, text, 'prompt')
+  slidesStore.updateSlideCommentary(
+    slidesStore.activeSlideId, text, 'ai',
+    activeRegionId.value ?? undefined,
+    selectedElement.value?.id,
+  )
 }
 
 async function generateFromPrompt() {
   if (!slidesStore.activeSlideId || !promptText.value.trim()) return
   const text = await aiStore.generateCommentary(fullContext.value, promptText.value)
-  slidesStore.updateSlideCommentary(slidesStore.activeSlideId, text, 'prompt')
+  slidesStore.updateSlideCommentary(
+    slidesStore.activeSlideId, text, 'prompt',
+    activeRegionId.value ?? undefined,
+    selectedElement.value?.id,
+  )
 }
 
 function applyManual() {
   if (!slidesStore.activeSlideId) return
-  slidesStore.updateSlideCommentary(slidesStore.activeSlideId, manualText.value, 'manual')
+  slidesStore.updateSlideCommentary(
+    slidesStore.activeSlideId, manualText.value, 'manual',
+    activeRegionId.value ?? undefined,
+  )
 }
 </script>
 
@@ -88,6 +243,12 @@ function applyManual() {
       </button>
     </div>
 
+    <!-- Active region indicator -->
+    <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/15">
+      <div class="w-1.5 h-1.5 rounded-full bg-amber-500" />
+      <span class="text-[10px] font-medium text-amber-500/90">Editing: {{ activeRegionLabel }}</span>
+    </div>
+
     <!-- Context indicator -->
     <div class="flex items-center gap-2 flex-wrap text-[9px] font-mono text-muted-foreground/70">
       <span class="px-1.5 py-0.5 rounded bg-foreground/5">{{ dominantContext }}</span>
@@ -96,29 +257,75 @@ function applyManual() {
       <span class="px-1.5 py-0.5 rounded bg-foreground/5">{{ presentationStore.intent.tone }}</span>
     </div>
 
+    <!-- Data Source Selector -->
+    <div v-if="dataElements.length > 0" class="space-y-2">
+      <div class="flex items-center gap-2">
+        <Database :size="12" class="text-muted-foreground" />
+        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Data Source</span>
+      </div>
+      <Select v-model="selectedElementId">
+        <SelectTrigger class="h-auto min-h-9 py-1.5 bg-[var(--glass-bg)] border-border rounded-lg text-xs">
+          <div v-if="selectedElement" class="flex items-center gap-2 text-left min-w-0">
+            <BarChart3 v-if="selectedElement.type === 'chart'" :size="12" class="text-amber-500 flex-shrink-0" />
+            <Table2 v-else :size="12" class="text-blue-400 flex-shrink-0" />
+            <div class="min-w-0">
+              <div class="text-xs font-medium truncate">{{ selectedElement.label }}</div>
+              <div class="text-[10px] text-muted-foreground/60 truncate">{{ selectedElement.subtitle }}</div>
+            </div>
+          </div>
+          <SelectValue v-else placeholder="Select data source" />
+        </SelectTrigger>
+        <SelectContent class="bg-popover border-border">
+          <SelectItem
+            v-for="el in dataElements"
+            :key="el.id"
+            :value="el.id"
+          >
+            <div class="flex items-center gap-2">
+              <BarChart3 v-if="el.type === 'chart'" :size="12" class="text-amber-500 flex-shrink-0" />
+              <Table2 v-else :size="12" class="text-blue-400 flex-shrink-0" />
+              <div class="min-w-0">
+                <span class="text-xs">{{ el.label }}</span>
+                <span class="text-[10px] text-muted-foreground/60 ml-1.5">{{ el.subtitle }}</span>
+              </div>
+            </div>
+          </SelectItem>
+        </SelectContent>
+      </Select>
+
+      <!-- Selected data preview -->
+      <div v-if="selectedElement" class="p-2.5 rounded-lg bg-foreground/[0.02] border border-dashed border-border">
+        <template v-if="selectedElement.type === 'chart'">
+          <div class="text-[10px] text-muted-foreground font-mono space-y-0.5">
+            <div class="text-amber-500/80">{{ (selectedElement.component as any).data.type }} chart</div>
+            <div>Labels: {{ (selectedElement.component as any).data.labels.join(', ') }}</div>
+            <div v-for="ds in (selectedElement.component as any).data.datasets" :key="ds.label">
+              {{ ds.label }}: {{ ds.data.join(', ') }}
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <div class="text-[10px] text-muted-foreground font-mono space-y-0.5">
+            <div class="text-blue-400/80">table ({{ (selectedElement.component as any).data.rows.length }} rows)</div>
+            <div>{{ (selectedElement.component as any).data.headers.join(' | ') }}</div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div v-else class="p-2.5 rounded-lg bg-foreground/[0.02] border border-dashed border-border text-center">
+      <p class="text-[10px] text-muted-foreground/60">No chart or table data on this slide. Commentary will be generated from context only.</p>
+    </div>
+
     <!-- Current commentary -->
     <div v-if="currentCommentary" class="p-3 rounded-lg bg-foreground/[0.02] border border-border">
       <div class="flex items-center gap-2 mb-2">
         <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Current Commentary</span>
         <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
-          {{ slidesStore.activeSlide?.commentarySource }}
+          {{ currentCommentarySource }}
         </span>
       </div>
       <p class="text-xs text-muted-foreground leading-relaxed">{{ currentCommentary }}</p>
-    </div>
-
-    <!-- Data source preview -->
-    <div v-if="dominantContext !== 'text' && dominantContext !== 'default'" class="p-3 rounded-lg bg-foreground/[0.01] border border-dashed border-border">
-      <div class="flex items-center gap-2 mb-2">
-        <Database :size="10" class="text-muted-foreground" />
-        <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Reference Data</span>
-      </div>
-      <div v-if="slidesStore.activeSlide?.regions.some(r => r.component?.type === 'chart')" class="text-[10px] text-muted-foreground font-mono">
-        {{ (slidesStore.activeSlide?.regions.find(r => r.component?.type === 'chart')?.component as any)?.data.labels.join(', ') }} ...
-      </div>
-      <div v-else-if="slidesStore.activeSlide?.regions.some(r => r.component?.type === 'table')" class="text-[10px] text-muted-foreground font-mono">
-        {{ (slidesStore.activeSlide?.regions.find(r => r.component?.type === 'table')?.component as any)?.data.headers.join(' | ') }}
-      </div>
     </div>
 
     <!-- AI Generate -->

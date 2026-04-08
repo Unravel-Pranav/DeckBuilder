@@ -126,6 +126,11 @@ export const useAiStore = defineStore('ai', () => {
     intentTone?: string
     slideTitle?: string
     prompt?: string
+    slideId?: string
+    elementId?: string
+    elementType?: string
+    elementData?: Record<string, unknown>
+    presentationName?: string
   }
 
   async function generateCommentary(context: string | CommentaryContext, prompt?: string): Promise<string> {
@@ -144,6 +149,12 @@ export const useAiStore = defineStore('ai', () => {
           intent_type: ctx.intentType || undefined,
           intent_tone: ctx.intentTone || undefined,
           prompt: prompt || ctx.prompt || undefined,
+          slide_id: ctx.slideId || undefined,
+          element_id: ctx.elementId || undefined,
+          element_type: ctx.elementType || undefined,
+          element_data: ctx.elementData || undefined,
+          presentation_name: ctx.presentationName || undefined,
+          slide_title: ctx.slideTitle || undefined,
         }),
       })
 

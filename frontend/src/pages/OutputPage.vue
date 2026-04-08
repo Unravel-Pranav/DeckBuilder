@@ -5,7 +5,8 @@ import { usePresentationStore } from '@/stores/presentation'
 import { useSlidesStore } from '@/stores/slides'
 import { useAiStore } from '@/stores/ai'
 import { useUiStore } from '@/stores/ui'
-import { downloadFile } from '@/lib/api'
+import { downloadFile, deleteDraft } from '@/lib/api'
+import { clearAllDraftStorage } from '@/stores/persistence'
 import GlassCard from '@/components/shared/GlassCard.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -50,10 +51,13 @@ function editPresentation() {
 }
 
 function createNew() {
+  const draftId = presentationStore.currentPresentation?.id
   presentationStore.$reset()
   slidesStore.$reset()
   aiStore.$reset()
   uiStore.$reset()
+  clearAllDraftStorage()
+  if (draftId) deleteDraft(draftId).catch(() => {})
   router.push('/create')
 }
 </script>

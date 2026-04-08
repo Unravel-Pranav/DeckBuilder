@@ -6,6 +6,7 @@ from app.models.template_section_model import TemplateSectionModel, TemplateSect
 from app.models.report_model import ReportModel
 from app.models.report_section_model import ReportSectionModel, ReportSectionElementModel
 from app.models.generated_report_model import GeneratedReportModel
+from app.models.draft_model import DraftModel
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "ReportSectionModel",
     "ReportSectionElementModel",
     "GeneratedReportModel",
+    "DraftModel",
 ]

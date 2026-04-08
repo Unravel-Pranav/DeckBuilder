@@ -513,6 +513,7 @@ function buildMockSlides(sectionName: string): Slide[] {
       commentary:
         'This section provides a comprehensive overview of the key metrics and trends observed during the reporting period.',
       commentarySource: 'ai',
+      regionCommentary: {},
       order: 0,
     },
     {
@@ -523,6 +524,7 @@ function buildMockSlides(sectionName: string): Slide[] {
       commentary:
         'Detailed breakdown of performance metrics across key dimensions.',
       commentarySource: 'ai',
+      regionCommentary: {},
       order: 1,
     },
   ]
