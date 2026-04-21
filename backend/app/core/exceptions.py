@@ -72,6 +72,27 @@ class AiServiceException(AppException):
         )
 
 
+class AgentOrchestrationException(AppException):
+    def __init__(self, message: str, step: str, details: list[str] | None = None):
+        super().__init__(
+            message=message,
+            status_code=500,
+            error_code=ErrorCodes.AGENT_ORCHESTRATION_FAILED,
+            details=details,
+        )
+        self.step = step
+
+
+class DataIngestionException(AppException):
+    def __init__(self, message: str, details: list[str] | None = None):
+        super().__init__(
+            message=message,
+            status_code=422,
+            error_code=ErrorCodes.DATA_INGESTION_FAILED,
+            details=details,
+        )
+
+
 async def app_exception_handler(_request: Request, exc: AppException) -> JSONResponse:
     logger.warning("AppException: %s (code=%s, status=%d)", exc.message, exc.error_code, exc.status_code)
     return JSONResponse(

@@ -28,6 +28,27 @@ class Settings(BaseSettings):
     nvidia_max_tokens: int = 1024
     nvidia_temperature: float = 0.7
 
+    # LLM orchestration (falls back to nvidia_* when empty)
+    llm_provider: str = "nvidia_nim"
+    llm_api_key: str = ""
+    llm_base_url: str = ""
+    llm_model: str = ""
+
+    # Agent pipeline
+    agent_max_retries: int = 3
+    agent_timeout_seconds: int = 120
+    agent_default_mode: str = "full"
+
+    # Feature flags
+    agent_mode_enabled: bool = True
+    mcp_enabled: bool = False
+    agent_metrics_enabled: bool = True
+
+    # Data ingestion uploads
+    upload_dir: str = "data/uploads"
+    upload_ttl_seconds: int = 3600
+    max_upload_size_mb: int = 50
+
     table_negative_number_style: str = "parentheses"
     table_numeric_string_allow_commas: bool = True
     table_total_row_label: str = "TOTAL"

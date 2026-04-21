@@ -4845,6 +4845,26 @@ class TableDataPopulator:
                                 if t_elem is not None:
                                     t_elem.text = str(col_name)
                                     # t_elem.text = format_label(str(col_name))
+                                else:
+                                    # Template ships some header cells (notably the
+                                    # first one) without a <a:r>/<a:t> chain — i.e.
+                                    # an empty <a:p>.  Without this branch the
+                                    # column header would render as blank in the
+                                    # output.  Create the run/text under the first
+                                    # <a:p> so paragraph-level formatting (align,
+                                    # rPr defaults) is preserved; if no <a:p>
+                                    # exists, create one too.
+                                    p_elem = txBody.find(
+                                        f"{{{a_ns}}}p"
+                                    )
+                                    if p_elem is None:
+                                        p_elem = OxmlElement("a:p")
+                                        txBody.append(p_elem)
+                                    new_r = OxmlElement("a:r")
+                                    new_t = OxmlElement("a:t")
+                                    new_t.text = str(col_name)
+                                    new_r.append(new_t)
+                                    p_elem.append(new_r)
 
                     # Set header row height and LOCK it
                     if len(table.rows) > 0:

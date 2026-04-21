@@ -7,6 +7,7 @@ from app.models.report_model import ReportModel
 from app.models.report_section_model import ReportSectionModel, ReportSectionElementModel
 from app.models.generated_report_model import GeneratedReportModel
 from app.models.draft_model import DraftModel
+from app.models.agent_job_model import AgentJobModel
 
 __all__ = [
     "Base",
@@ -20,4 +21,5 @@ __all__ = [
     "ReportSectionElementModel",
     "GeneratedReportModel",
     "DraftModel",
+    "AgentJobModel",
 ]

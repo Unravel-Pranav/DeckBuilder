@@ -68,3 +68,7 @@ htmlcov/
 *.bak
 *.tmp
 *.temp
+backend/test_ui.py
+backend/requirements-dev.txt
+docs/test.csv
+docs/*.plan.md
