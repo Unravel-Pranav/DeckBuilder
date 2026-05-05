@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     ppt_output_dir: str = "data/output_ppt"
+    upload_dir: str = "data/uploads"
     template_decks_dir: str = "data/template_decks"
 
     TESTING_ENV: str = "AUTODECK"
