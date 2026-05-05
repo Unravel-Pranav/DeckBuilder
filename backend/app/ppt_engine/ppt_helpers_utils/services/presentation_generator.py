@@ -1358,6 +1358,7 @@ class PresentationGenerator:
 
             # Handle common title placeholders
             title_patterns = [
+                "Presentation Title",
                 "Document title goes here",
                 "lorem ipsum dolor sit amet",
                 "Lorem ipsum dolor sit amet",
@@ -1366,15 +1367,27 @@ class PresentationGenerator:
 
             for pattern in title_patterns:
                 if pattern in updated_text:
-                    replacement = (
-                        replacement_values.get("title", "")
-                        if "document title" in pattern.lower()
-                        else ""
-                    )
+                    pattern_lower = pattern.lower()
+                    replacement = replacement_values.get("title", "") if (
+                        "document title" in pattern_lower
+                        or "presentation title" in pattern_lower
+                    ) else ""
                     updated_text = updated_text.replace(pattern, replacement)
                     print(
                         f"         ✓ Title replacement: '{pattern}' → '{replacement}'"
                     )
+
+            # Cover templates may store the subtitle/tagline in the same text box
+            # as the title. Remove that placeholder after title injection.
+            subtitle_patterns = [
+                "Subtitle or Tagline",
+                "subtitle or tagline",
+                "SUBTITLE OR TAGLINE",
+            ]
+            for pattern in subtitle_patterns:
+                if pattern in updated_text:
+                    updated_text = updated_text.replace(pattern, "")
+                    print(f"         ✓ Removed subtitle placeholder: '{pattern}'")
 
             # Handle submarket-specific template placeholder
             from app.ppt_engine.ppt_helpers_utils.services.template_config import (
@@ -1777,7 +1790,7 @@ class PresentationGenerator:
                 target_zip.extractall(target_extract)
 
             # Step 4: Copy each slide from template to target
-            media_files_copied = set()
+            media_file_mapping = {}
 
             for template_slide_idx in range(1, template_slide_count + 1):
                 target_slide_idx = target_slide_count + template_slide_idx
@@ -1851,17 +1864,14 @@ class PresentationGenerator:
                                         max_num = max(max_num, int(m.group(1)))
                             return max_num + 1
 
-                        # Copy chart parts referenced by the slide rels, allocating unique chart
-                        # and embedding names in the target to avoid collisions across templates.
-                        chart_rel_updated = False
+                        # Copy media/chart parts referenced by the slide rels, allocating
+                        # unique names in the target to avoid collisions across templates.
+                        rels_updated = False
                         for rel in root.findall(".//r:Relationship", ns):
                             target_rel_path = rel.get("Target")
                             if target_rel_path and "../media/" in target_rel_path:
                                 media_filename = os.path.basename(target_rel_path)
-
-                                # Skip if already copied
-                                if media_filename in media_files_copied:
-                                    continue
+                                mapping_key = (template_pptx_path, media_filename)
 
                                 source_media = os.path.join(
                                     source_extract, "ppt/media", media_filename
@@ -1869,18 +1879,41 @@ class PresentationGenerator:
                                 target_media_dir = os.path.join(
                                     target_extract, "ppt/media"
                                 )
-                                target_media = os.path.join(
-                                    target_media_dir, media_filename
-                                )
 
                                 if os.path.exists(source_media):
                                     os.makedirs(target_media_dir, exist_ok=True)
-                                    if not os.path.exists(target_media):
-                                        shutil.copy2(source_media, target_media)
-                                        media_files_copied.add(media_filename)
-                                        print(
-                                            f"         ✓ Copied media: {media_filename}"
+
+                                    if mapping_key in media_file_mapping:
+                                        target_filename = media_file_mapping[mapping_key]
+                                    else:
+                                        target_filename = media_filename
+                                        target_media = os.path.join(
+                                            target_media_dir, target_filename
                                         )
+                                        if os.path.exists(target_media):
+                                            stem, ext = os.path.splitext(media_filename)
+                                            next_idx = 1
+                                            while True:
+                                                candidate = f"{stem}_imported_{next_idx}{ext}"
+                                                candidate_path = os.path.join(
+                                                    target_media_dir, candidate
+                                                )
+                                                if not os.path.exists(candidate_path):
+                                                    target_filename = candidate
+                                                    target_media = candidate_path
+                                                    break
+                                                next_idx += 1
+
+                                        shutil.copy2(source_media, target_media)
+                                        media_file_mapping[mapping_key] = target_filename
+                                        print(
+                                            f"         ✓ Copied media: {media_filename} -> {target_filename}"
+                                        )
+
+                                    new_target = f"../media/{target_filename}"
+                                    if rel.get("Target") != new_target:
+                                        rel.set("Target", new_target)
+                                        rels_updated = True
 
                             # Charts: slide rels point to ../charts/chartN.xml
                             if (
@@ -1968,11 +2001,11 @@ class PresentationGenerator:
 
                                 # Update slide relationship target to the new chart part
                                 rel.set("Target", f"../{dst_chart_rel}")
-                                chart_rel_updated = True
+                                rels_updated = True
 
                         # If we updated any slide relationship targets (e.g., charts),
                         # persist the modified relationships XML to the target slide rels file.
-                        if chart_rel_updated:
+                        if rels_updated:
                             self._write_xml_with_office_declaration(
                                 tree, target_rels_path
                             )
