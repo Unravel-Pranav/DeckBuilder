@@ -49,9 +49,12 @@ ehthumbs.db
 **/data/output_ppt/
 **/ppt_helpers_utils/output_ppt/
 backend/data/
-*.pptx
 *.json.tmp
 **/debug_pptx/
+*.pptx
+!backend/app/ppt_engine/ppt_helpers_utils/individual_templates/*.pptx
+backend/app/data/template_decks/
+
 
 # ─── Logs ───
 *.log
