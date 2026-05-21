@@ -1596,6 +1596,173 @@ class OrchestratorRenderer:
             traceback.print_exc()
             return current_file
 
+    def _import_slide_via_zip(
+        self,
+        source_path: str,
+        target_path: str,
+        source_slide_index: int,
+        target_slide_index: int,
+    ) -> bool:
+        """Import slide content from source PPTX into target PPTX at the ZIP/XML level."""
+        import zipfile
+        import tempfile as tmpmod
+        import shutil
+        from copy import deepcopy
+        from lxml import etree
+        from app.ppt_engine.ppt_helpers_utils.ppt_helpers.data_populator import (
+            write_xml_with_office_declaration,
+            create_pptx_from_dir,
+        )
+
+        with tmpmod.TemporaryDirectory() as td:
+            src_extract = os.path.join(td, "src")
+            dst_extract = os.path.join(td, "dst")
+
+            with zipfile.ZipFile(source_path, "r") as z:
+                z.extractall(src_extract)
+            with zipfile.ZipFile(target_path, "r") as z:
+                z.extractall(dst_extract)
+
+            src_slide_num = source_slide_index + 1
+            dst_slide_num = target_slide_index + 1
+
+            src_slide_xml = os.path.join(
+                src_extract, f"ppt/slides/slide{src_slide_num}.xml"
+            )
+            dst_slide_xml = os.path.join(
+                dst_extract, f"ppt/slides/slide{dst_slide_num}.xml"
+            )
+
+            if not os.path.exists(src_slide_xml) or not os.path.exists(dst_slide_xml):
+                print("    slide XML not found")
+                return False
+
+            src_tree = etree.parse(src_slide_xml)
+            dst_tree = etree.parse(dst_slide_xml)
+            ns_p = "http://schemas.openxmlformats.org/presentationml/2006/main"
+
+            src_cSld = src_tree.find(f"{{{ns_p}}}cSld")
+            dst_cSld = dst_tree.find(f"{{{ns_p}}}cSld")
+
+            if src_cSld is not None and dst_cSld is not None:
+                dst_root = dst_tree.getroot()
+                dst_root.replace(dst_cSld, deepcopy(src_cSld))
+
+            write_xml_with_office_declaration(dst_tree, dst_slide_xml)
+
+            src_rels = os.path.join(
+                src_extract, f"ppt/slides/_rels/slide{src_slide_num}.xml.rels"
+            )
+            dst_rels = os.path.join(
+                dst_extract, f"ppt/slides/_rels/slide{dst_slide_num}.xml.rels"
+            )
+
+            if os.path.exists(src_rels):
+                src_rels_tree = etree.parse(src_rels)
+                pkg_ns = "http://schemas.openxmlformats.org/package/2006/relationships"
+
+                if os.path.exists(dst_rels):
+                    dst_rels_tree = etree.parse(dst_rels)
+                    dst_rels_root = dst_rels_tree.getroot()
+                else:
+                    dst_rels_root = etree.Element(
+                        f"{{{pkg_ns}}}Relationships", nsmap={None: pkg_ns}
+                    )
+                    dst_rels_tree = etree.ElementTree(dst_rels_root)
+
+                existing_ids = {
+                    r.get("Id")
+                    for r in dst_rels_root.findall(f"{{{pkg_ns}}}Relationship")
+                }
+                max_id = 0
+                for rid in existing_ids:
+                    if rid and rid.startswith("rId"):
+                        try:
+                            max_id = max(max_id, int(rid[3:]))
+                        except ValueError:
+                            pass
+
+                media_ext_types = {
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".gif": "image/gif",
+                    ".emf": "image/x-emf",
+                    ".wmf": "image/x-wmf",
+                    ".svg": "image/svg+xml",
+                }
+
+                for rel in src_rels_tree.findall(f"//{{{pkg_ns}}}Relationship"):
+                    target = rel.get("Target", "")
+                    rel_type = rel.get("Type", "")
+
+                    if "slideLayout" in rel_type or "notesSlide" in rel_type:
+                        continue
+
+                    if rel.get("Id") in existing_ids:
+                        continue
+
+                    if "../media/" in target:
+                        media_name = os.path.basename(target)
+                        src_media = os.path.join(src_extract, "ppt/media", media_name)
+                        dst_media_dir = os.path.join(dst_extract, "ppt/media")
+                        os.makedirs(dst_media_dir, exist_ok=True)
+                        if os.path.exists(src_media):
+                            shutil.copy2(src_media, os.path.join(dst_media_dir, media_name))
+                            self._register_media_content_type(
+                                dst_extract, media_name, media_ext_types
+                            )
+
+                    max_id += 1
+                    new_rel = etree.SubElement(
+                        dst_rels_root, f"{{{pkg_ns}}}Relationship"
+                    )
+                    new_rel.set("Id", f"rId{max_id}")
+                    new_rel.set("Type", rel_type)
+                    new_rel.set("Target", target)
+
+                write_xml_with_office_declaration(dst_rels_tree, dst_rels)
+
+            tmp_out = os.path.join(td, "result.pptx")
+            create_pptx_from_dir(dst_extract, tmp_out)
+            shutil.copy2(tmp_out, target_path)
+
+        return True
+
+    def _register_media_content_type(
+        self,
+        extract_dir: str,
+        media_filename: str,
+        ext_types: dict,
+    ) -> None:
+        """Ensure [Content_Types].xml has a Default entry for a copied media extension."""
+        from lxml import etree
+        from app.ppt_engine.ppt_helpers_utils.ppt_helpers.data_populator import (
+            write_xml_with_office_declaration,
+        )
+
+        ext = os.path.splitext(media_filename)[1].lower()
+        content_type = ext_types.get(ext)
+        if not content_type:
+            return
+
+        content_types_path = os.path.join(extract_dir, "[Content_Types].xml")
+        if not os.path.exists(content_types_path):
+            return
+
+        ct_ns = "http://schemas.openxmlformats.org/package/2006/content-types"
+        tree = etree.parse(content_types_path)
+        root = tree.getroot()
+
+        for default in root.findall(f"{{{ct_ns}}}Default"):
+            if default.get("Extension") == ext.lstrip("."):
+                return
+
+        new_default = etree.SubElement(root, f"{{{ct_ns}}}Default")
+        new_default.set("Extension", ext.lstrip("."))
+        new_default.set("ContentType", content_type)
+        write_xml_with_office_declaration(tree, content_types_path)
+
     def _render_uploaded_slide(
         self,
         block: TextBlock,
@@ -1624,30 +1791,32 @@ class OrchestratorRenderer:
         try:
             source_prs = Presentation(str(source_path))
             if source_slide_index >= len(source_prs.slides):
-                print(f"    ⚠ Slide index {source_slide_index} out of range (max {len(source_prs.slides) - 1})")
+                print(
+                    f"    ⚠ Slide index {source_slide_index} out of range "
+                    f"(max {len(source_prs.slides) - 1})"
+                )
                 return current_file
 
-            src_slide = source_prs.slides[source_slide_index]
             dest_prs = Presentation(current_file)
-
-            if slide_index < len(dest_prs.slides):
-                dest_slide = dest_prs.slides[slide_index]
-            else:
+            if slide_index >= len(dest_prs.slides):
                 layout_to_use = dest_prs.slide_layouts[0]
-                dest_slide = dest_prs.slides.add_slide(layout_to_use)
+                dest_prs.slides.add_slide(layout_to_use)
+                dest_prs.save(current_file)
 
-            from pptx.oxml.ns import qn
-            from copy import deepcopy
-
-            for shape in src_slide.shapes:
-                el = deepcopy(shape._element)
-                dest_slide.shapes._spTree.append(el)
-
-            dest_prs.save(current_file)
-            print(f"    ✓ Copied uploaded slide {source_slide_index} from template {source_template_id}")
+            if self._import_slide_via_zip(
+                str(source_path),
+                current_file,
+                source_slide_index,
+                slide_index,
+            ):
+                print(
+                    f"    Copied uploaded slide {source_slide_index} "
+                    f"from template {source_template_id}"
+                )
         except Exception as e:
-            print(f"    ✗ Error copying uploaded slide: {e}")
+            print(f"    Error copying uploaded slide: {e}")
             import traceback
+
             traceback.print_exc()
 
         return current_file

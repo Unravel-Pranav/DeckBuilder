@@ -26,9 +26,15 @@ The cloner automatically:
 import zipfile
 import os
 import shutil
+import tempfile
 from lxml import etree
 from copy import deepcopy
 import re
+
+from app.ppt_engine.ppt_helpers_utils.ppt_helpers.data_populator import (
+    write_xml_with_office_declaration,
+    create_pptx_from_dir,
+)
 
 
 class OpenXMLChartCloner:
@@ -87,8 +93,8 @@ class OpenXMLChartCloner:
 
         try:
             # Extract both presentations
-            temp_template_dir = os.path.join(self.temp_dir, "temp_template_extract")
-            temp_target_dir = os.path.join(self.temp_dir, "temp_target_extract")
+            temp_template_dir = tempfile.mkdtemp(dir=self.temp_dir, prefix="tpl_extract_")
+            temp_target_dir = tempfile.mkdtemp(dir=self.temp_dir, prefix="tgt_extract_")
 
             print("Extracting presentations...")
             self._extract_zip(self.template_path, temp_template_dir)
@@ -257,13 +263,8 @@ class OpenXMLChartCloner:
             zip_ref.extractall(extract_to)
 
     def _create_zip(self, folder_path, output_path):
-        """Create PPTX from directory."""
-        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(folder_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, folder_path)
-                    zipf.write(file_path, arcname)
+        """Create PPTX from directory using Office-compatible packaging."""
+        create_pptx_from_dir(folder_path, output_path)
 
     def _find_chart_in_slide(self, pptx_dir, slide_path):
         """Find chart shape in slide and extract its info."""
@@ -486,12 +487,7 @@ class OpenXMLChartCloner:
                         self._add_embedding_to_content_types(dst_dir, new_embed_file)
 
             # Save updated relationships
-            rels_tree.write(
-                dst_chart_rels,
-                xml_declaration=True,
-                encoding="UTF-8",
-                pretty_print=True,
-            )
+            write_xml_with_office_declaration(rels_tree, dst_chart_rels)
 
         # Create new relationship in target slide and return its ID
         return self._get_next_rel_id(dst_dir, target_slide_path)
@@ -519,6 +515,25 @@ class OpenXMLChartCloner:
 
         return f"rId{max_id + 1}"
 
+    def _assign_unique_shape_id(self, sp_tree, new_frame):
+        """Assign unique shape IDs to avoid duplicates within the slide."""
+        max_id = 0
+        for elem in sp_tree.iter():
+            if etree.QName(elem).localname == "cNvPr":
+                id_val = elem.get("id")
+                if id_val is not None:
+                    try:
+                        max_id = max(max_id, int(id_val))
+                    except ValueError:
+                        pass
+
+        next_id = max_id + 1
+        for elem in new_frame.iter():
+            if etree.QName(elem).localname == "cNvPr":
+                if elem.get("id") is not None:
+                    elem.set("id", str(next_id))
+                    next_id += 1
+
     def _add_chart_to_slide(
         self,
         pptx_dir,
@@ -543,6 +558,10 @@ class OpenXMLChartCloner:
         # Clone the graphic frame
         new_frame = deepcopy(chart_info["graphic_frame"])
 
+        sp_tree = root.find(".//p:spTree", self.nsmap)
+        if sp_tree is not None:
+            self._assign_unique_shape_id(sp_tree, new_frame)
+
         # Update the relationship ID
         chart_ref = new_frame.find(".//c:chart", self.nsmap)
         if chart_ref is not None:
@@ -565,14 +584,11 @@ class OpenXMLChartCloner:
                     ext.set("cy", str(int(height)))
 
         # Add to slide's spTree
-        sp_tree = root.find(".//p:spTree", self.nsmap)
         if sp_tree is not None:
             sp_tree.append(new_frame)
 
         # Save slide
-        tree.write(
-            slide_file, xml_declaration=True, encoding="UTF-8", pretty_print=True
-        )
+        write_xml_with_office_declaration(tree, slide_file)
 
         # Add relationship
         self._add_slide_relationship(pptx_dir, slide_path, rel_id, chart_num)
@@ -591,6 +607,12 @@ class OpenXMLChartCloner:
 
         # Clone the graphic frame with table
         new_frame = deepcopy(table_info["graphic_frame"])
+
+        sp_tree = root.find(
+            ".//{http://schemas.openxmlformats.org/presentationml/2006/main}spTree"
+        )
+        if sp_tree is not None:
+            self._assign_unique_shape_id(sp_tree, new_frame)
 
         # Update position/size if specified
         if any([left, top, width, height]):
@@ -615,16 +637,11 @@ class OpenXMLChartCloner:
                     ext.set("cy", str(int(height)))
 
         # Add to slide's spTree
-        sp_tree = root.find(
-            ".//{http://schemas.openxmlformats.org/presentationml/2006/main}spTree"
-        )
         if sp_tree is not None:
             sp_tree.append(new_frame)
 
         # Save slide
-        tree.write(
-            slide_file, xml_declaration=True, encoding="UTF-8", pretty_print=True
-        )
+        write_xml_with_office_declaration(tree, slide_file)
 
     def _add_slide_relationship(self, pptx_dir, slide_path, rel_id, chart_num):
         """Add chart relationship to slide's .rels file."""
@@ -658,7 +675,7 @@ class OpenXMLChartCloner:
         rel.set("Target", f"../charts/chart{chart_num}.xml")
 
         # Save
-        tree.write(rels_file, xml_declaration=True, encoding="UTF-8", pretty_print=True)
+        write_xml_with_office_declaration(tree, rels_file)
 
     def _add_embedding_to_content_types(self, pptx_dir, embed_filename):
         """Add embedding to [Content_Types].xml."""
@@ -690,12 +707,7 @@ class OpenXMLChartCloner:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-        tree.write(
-            content_types_file,
-            xml_declaration=True,
-            encoding="UTF-8",
-            pretty_print=True,
-        )
+        write_xml_with_office_declaration(tree, content_types_file)
 
     def _add_chart_style_to_content_types(self, pptx_dir, style_filename):
         """Add chart style/color files to [Content_Types].xml."""
@@ -733,12 +745,7 @@ class OpenXMLChartCloner:
         override.set("PartName", part_name)
         override.set("ContentType", content_type)
 
-        tree.write(
-            content_types_file,
-            xml_declaration=True,
-            encoding="UTF-8",
-            pretty_print=True,
-        )
+        write_xml_with_office_declaration(tree, content_types_file)
 
     def _update_content_types(self, pptx_dir, chart_num):
         """Update [Content_Types].xml for new chart."""
@@ -770,12 +777,7 @@ class OpenXMLChartCloner:
             "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
         )
 
-        tree.write(
-            content_types_file,
-            xml_declaration=True,
-            encoding="UTF-8",
-            pretty_print=True,
-        )
+        write_xml_with_office_declaration(tree, content_types_file)
 
     def _copy_table_styles(self, src_dir, dst_dir):
         """Copy table styles directory if it exists."""
@@ -835,12 +837,7 @@ class OpenXMLChartCloner:
             "application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml",
         )
 
-        tree.write(
-            content_types_file,
-            xml_declaration=True,
-            encoding="UTF-8",
-            pretty_print=True,
-        )
+        write_xml_with_office_declaration(tree, content_types_file)
 
     def clone_shape_with_styles(
         self,
@@ -873,8 +870,8 @@ class OpenXMLChartCloner:
 
         try:
             # Extract both presentations
-            temp_template_dir = os.path.join(self.temp_dir, "temp_template_extract")
-            temp_target_dir = os.path.join(self.temp_dir, "temp_target_extract")
+            temp_template_dir = tempfile.mkdtemp(dir=self.temp_dir, prefix="tpl_extract_")
+            temp_target_dir = tempfile.mkdtemp(dir=self.temp_dir, prefix="tgt_extract_")
 
             print("Extracting presentations...")
             self._extract_zip(self.template_path, temp_template_dir)

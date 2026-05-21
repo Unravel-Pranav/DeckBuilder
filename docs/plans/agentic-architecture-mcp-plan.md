@@ -434,7 +434,7 @@ class AgentOrchestrationException(AppException):
 
 **New error code** in `ErrorCodes`: `AGENT_ORCHESTRATION_FAILED = "AGENT_ORCHESTRATION_FAILED"`
 
-**Retry logic** (in orchestrator):
+**Retry logic** (in the orchestrator):
 - Each agent node wrapped with `tenacity`-style retry: 3 attempts, exponential backoff
 - State tracks `retry_count` per step
 
@@ -469,6 +469,7 @@ if settings.mcp_enabled:
     app.mount("/mcp", mcp_server.streamable_http_app())
 ```
 
+---
 
 ## Critical Improvements (Built Into Design)
 

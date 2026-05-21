@@ -51,6 +51,15 @@ def write_xml_with_office_declaration(tree_or_root, file_path: str) -> None:
         f.write(xml_decl + xml_bytes)
 
 
+def _zip_output_is_valid(pptx_path: str) -> bool:
+    """Verify a ZIP-repacked PPTX contains the mandatory root relationships file."""
+    try:
+        with zipfile.ZipFile(pptx_path, "r") as z:
+            return "_rels/.rels" in z.namelist()
+    except Exception:
+        return False
+
+
 def create_pptx_from_dir(extract_dir: str, output_path: str) -> None:
     """
     Repackage an extracted PPTX directory back into a .pptx file.
@@ -77,9 +86,10 @@ def create_pptx_from_dir(extract_dir: str, output_path: str) -> None:
             text=True,
         )
         if proc.returncode == 0 and os.path.exists(abs_output_path):
-            return
+            if _zip_output_is_valid(abs_output_path):
+                return
+            os.remove(abs_output_path)
 
-        # rc=15 often means "nothing to do" - try without -n flag as fallback
         if proc.returncode == 15:
             proc2 = subprocess.run(
                 [zip_cli, "-q", "-r", "-X", "-D", abs_output_path, "."],
@@ -88,20 +98,32 @@ def create_pptx_from_dir(extract_dir: str, output_path: str) -> None:
                 text=True,
             )
             if proc2.returncode == 0 and os.path.exists(abs_output_path):
-                return
+                if _zip_output_is_valid(abs_output_path):
+                    return
+                os.remove(abs_output_path)
 
         stderr = (proc.stderr or "").strip()
         print(
-            f"  ⚠️  zip CLI repack failed (rc={proc.returncode}); falling back to python zipfile. {stderr}"
+            f"  zip CLI repack produced invalid output; falling back to python zipfile. {stderr}"
         )
 
-    # Fallback: Python zipfile (best-effort)
+    entries: List[Tuple[str, str]] = []
+    for root_dir, _dirs, files in os.walk(extract_dir):
+        for file in files:
+            file_path = os.path.join(root_dir, file)
+            arcname = os.path.relpath(file_path, extract_dir).replace("\\", "/")
+            entries.append((arcname, file_path))
+
+    entries.sort(key=lambda item: (0 if item[0] == "[Content_Types].xml" else 1, item[0]))
+
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for root_dir, _dirs, files in os.walk(extract_dir):
-            for file in files:
-                file_path = os.path.join(root_dir, file)
-                arcname = os.path.relpath(file_path, extract_dir)
-                zipf.write(file_path, arcname)
+        for arcname, file_path in entries:
+            compress_type = (
+                zipfile.ZIP_STORED
+                if arcname.lower().endswith(".xlsx")
+                else zipfile.ZIP_DEFLATED
+            )
+            zipf.write(file_path, arcname, compress_type=compress_type)
 
 
 class ChartDataPopulator:
@@ -4469,14 +4491,10 @@ class ChartDataPopulator:
         - Double-quote XML declarations: <?xml version="1.0" ...?>
 
         We fix all of these by:
-        1. Extracting and repackaging via the system `zip` CLI with `-n .xlsx`
+        1. Extracting and repackaging (system `zip` CLI or Python fallback with stored .xlsx)
         2. Patching flag_bits inside each embedded xlsx
         3. Converting single-quote XML declarations to double-quote
         """
-        zip_cli = shutil.which("zip")
-        if not zip_cli:
-            return
-
         try:
             with tempfile.TemporaryDirectory() as td:
                 extract_dir = os.path.join(td, "pptx_extract")

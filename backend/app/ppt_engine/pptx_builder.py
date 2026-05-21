@@ -7,7 +7,7 @@ into the main CBRE application without modifying any existing logic.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, List
@@ -15,27 +15,28 @@ import json
 import os
 import uuid
 import asyncio
+import zipfile
 from datetime import datetime
 from pathlib import Path
 import sys
 import re
 
+from pptx import Presentation
+
 # Import the PPT generation logic from services
+from app.core.exceptions import AppException, GenerationException, ValidationException
+from app.core.paths import backend_root
 from app.ppt_engine.ppt_helpers_utils.services.frontend_json_processor import FrontendJSONProcessor
 from app.ppt_engine.ppt_helpers_utils.services.presentation_generator import PresentationGenerator
 
 # Setup directories for PPT generation
 PPT_ENGINE_DIR = Path(__file__).parent  # Points to backend/app/ppt_engine
 TEMPLATES_DIR = PPT_ENGINE_DIR / "ppt_helpers_utils" / "individual_templates"  # chart-type-based templates
-OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "data" / "output_ppt"  # backend/data/output_ppt
+OUTPUT_DIR = backend_root() / "data" / "output_ppt"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Initialize components (module-level singletons for performance)
-# Note: These are reused across multiple PPT generations. The PresentationGenerator
-# properly resets renderer state at the start of each generation to ensure clean state
-# for multi-market reports. See presentation_generator.py line ~88 for state reset logic.
+# Stateless JSON processor singleton (safe to reuse across concurrent requests)
 json_processor = FrontendJSONProcessor(templates_dir=str(TEMPLATES_DIR))
-presentation_generator = PresentationGenerator(output_dir=str(OUTPUT_DIR))
 
 # In-memory storage for generated files
 generated_files: Dict[str, Dict[str, Any]] = {}
@@ -224,6 +225,27 @@ async def generate_presentation(
     return await asyncio.to_thread(_generate_presentation_sync, request, user_deck_path)
 
 
+def _validate_pptx(path: str) -> None:
+    """
+    Validate that a file is a structurally valid PPTX before serving to clients.
+
+    Raises:
+        ValueError: If the file is not a valid ZIP, missing required OOXML
+            parts, or cannot be opened by python-pptx.
+    """
+    if not zipfile.is_zipfile(path):
+        raise ValueError(f"Output is not a valid ZIP archive: {path}")
+
+    with zipfile.ZipFile(path, "r") as archive:
+        if "[Content_Types].xml" not in archive.namelist():
+            raise ValueError(f"Missing [Content_Types].xml in PPTX: {path}")
+
+    try:
+        Presentation(path)
+    except Exception as exc:
+        raise ValueError(f"PPTX file is corrupt or unreadable: {path}") from exc
+
+
 def _generate_presentation_sync(
     request: FrontendJSONRequest | dict,
     user_deck_path: str | None = None,
@@ -271,7 +293,7 @@ def _generate_presentation_sync(
             print(f"✅ Parsed {len(orch_sections)} sections successfully\n")
         except Exception as e:
             print(f"❌ Failed to parse sections: {e}")
-            raise HTTPException(status_code=400, detail=f"Failed to parse sections: {str(e)}")
+            raise ValidationException(f"Failed to parse sections: {str(e)}")
         
         # Generate presentation (empty PPT will be created if no valid sections)
         # Format: report_name_template_type_quarter_timestamp.pptx
@@ -283,7 +305,8 @@ def _generate_presentation_sync(
         
         try:
             print(f"🎨 Generating presentation...")
-            output_path = presentation_generator.generate_presentation(
+            gen = PresentationGenerator(output_dir=str(OUTPUT_DIR))
+            output_path = gen.generate_presentation(
                 sections=orch_sections,
                 title=metadata['title'],
                 author=metadata['author'],
@@ -291,15 +314,16 @@ def _generate_presentation_sync(
                 metadata=metadata
             )
             print(f"✅ Generated: {output_filename}\n")
+            _validate_pptx(output_path)
         except Exception as e:
             print(f"❌ Generation failed: {e}")
             import traceback
             traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Presentation generation failed: {str(e)}")
+            raise GenerationException(f"Presentation generation failed: {str(e)}")
         
         # Verify file exists
         if not os.path.exists(output_path):
-            raise HTTPException(status_code=500, detail="Generated file not found")
+            raise GenerationException("Generated file not found")
         
         # Store file information
         file_size = os.path.getsize(output_path)
@@ -317,13 +341,13 @@ def _generate_presentation_sync(
         
         return file_info
         
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise GenerationException(f"Internal server error: {str(e)}")
 
 
 # @router.get("/templates")
