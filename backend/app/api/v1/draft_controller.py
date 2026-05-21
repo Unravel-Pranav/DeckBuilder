@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.models.draft_model import DraftModel
 from app.schemas.draft_schema import DraftSave, DraftResponse, DraftListItem, DraftListResponse
-from app.schemas.response import success_response, error_response, ErrorCodes
+from app.core.exceptions import NotFoundException
+from app.schemas.response import success_response
 
 router = APIRouter()
 
@@ -35,7 +36,7 @@ async def get_draft(draft_id: str, session: AsyncSession = Depends(get_session))
     )
     draft = result.scalar_one_or_none()
     if not draft:
-        return error_response(ErrorCodes.NOT_FOUND, f"Draft '{draft_id}' not found")
+        raise NotFoundException("Draft", draft_id)
     return success_response(DraftResponse.model_validate(draft).model_dump())
 
 
@@ -50,12 +51,16 @@ async def save_draft(payload: DraftSave, session: AsyncSession = Depends(get_ses
     if draft:
         draft.name = payload.name
         draft.current_step = payload.current_step
+        draft.status = payload.status
+        draft.generated_file_id = payload.generated_file_id
         draft.state = payload.state
     else:
         draft = DraftModel(
             id=payload.id,
             name=payload.name,
             current_step=payload.current_step,
+            status=payload.status,
+            generated_file_id=payload.generated_file_id,
             state=payload.state,
         )
         session.add(draft)
@@ -71,6 +76,6 @@ async def delete_draft(draft_id: str, session: AsyncSession = Depends(get_sessio
     )
     draft = result.scalar_one_or_none()
     if not draft:
-        return error_response(ErrorCodes.NOT_FOUND, f"Draft '{draft_id}' not found")
+        raise NotFoundException("Draft", draft_id)
     await session.delete(draft)
     return success_response({"deleted": draft_id})

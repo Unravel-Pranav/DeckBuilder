@@ -25,8 +25,6 @@ import {
   Presentation,
 } from 'lucide-vue-next'
 import type { SlideStructure, SlideTemplate, SlidePreviewData, SlideComponent } from '@/types'
-import { createRegions } from '@/types'
-
 const slidesStore = useSlidesStore()
 const templatesStore = useTemplatesStore()
 

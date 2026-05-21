@@ -32,5 +32,7 @@ class SectionService:
                 self._session.add(TemplateSectionElementModel(section_id=model.id, element_type=el.element_type, display_order=el.display_order, config=el.config))
         return model
 
-    async def delete_section(self, section_id: int) -> bool:
-        return await self._repo.delete_by_id(section_id)
+    async def delete_section(self, section_id: int) -> None:
+        deleted = await self._repo.delete_by_id(section_id)
+        if not deleted:
+            raise NotFoundException("Section", section_id)

@@ -45,8 +45,8 @@ async def update_template(template_id: int, body: TemplateUpdate, session: Async
 
 @router.delete("/{template_id}")
 async def delete_template(template_id: int, session: AsyncSessionDep):
-    deleted = await TemplateService(session).delete_template(template_id)
-    return success_response({"deleted": deleted})
+    await TemplateService(session).delete_template(template_id)
+    return success_response({"deleted": True, "id": template_id})
 
 
 @router.post("/{template_id}/ppt")

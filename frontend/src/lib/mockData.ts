@@ -1,4 +1,4 @@
-import type { Presentation, Section, Slide, ChartData, TableData, SlideTemplate, SlidePreviewData, SlideComponent, SlideStructure } from '@/types'
+import type { Presentation, Section, Slide, ChartData, TableData, SlideTemplate, SlidePreviewData, SlideComponent } from '@/types'
 import { createRegions } from '@/types'
 
 export const mockChartData: Record<string, ChartData> = {

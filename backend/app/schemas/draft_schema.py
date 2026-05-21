@@ -14,6 +14,8 @@ class DraftSave(BaseModel):
     id: str = Field(..., min_length=1, max_length=36)
     name: str = "Untitled Presentation"
     current_step: str = "create"
+    status: str = "draft"
+    generated_file_id: str | None = None
     state: dict[str, Any] = Field(
         ...,
         description="Opaque JSON blob containing presentation, slides, ai, and ui store snapshots",
@@ -24,6 +26,8 @@ class DraftResponse(BaseModel):
     id: str
     name: str
     current_step: str
+    status: str = "draft"
+    generated_file_id: str | None = None
     state: dict[str, Any]
     created_at: datetime
     updated_at: datetime
@@ -36,6 +40,7 @@ class DraftListItem(BaseModel):
     id: str
     name: str
     current_step: str
+    status: str = "draft"
     updated_at: datetime
 
     class Config:

@@ -35,5 +35,5 @@ async def update_report(report_id: int, body: ReportUpdate, session: AsyncSessio
 
 @router.delete("/{report_id}")
 async def delete_report(report_id: int, session: AsyncSessionDep):
-    deleted = await ReportService(session).delete_report(report_id)
-    return success_response({"deleted": deleted})
+    await ReportService(session).delete_report(report_id)
+    return success_response({"deleted": True, "id": report_id})

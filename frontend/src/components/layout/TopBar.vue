@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { usePresentationStore } from '@/stores/presentation'
 import { useUiStore } from '@/stores/ui'
 import { useTheme } from '@/composables/useTheme'
-import { Menu, Bell, Settings, Sun, Moon } from 'lucide-vue-next'
+import { Menu, Sun, Moon } from 'lucide-vue-next'
 
 const route = useRoute()
 const presentationStore = usePresentationStore()
@@ -15,10 +15,10 @@ const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     dashboard: 'Dashboard',
     create: 'Create Presentation',
-    recommendations: 'AI Recommendations',
+    recommendations: 'AI Outline',
     sections: 'Section Manager',
     builder: 'Slide Builder',
-    templates: 'Templates',
+    templates: 'Slide library',
     'template-upload': 'Upload Template',
     preview: 'Preview & Generate',
     output: 'Your Presentation',
@@ -64,17 +64,6 @@ const showPresentationName = computed(() =>
       >
         <Sun v-if="isDark" :size="18" :stroke-width="1.5" />
         <Moon v-else :size="18" :stroke-width="1.5" />
-      </button>
-
-      <button
-        class="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-all duration-200"
-      >
-        <Bell :size="18" :stroke-width="1.5" />
-      </button>
-      <button
-        class="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-all duration-200"
-      >
-        <Settings :size="18" :stroke-width="1.5" />
       </button>
 
       <!-- User avatar -->

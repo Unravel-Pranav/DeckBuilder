@@ -23,3 +23,12 @@ class TemplateRepository(BaseRepository[TemplateModel]):
         stmt = select(TemplateModel).order_by(TemplateModel.last_modified.desc())
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_all_with_sections(self) -> list[TemplateModel]:
+        stmt = (
+            select(TemplateModel)
+            .options(selectinload(TemplateModel.sections).selectinload(TemplateSectionModel.elements))
+            .order_by(TemplateModel.id)
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())

@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.core.config import settings
+from app.core.paths import uploads_dir
 from app.schemas.ai_schema import CommentaryRequest, RecommendationRequest
 from app.schemas.agent_schema import AgentGenerateRequest
 from app.schemas.tool_schema import DataProfile
@@ -38,7 +38,7 @@ def _now_iso() -> str:
 
 
 def _load_uploaded_dataframe(file_id: str, filename: str) -> pd.DataFrame:
-    path = Path(settings.upload_dir) / file_id / filename
+    path = uploads_dir() / file_id / filename
     if not path.exists():
         raise FileNotFoundError(f"Uploaded file not found: {path}")
     if path.suffix.lower() == ".csv":

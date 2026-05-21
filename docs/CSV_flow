@@ -205,7 +205,8 @@ When generating the final `.pptx`, the frontend maps the internal `ChartType` to
 | `line` | `"Line - Single axis"` |
 | `pie` | `"Pie Chart"` |
 | `doughnut` | `"Donut Chart"` |
-| `area` | `"Combo - Area + Bar"` |
+| `area` (single series) | `"Area - Single axis"` |
+| `area` (multi series) | `"Area - Multi axis"` |
 | `scatter` | `"Line - Multi axis"` |
 | anything else | `"Bar Chart"` (fallback) |
 

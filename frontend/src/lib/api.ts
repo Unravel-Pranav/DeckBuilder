@@ -1,4 +1,4 @@
-import type { Section, Slide, SlideComponent, Presentation, ChartDataset } from '@/types'
+import type { Section, Slide, Presentation, ChartDataset, SectionRecommendation } from '@/types'
 import { getBackendPreference } from '@/lib/layoutDefinitions'
 
 export { getBackendPreference as LAYOUT_TO_BACKEND }
@@ -26,9 +26,14 @@ export function transformToBackendFormat(
   presentation: Presentation,
   sections: Section[],
   deckTemplateId?: number | null,
+  heroFieldStats?: Record<string, { label: string; value: string; trend: string }> | null,
 ) {
   const now = new Date()
   const quarter = `${now.getFullYear()} Q${Math.ceil((now.getMonth() + 1) / 3)}`
+
+  // Only include hero_fields if at least one stat has a non-empty value
+  const hasHeroValues = heroFieldStats && Object.values(heroFieldStats).some(s => s.value.trim())
+  const heroFieldsPayload = hasHeroValues ? { hero_fields: { stats: heroFieldStats } } : {}
 
   return {
     report: {
@@ -38,6 +43,7 @@ export function transformToBackendFormat(
       property_type: presentation.intent.type === 'business' ? 'Office' : 'Industrial',
       property_sub_type: 'figures',
       quarter,
+      ...heroFieldsPayload,
     },
     sections: sections.map((section: Section) => ({
       id: section.id,
@@ -232,7 +238,53 @@ export interface GeneratePPTResult {
   sections_count: number
 }
 
-export async function generatePPT(payload: any): Promise<GeneratePPTResult> {
+export interface StructureGenerateResponse {
+  sections: Array<{
+    name: string
+    sectionname_alias: string
+    display_order: number
+    elements: Array<{
+      element_type: string
+      label?: string | null
+      display_order: number
+      config: Record<string, unknown>
+    }>
+  }>
+  total_elements: number
+}
+
+export async function generateStructure(
+  acceptedSections: SectionRecommendation[],
+  intent: { type: string; tone: string },
+): Promise<StructureGenerateResponse> {
+  const response = await fetch(`${API_BASE_URL}/structure/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      intent_type: intent.type,
+      intent_tone: intent.tone,
+      sections: acceptedSections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        suggested_templates: s.suggestedTemplates.map((t) => ({
+          id: t.id,
+          name: t.name,
+          type: t.type,
+          layout: t.structure,
+        })),
+      })),
+    }),
+  })
+
+  const json: ApiResponse<StructureGenerateResponse> = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(formatApiError(json))
+  }
+  return unwrapResponse(json)
+}
+
+export async function generatePPT(payload: unknown): Promise<GeneratePPTResult> {
   const response = await fetch(`${API_BASE_URL}/generation/generate-custom`, {
     method: 'POST',
     headers: {
@@ -244,7 +296,8 @@ export async function generatePPT(payload: any): Promise<GeneratePPTResult> {
   const json: ApiResponse<GeneratePPTResult> = await response.json()
 
   if (!response.ok || !json.success) {
-    throw new Error(formatApiError(json))
+    const detail = formatFastApiDetail((json as { detail?: unknown }).detail)
+    throw new Error(detail ?? formatApiError(json))
   }
 
   return unwrapResponse(json)
@@ -364,6 +417,8 @@ export interface DraftPayload {
   id: string
   name: string
   current_step: string
+  status?: string
+  generated_file_id?: string | null
   state: Record<string, unknown>
 }
 
@@ -380,6 +435,7 @@ export interface DraftListItem {
   id: string
   name: string
   current_step: string
+  status?: string
   updated_at: string
 }
 

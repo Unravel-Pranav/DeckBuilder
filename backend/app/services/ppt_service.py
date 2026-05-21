@@ -86,6 +86,9 @@ class PptService:
             from app.ppt_engine.pptx_builder import generate_presentation
 
             file_info = await generate_presentation(json_data, user_deck_path=user_deck_path)
+            from app.services.generated_file_service import persist_generated_file
+
+            await persist_generated_file(self._session, file_info)
             logger.info("Custom PPT generated: %s", file_info.get("filename"))
             return file_info
         except Exception as e:

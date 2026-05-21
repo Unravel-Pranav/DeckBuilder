@@ -38,23 +38,23 @@ The frontend expects the backend at `http://localhost:8000/api/v1`. Override via
 The app is a linear wizard. Each step is a page, and the sidebar tracks progress.
 
 ```
-Dashboard → Create → AI Recommendations → Sections → Slide Builder → Preview → Output
-                                                          ↑
-              Template Library (standalone) ───────────────┘
-              Template Upload  (standalone) ───────────────┘
+Dashboard → Create → AI Outline → Sections → Slide Builder → Preview → Output
+                                              ↑ optional brand deck on Preview
+              Slide library (/templates) ─────┘
+              Upload brand deck (/templates/upload) ── optional
 ```
 
 | Route | Page Component | Step |
 |-------|---------------|------|
-| `/` | `DashboardPage.vue` | Landing (recent decks, create new) |
+| `/` | `DashboardPage.vue` | Saved drafts + create new |
 | `/create` | `CreatePresentationPage.vue` | 1. Define intent (type, audience, tone) |
-| `/recommendations` | `AiRecommendationsPage.vue` | 2. Accept/reject AI-suggested sections |
+| `/recommendations` | `AiRecommendationsPage.vue` | 2. Accept/reject AI outline (`POST /structure/generate` seeds slides) |
 | `/sections` | `SectionManagerPage.vue` | 3. Organize sections & slides (drag-and-drop) |
 | `/builder` | `SlideBuilderPage.vue` | 4. Edit slides (3-panel editor) |
-| `/preview` | `PreviewGeneratePage.vue` | 5. Preview slides, trigger generation |
-| `/output` | `OutputPage.vue` | 6. Download the generated `.pptx` |
-| `/templates` | `TemplateManagementPage.vue` | Template library (standalone) |
-| `/templates/upload` | `TemplateUploadPage.vue` | Upload custom PPT templates |
+| `/preview` | `PreviewGeneratePage.vue` | 5. Preview, optional brand deck, generate |
+| `/output` | `OutputPage.vue` | 6. Download (requires `generatedFileId`) |
+| `/templates` | `TemplateManagementPage.vue` | Engine slide library (standalone) |
+| `/templates/upload` | `TemplateUploadPage.vue` | Upload brand export `.pptx` |
 
 ---
 

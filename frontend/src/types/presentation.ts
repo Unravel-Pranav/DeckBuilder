@@ -267,12 +267,27 @@ export interface DesignPreferences {
   colorScheme: ColorScheme
 }
 
+export type AudienceExpertise = 'executive' | 'analyst' | 'mixed'
+
+export type TrendDirection = 'up' | 'down' | 'neutral'
+
+export interface HeroStat {
+  key: string
+  label: string
+  value: string
+  trend: TrendDirection
+}
+
 export interface PresentationIntent {
   type: PresentationType
   audience: string
   tone: ToneType
   designPreferences: DesignPreferences
   referenceFile: File | null
+  // Enriched intent for recommendation agent
+  objective?: string
+  keyMetrics?: string[]
+  audienceExpertise?: AudienceExpertise
 }
 
 export interface Presentation {
@@ -350,6 +365,32 @@ export interface ApiSyncPoint {
   trigger: string
   payload?: string
   response?: string
+}
+
+// ─── Recommendation Agent ─────────────────────────────────────────────────────
+
+export interface SlotAssignment {
+  slot_display_order: number
+  element_type: 'chart' | 'table' | 'commentary'
+  data_columns: string[]
+  chart_type: string | null
+  insight_directive: string
+}
+
+export interface RecommendedSection {
+  name: string
+  description: string
+  narrative_role: 'hook' | 'analysis' | 'detail' | 'summary'
+  template_id: number | null
+  slot_assignments: SlotAssignment[]
+}
+
+export interface RecommendationAgentResponse {
+  sections: RecommendedSection[]
+  reviewer_score: number
+  reviewer_feedback: string
+  bound_sections: Record<string, unknown>[]
+  planner_attempts: number
 }
 
 export const API_SYNC_POINTS: ApiSyncPoint[] = [

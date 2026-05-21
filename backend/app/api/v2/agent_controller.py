@@ -11,14 +11,13 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.agents.orchestrator import run_agent_pipeline
-from app.core.config import settings
-from app.core.paths import backend_root
+from app.core.paths import uploads_dir
 from app.schemas.agent_schema import AgentGenerateRequest, AgentGenerateResponse
 
 router = APIRouter()
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
-_UPLOAD_ROOT = backend_root() / settings.upload_dir
+_UPLOAD_ROOT = uploads_dir()
 _jobs: dict[str, dict] = {}
 
 

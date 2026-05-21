@@ -4,6 +4,11 @@ import { usePresentationStore } from '@/stores/presentation'
 import { useAiStore } from '@/stores/ai'
 import { useUiStore } from '@/stores/ui'
 import type { FlowStep } from '@/types'
+import {
+  buildFlowContext,
+  getRedirectForStep,
+  deriveCompletedSteps,
+} from '@/lib/flowAccess'
 
 const ROUTE_TO_STEP: Record<string, FlowStep> = {
   create: 'create',
@@ -66,36 +71,25 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+function getFlowContext() {
   const slidesStore = useSlidesStore()
   const presentationStore = usePresentationStore()
   const aiStore = useAiStore()
+  return buildFlowContext({
+    currentPresentation: presentationStore.currentPresentation,
+    recommendationSectionsLength: aiStore.recommendation?.sections?.length ?? 0,
+    sectionsLength: slidesStore.sections.length,
+    generatedFileId: presentationStore.generatedFileId,
+  })
+}
 
-  const hasSections = slidesStore.sections.length > 0
-  const hasPresentation = !!presentationStore.currentPresentation
-  const hasRecommendations = (aiStore.recommendation?.sections?.length ?? 0) > 0
+router.beforeEach((to) => {
+  const step = ROUTE_TO_STEP[to.name as string]
+  if (!step) return
 
-  switch (to.name) {
-    case 'recommendations':
-      if (!hasPresentation) {
-        return { name: 'create' }
-      }
-      break
-
-    case 'sections':
-      if (!hasRecommendations && !hasSections) {
-        return hasPresentation ? { name: 'recommendations' } : { name: 'create' }
-      }
-      break
-
-    case 'builder':
-    case 'preview':
-    case 'output':
-      if (!hasSections) {
-        return { name: 'create' }
-      }
-      break
-  }
+  const ctx = getFlowContext()
+  const redirect = getRedirectForStep(step, ctx)
+  if (redirect) return redirect
 })
 
 router.afterEach((to) => {
@@ -104,6 +98,8 @@ router.afterEach((to) => {
   if (step) {
     const uiStore = useUiStore()
     uiStore.setCurrentStep(step)
+    const derived = deriveCompletedSteps(getFlowContext())
+    uiStore.$patch({ completedSteps: derived })
   }
 })
 

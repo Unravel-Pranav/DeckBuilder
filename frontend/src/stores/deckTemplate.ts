@@ -27,6 +27,11 @@ export const useDeckTemplateStore = defineStore('deckTemplate', () => {
     localStorage.setItem(LS_NAME, name)
   }
 
+  /** Alias used when restoring from draft payload. */
+  function setSelectedTemplate(id: number, name: string) {
+    setExportDeck(id, name)
+  }
+
   function clearExportDeck() {
     selectedTemplateId.value = null
     selectedTemplateName.value = null
@@ -36,11 +41,17 @@ export const useDeckTemplateStore = defineStore('deckTemplate', () => {
 
   hydrateFromStorage()
 
+  function $reset() {
+    clearExportDeck()
+  }
+
   return {
     selectedTemplateId,
     selectedTemplateName,
     setExportDeck,
+    setSelectedTemplate,
     clearExportDeck,
     hydrateFromStorage,
+    $reset,
   }
 })

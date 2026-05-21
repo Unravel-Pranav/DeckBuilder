@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = True
 
+    api_key: str = ""
+
     database_url: str = "sqlite+aiosqlite:///./autodeck.db"
 
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]

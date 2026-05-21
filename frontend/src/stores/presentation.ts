@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import type {
   PresentationType,
   ToneType,
+  AudienceExpertise,
+  HeroStat,
   DesignPreferences,
   PresentationIntent,
   Presentation,
@@ -14,6 +16,14 @@ export const usePresentationStore = defineStore('presentation', () => {
 
   const generatedFileId = ref<string | null>(null)
   const generatedFilename = ref<string | null>(null)
+
+  const heroFields = ref<HeroStat[]>([
+    { key: 'vacancy_rate',              label: 'Vacancy Rate',             value: '', trend: 'neutral' },
+    { key: 'sf_net_absorption',         label: 'SF Net Absorption',        value: '', trend: 'neutral' },
+    { key: 'sf_construction_delivered', label: 'SF Construction Delivered', value: '', trend: 'neutral' },
+    { key: 'sf_under_construction',     label: 'SF Under Construction',    value: '', trend: 'neutral' },
+    { key: 'lease_rate',                label: 'NNN / Lease Rate',         value: '', trend: 'neutral' },
+  ])
 
   const intent = ref<PresentationIntent>({
     type: 'business',
@@ -51,6 +61,29 @@ export const usePresentationStore = defineStore('presentation', () => {
 
   function setReferenceFile(file: File | null) {
     intent.value.referenceFile = file
+  }
+
+  function setObjective(objective: string) {
+    intent.value.objective = objective || undefined
+  }
+
+  function setKeyMetrics(metrics: string[]) {
+    intent.value.keyMetrics = metrics
+  }
+
+  function setAudienceExpertise(expertise: AudienceExpertise) {
+    intent.value.audienceExpertise = expertise
+  }
+
+  function updateHeroField(key: string, field: 'label' | 'value' | 'trend', val: string) {
+    const stat = heroFields.value.find(s => s.key === key)
+    if (stat) (stat as Record<string, string>)[field] = val
+  }
+
+  function heroFieldsPayload(): Record<string, { label: string; value: string; trend: string }> {
+    return Object.fromEntries(
+      heroFields.value.map(f => [f.key, { label: f.label, value: f.value, trend: f.trend }])
+    )
   }
 
   function createPresentation(name: string) {
@@ -105,6 +138,12 @@ export const usePresentationStore = defineStore('presentation', () => {
     setAudience,
     setDesignPreferences,
     setReferenceFile,
+    setObjective,
+    setKeyMetrics,
+    setAudienceExpertise,
+    heroFields,
+    updateHeroField,
+    heroFieldsPayload,
     createPresentation,
     setRecentPresentations,
     setGeneratedFile,

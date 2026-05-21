@@ -1,3 +1,4 @@
+<!-- Deprecated: not mounted on Create page; kept for possible future live preview. -->
 <script setup lang="ts">
 import { computed, watch, ref } from 'vue'
 import { usePresentationStore } from '@/stores/presentation'

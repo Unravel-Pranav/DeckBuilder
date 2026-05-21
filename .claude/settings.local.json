@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\pathe\\\\Desktop\\\\DeckBuilder\\\\backend\" -Filter \"requirements.txt\", \"pyproject.toml\" -Force)",
+      "Bash(pip list *)",
+      "Bash(cp \"c:/Users/pathe/.claude/memory/project_recommendation_agent.md\" \"c:/Users/pathe/.claude/projects/c--Users-pathe-Desktop-DeckBuilder/memory/project_recommendation_agent.md\")",
+      "Bash(node -e \"const l = require\\('lucide-vue-next'\\); console.log\\(Object.keys\\(l\\).filter\\(k => k.includes\\('Column'\\) || k.includes\\('Row'\\) || k.includes\\('Grid'\\) || k.includes\\('Square'\\)\\).join\\(', '\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\pathe\\.claude\\memory"
+    ]
+  }
+}

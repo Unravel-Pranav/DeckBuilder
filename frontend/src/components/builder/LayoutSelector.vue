@@ -3,16 +3,8 @@ import { computed } from 'vue'
 import { useSlidesStore } from '@/stores/slides'
 import { STRUCTURE_REGISTRY } from '@/lib/layoutDefinitions'
 import type { SlideStructure } from '@/types'
-import { Square, Columns2, Rows2, Grid2x2 } from 'lucide-vue-next'
 
 const slidesStore = useSlidesStore()
-
-const STRUCTURE_ICONS: Record<SlideStructure, typeof Square> = {
-  'blank':    Square,
-  'two-col':  Columns2,
-  'two-row':  Rows2,
-  'grid-2x2': Grid2x2,
-}
 
 const activeStructure = computed(() => slidesStore.activeSlide?.structure)
 

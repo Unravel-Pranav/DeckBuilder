@@ -14,20 +14,20 @@ import { Separator } from '@/components/ui/separator'
 import {
   Download,
   CheckCircle2,
-  Share2,
   Edit3,
   Plus,
   Clock,
   FileText,
   Layers,
-  Copy,
 } from 'lucide-vue-next'
+import { useDeckTemplateStore } from '@/stores/deckTemplate'
 
 const router = useRouter()
 const presentationStore = usePresentationStore()
 const slidesStore = useSlidesStore()
 const aiStore = useAiStore()
 const uiStore = useUiStore()
+const deckTemplateStore = useDeckTemplateStore()
 
 const isDownloading = ref(false)
 
@@ -56,6 +56,7 @@ function createNew() {
   slidesStore.$reset()
   aiStore.$reset()
   uiStore.$reset()
+  deckTemplateStore.$reset()
   clearAllDraftStorage()
   if (draftId) deleteDraft(draftId).catch(() => {})
   router.push('/create')
@@ -72,10 +73,14 @@ function createNew() {
         <CheckCircle2 :size="40" :stroke-width="1.5" class="text-emerald-400" />
       </div>
       <h2 class="text-3xl md:text-4xl font-display font-bold tracking-tight mb-3">
-        Presentation Ready
+        {{ canDownload ? 'Presentation Ready' : 'Generation Incomplete' }}
       </h2>
       <p class="text-muted-foreground text-sm max-w-md mx-auto">
-        Your presentation has been generated successfully. Download it or make further edits.
+        {{
+          canDownload
+            ? 'Your presentation has been generated successfully. Download it or make further edits.'
+            : 'Generate your presentation from Preview before downloading.'
+        }}
       </p>
     </div>
 
@@ -139,19 +144,12 @@ function createNew() {
           </Button>
 
           <Button
+            v-if="!canDownload"
             variant="outline"
             class="border-border text-foreground/80 hover:bg-foreground/5 rounded-xl h-12"
+            @click="router.push('/preview')"
           >
-            <Share2 :size="16" :stroke-width="1.5" class="mr-2" />
-            Share
-          </Button>
-
-          <Button
-            variant="outline"
-            class="border-border text-foreground/80 hover:bg-foreground/5 rounded-xl h-12"
-          >
-            <Copy :size="16" :stroke-width="1.5" class="mr-2" />
-            Duplicate
+            Back to Preview
           </Button>
         </div>
       </GlassCard>
