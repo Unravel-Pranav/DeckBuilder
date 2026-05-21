@@ -21,7 +21,8 @@ router = APIRouter()
 @router.get("")
 async def list_templates(session: AsyncSessionDep):
     result = await TemplateService(session).list_templates()
-    return success_response(TemplateListResponse.model_validate(result).model_dump())
+    validated = TemplateListResponse.model_validate(result).model_dump()
+    return success_response(validated)
 
 
 @router.post("", status_code=201)

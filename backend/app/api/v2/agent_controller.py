@@ -12,11 +12,13 @@ from fastapi.responses import FileResponse
 
 from app.agents.orchestrator import run_agent_pipeline
 from app.core.config import settings
+from app.core.paths import backend_root
 from app.schemas.agent_schema import AgentGenerateRequest, AgentGenerateResponse
 
 router = APIRouter()
 
-_UPLOAD_ROOT = Path(settings.upload_dir)
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+_UPLOAD_ROOT = backend_root() / settings.upload_dir
 _jobs: dict[str, dict] = {}
 
 
@@ -34,18 +36,27 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail="Only .csv and .xlsx files are supported")
 
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
+        )
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    safe_name = Path(file.filename).name
+    if not safe_name:
+        raise HTTPException(status_code=400, detail="Invalid filename")
 
     file_id = str(uuid4())
     target_dir = _UPLOAD_ROOT / file_id
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / file.filename
+    target_path = target_dir / safe_name
     target_path.write_bytes(content)
 
     return {
         "file_id": file_id,
-        "filename": file.filename,
+        "filename": safe_name,
         "size_bytes": len(content),
     }
 
@@ -102,7 +113,8 @@ async def get_job(job_id: str) -> dict:
     job = _jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    safe_job = {k: v for k, v in job.items() if k != "ppt_file_path"}
+    return safe_job
 
 
 @router.get("/jobs/{job_id}/download")

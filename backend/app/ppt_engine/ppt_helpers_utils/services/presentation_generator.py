@@ -23,6 +23,25 @@ from app.ppt_engine.ppt_helpers_utils.services.template_config import (
     get_header_format_config,
 )
 
+_REL_ID_ATTR = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+
+
+def _remove_all_slides(prs) -> None:
+    """
+    Remove all slides from a presentation, including their package parts.
+
+    Uses drop_rel to prevent orphaned slide parts in the saved ZIP.
+    """
+    while prs.slides._sldIdLst:
+        sld_id = prs.slides._sldIdLst[0]
+        r_id = sld_id.get(_REL_ID_ATTR)
+        if r_id:
+            try:
+                prs.part.drop_rel(r_id)
+            except KeyError:
+                pass
+        prs.slides._sldIdLst.remove(sld_id)
+
 
 class PresentationGenerator:
     """
@@ -315,9 +334,7 @@ class PresentationGenerator:
             )
             prs = Presentation(base_template_path)
             # Remove existing slides from template to create empty PPT
-            while len(prs.slides) > 0:
-                xml_slides = prs.slides._sldIdLst
-                xml_slides.remove(xml_slides[0])
+            _remove_all_slides(prs)
         else:
             print("   No templates found, creating blank empty presentation")
             prs = Presentation()
@@ -750,9 +767,7 @@ class PresentationGenerator:
             print(f"   Using base template: {base_template_path}")
             prs = Presentation(base_template_path)
             # Remove existing slides from template
-            while len(prs.slides) > 0:
-                xml_slides = prs.slides._sldIdLst
-                xml_slides.remove(xml_slides[0])
+            _remove_all_slides(prs)
         else:
             print("   No templates found, using blank presentation")
             prs = Presentation()
@@ -1827,6 +1842,25 @@ class PresentationGenerator:
                 if os.path.exists(source_rels_path):
                     os.makedirs(os.path.dirname(target_rels_path), exist_ok=True)
 
+                    # Preserve the target slideLayout path before overwriting rels
+                    saved_slide_layout_target = None
+                    if os.path.exists(target_rels_path):
+                        try:
+                            layout_tree = etree.parse(target_rels_path)
+                            layout_root = layout_tree.getroot()
+                            layout_ns = {
+                                "r": "http://schemas.openxmlformats.org/package/2006/relationships"
+                            }
+                            for layout_rel in layout_root.findall(
+                                ".//r:Relationship", layout_ns
+                            ):
+                                rel_type = layout_rel.get("Type", "")
+                                if rel_type.endswith("/slideLayout"):
+                                    saved_slide_layout_target = layout_rel.get("Target")
+                                    break
+                        except Exception:
+                            pass
+
                     # Clean notesSlide references from slide relationships before copying
                     # Multiple slides cannot share the same notesSlide - this causes corruption
                     self._clean_notes_slide_references(
@@ -1837,7 +1871,7 @@ class PresentationGenerator:
                     # Copy all referenced media files and ensure chart dependencies
                     # (charts, chart rels, embedded workbooks, chart styles/colors) are present.
                     try:
-                        tree = etree.parse(source_rels_path)
+                        tree = etree.parse(target_rels_path)
                         root = tree.getroot()
                         ns = {
                             "r": "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -1936,6 +1970,11 @@ class PresentationGenerator:
                                 )
                                 os.makedirs(os.path.dirname(dst_chart_path), exist_ok=True)
                                 shutil.copy2(src_chart_path, dst_chart_path)
+                                self._register_content_type_override(
+                                    target_extract,
+                                    f"/ppt/charts/chart{new_chart_num}.xml",
+                                    "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
+                                )
 
                                 # Copy chart relationships (needed to resolve embedded workbook)
                                 src_chart_rels_path = os.path.join(
@@ -1971,6 +2010,11 @@ class PresentationGenerator:
                                             os.makedirs(os.path.dirname(dst_embed_path), exist_ok=True)
                                             if os.path.exists(src_embed_path):
                                                 shutil.copy2(src_embed_path, dst_embed_path)
+                                                self._register_content_type_override(
+                                                    target_extract,
+                                                    f"/ppt/embeddings/{new_embed}",
+                                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                )
                                                 chart_rel.set(
                                                     "Target", f"../embeddings/{new_embed}"
                                                 )
@@ -1987,6 +2031,21 @@ class PresentationGenerator:
                                             if os.path.exists(src_style) and not os.path.exists(dst_style):
                                                 os.makedirs(os.path.dirname(dst_style), exist_ok=True)
                                                 shutil.copy2(src_style, dst_style)
+                                                if "style" in chart_target.lower():
+                                                    ct = (
+                                                        "application/vnd.ms-office.chartstyle+xml"
+                                                    )
+                                                elif "color" in chart_target.lower():
+                                                    ct = (
+                                                        "application/vnd.ms-office.chartcolorstyle+xml"
+                                                    )
+                                                else:
+                                                    ct = "application/xml"
+                                                self._register_content_type_override(
+                                                    target_extract,
+                                                    f"/ppt/charts/{chart_target}",
+                                                    ct,
+                                                )
 
                                     dst_chart_rels_path = os.path.join(
                                         target_extract,
@@ -2002,6 +2061,24 @@ class PresentationGenerator:
                                 # Update slide relationship target to the new chart part
                                 rel.set("Target", f"../{dst_chart_rel}")
                                 rels_updated = True
+
+                        # Restore slideLayout to the target deck's blank layout path
+                        if saved_slide_layout_target:
+                            slide_layout_rel = None
+                            for rel in root.findall(".//r:Relationship", ns):
+                                rel_type = rel.get("Type", "")
+                                if rel_type.endswith("/slideLayout"):
+                                    slide_layout_rel = rel
+                                    break
+                            if slide_layout_rel is not None:
+                                if (
+                                    slide_layout_rel.get("Target")
+                                    != saved_slide_layout_target
+                                ):
+                                    slide_layout_rel.set(
+                                        "Target", saved_slide_layout_target
+                                    )
+                                    rels_updated = True
 
                         # If we updated any slide relationship targets (e.g., charts),
                         # persist the modified relationships XML to the target slide rels file.
@@ -2022,38 +2099,11 @@ class PresentationGenerator:
 
             # Step 5: Repackage the presentation
             output_path = os.path.join(temp_dir, "merged.pptx")
-            zip_cli = shutil.which("zip")
-            if zip_cli:
-                import subprocess
+            from app.ppt_engine.ppt_helpers_utils.ppt_helpers.data_populator import (
+                create_pptx_from_dir,
+            )
 
-                if os.path.exists(output_path):
-                    os.remove(output_path)
-
-                # Prefer OS zip for better interoperability with Office.
-                # -r: recurse, -X: strip extra file attrs, -q: quiet
-                # -n .xlsx: store embedded workbooks without compression (they are already zip files)
-                proc = subprocess.run(
-                    [zip_cli, "-q", "-r", "-X", "-n", ".xlsx", output_path, "."],
-                    cwd=target_extract,
-                    capture_output=True,
-                    text=True,
-                )
-                if proc.returncode != 0 or not os.path.exists(output_path):
-                    stderr = (proc.stderr or "").strip()
-                    print(
-                        f"      Warning: zip CLI repack failed (rc={proc.returncode}); falling back to python zipfile. {stderr}"
-                    )
-                    zip_cli = None
-
-            if not zip_cli:
-                # Fallback: Python zipfile (best-effort)
-                with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                    for root_dir, _dirs, files in os.walk(target_extract):
-                        for file in files:
-                            file_path = os.path.join(root_dir, file)
-                            arcname = os.path.relpath(file_path, target_extract)
-                            zipf.write(file_path, arcname)
-
+            create_pptx_from_dir(target_extract, output_path)
             print("      ✓ Repackaged presentation")
 
             # Step 6: Replace the original target file with the merged one
@@ -2105,6 +2155,38 @@ class PresentationGenerator:
             import shutil
 
             shutil.copy2(source_rels_path, target_rels_path)
+
+    def _register_content_type_override(
+        self, pptx_extract_dir: str, part_name: str, content_type: str
+    ) -> None:
+        """
+        Add a content-type Override entry in [Content_Types].xml if missing.
+
+        Args:
+            pptx_extract_dir: Root directory of the extracted PPTX package
+            part_name: Part path (e.g. "/ppt/charts/chart5.xml")
+            content_type: MIME content type for the part
+        """
+        from lxml import etree
+
+        content_types_path = os.path.join(pptx_extract_dir, "[Content_Types].xml")
+        if not os.path.exists(content_types_path):
+            return
+
+        tree = etree.parse(content_types_path)
+        root = tree.getroot()
+        ns = {"ct": "http://schemas.openxmlformats.org/package/2006/content-types"}
+        ct_ns = "http://schemas.openxmlformats.org/package/2006/content-types"
+
+        for override in root.findall(".//ct:Override", ns):
+            if override.get("PartName") == part_name:
+                return
+
+        new_override = etree.SubElement(root, f"{{{ct_ns}}}Override")
+        new_override.set("PartName", part_name)
+        new_override.set("ContentType", content_type)
+
+        self._write_xml_with_office_declaration(tree, content_types_path)
 
     def _copy_template_resources(
         self, source_extract: str, target_extract: str
