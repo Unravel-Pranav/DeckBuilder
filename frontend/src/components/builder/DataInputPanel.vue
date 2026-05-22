@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { toast } from 'vue-sonner'
 import { useSlidesStore } from '@/stores/slides'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { validateDataForChartType, validateTableSchema, mapDataToChartComponent, mapDataToTableComponent } from '@/lib/schema'
@@ -15,6 +16,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Copy,
+  Zap,
   BarChart3,
   PieChart,
   Table2,
@@ -31,6 +33,7 @@ const iconMap: Record<string, any> = {
   TrendingUp,
   Circle,
   Layers,
+  Zap,
 }
 
 const slidesStore = useSlidesStore()
@@ -287,6 +290,28 @@ function copySchema() {
   navigator.clipboard.writeText(schemaExample.value)
 }
 
+function applyPatternDirect(pattern: typeof dataPatterns[0]) {
+  if (!slidesStore.activeSlideId) return
+
+  const d = pattern.data as Record<string, unknown>
+  let component: SlideComponent
+
+  if (pattern.componentType === 'table') {
+    component = {
+      id: crypto.randomUUID(),
+      type: 'table',
+      data: { headers: d.headers as string[], rows: d.rows as string[][] },
+      config: {},
+    }
+  } else {
+    const mapped = mapDataToChartComponent(d, pattern.chartType!)
+    component = { id: crypto.randomUUID(), type: 'chart', data: mapped, config: {} }
+  }
+
+  slidesStore.setRegionComponent(slidesStore.activeSlideId, slidesStore.activeRegionIndex, component)
+  toast.success(`Applied "${pattern.label}" to ${activeRegionLabel.value}`)
+}
+
 function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[number]) {
   const d = pattern.data as Record<string, unknown>
   let component: Omit<SlideComponent, 'id'>
@@ -356,21 +381,26 @@ function onPatternDragStart(event: DragEvent, pattern: typeof dataPatterns[numbe
       <!-- Quick Patterns -->
       <div class="space-y-2">
         <span class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 px-1">Quick Templates</span>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 gap-1.5">
           <button
             v-for="pattern in filteredPatterns"
             :key="pattern.id"
-            class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03] border border-border hover:bg-foreground/[0.06] hover:border-amber-500/30 transition-all text-left group cursor-grab active:cursor-grabbing"
+            class="flex items-center gap-2 p-2 rounded-lg bg-foreground/[0.03] border border-border hover:bg-amber-500/[0.08] hover:border-amber-500/30 transition-all text-left group"
             draggable="true"
-            @click="jsonInput = JSON.stringify(pattern.data, null, 2)"
+            :title="'Click to apply • Drag to region'"
+            @click="applyPatternDirect(pattern)"
             @dragstart="onPatternDragStart($event, pattern)"
             @dragend="endDrag"
           >
-            <component :is="iconMap[pattern.icon]" :size="12" :stroke-width="1.5" class="text-muted-foreground group-hover:text-amber-500" />
+            <component :is="iconMap[pattern.icon]" :size="12" :stroke-width="1.5" class="text-muted-foreground group-hover:text-amber-500 flex-shrink-0" />
             <span class="text-[10px] text-muted-foreground group-hover:text-foreground/80 truncate flex-1">{{ pattern.label }}</span>
-            <GripVertical :size="10" class="text-muted-foreground/30 group-hover:text-muted-foreground/60 flex-shrink-0 transition-colors" />
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Zap :size="9" class="text-amber-500/70" />
+              <span class="text-[9px] text-amber-500/70 font-mono">apply</span>
+            </div>
           </button>
         </div>
+        <p class="text-[9px] text-muted-foreground/40 text-center -mt-1">Click to apply instantly · Drag to a specific region</p>
       </div>
 
       <!-- Schema prompt -->

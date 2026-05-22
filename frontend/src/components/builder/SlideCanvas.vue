@@ -4,7 +4,7 @@ import { useSlidesStore } from '@/stores/slides'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { STRUCTURE_BY_ID } from '@/lib/layoutDefinitions'
 import EmptyState from '@/components/shared/EmptyState.vue'
-import type { ChartData, TableData, UploadedSlideData, SlideRegion, SlideComponent } from '@/types'
+import type { ChartData, TableData, UploadedSlideData, SlideRegion, SlideComponent, SlideStructure } from '@/types'
 import {
   BarChart3,
   Table2,
@@ -14,11 +14,23 @@ import {
   Plus,
   GripVertical,
   Upload,
+  Columns2,
+  Rows2,
+  Grid2x2,
+  Square,
 } from 'lucide-vue-next'
+
+const STRUCTURE_OPTIONS: { id: SlideStructure; icon: typeof Square; label: string }[] = [
+  { id: 'blank',    icon: Square,   label: 'Full' },
+  { id: 'two-col',  icon: Columns2, label: '2 Col' },
+  { id: 'two-row',  icon: Rows2,    label: '2 Row' },
+  { id: 'grid-2x2', icon: Grid2x2,  label: '2×2' },
+]
 
 const emit = defineEmits<{
   'commentary-click': []
   'region-click': [componentType: string | null]
+  'quick-add': [regionIndex: number, type: 'chart' | 'table' | 'text']
 }>()
 
 const slidesStore = useSlidesStore()
@@ -146,6 +158,18 @@ function getScatterPoints(data: number[], labels: string[]): { x: number; y: num
 function regionLabel(index: number): string {
   return structureDef.value?.regionLabels[index] ?? `Region ${index + 1}`
 }
+
+function quickAdd(regionIndex: number, type: 'chart' | 'table' | 'text') {
+  if (!slide.value) return
+  slidesStore.setActiveRegion(regionIndex)
+  emit('quick-add', regionIndex, type)
+  emit('region-click', type)
+}
+
+function changeStructure(structure: SlideStructure) {
+  if (!slide.value) return
+  slidesStore.updateSlideStructure(slide.value.id, structure)
+}
 </script>
 
 <template>
@@ -158,14 +182,32 @@ function regionLabel(index: number): string {
     />
 
     <template v-else>
-      <!-- Slide title input -->
-      <div class="px-6 py-3 border-b border-border">
+      <!-- Slide title + inline layout selector -->
+      <div class="px-6 py-2.5 border-b border-border flex items-center gap-3">
         <input
           :value="slide.title"
-          class="bg-transparent text-lg font-display font-semibold tracking-tight outline-none w-full placeholder:text-muted-foreground/40"
+          class="bg-transparent text-lg font-display font-semibold tracking-tight outline-none flex-1 min-w-0 placeholder:text-muted-foreground/40"
           placeholder="Slide title..."
           @input="(e) => { if (slide) slide.title = (e.target as HTMLInputElement).value }"
         />
+        <!-- Inline structure picker -->
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button
+            v-for="opt in STRUCTURE_OPTIONS"
+            :key="opt.id"
+            class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all duration-150"
+            :class="
+              slide.structure === opt.id
+                ? 'bg-amber-500/15 border-amber-500/30 text-amber-500'
+                : 'border-border/50 text-muted-foreground/50 hover:border-border hover:text-muted-foreground/80'
+            "
+            :title="opt.label"
+            @click="changeStructure(opt.id)"
+          >
+            <component :is="opt.icon" :size="11" :stroke-width="1.5" />
+            <span class="hidden sm:inline">{{ opt.label }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Canvas area -->
@@ -303,11 +345,32 @@ function regionLabel(index: number): string {
                     </div>
                   </template>
 
-                  <!-- Hover overlay -->
-                  <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                    <div class="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl bg-background/80 backdrop-blur-sm shadow-sm border border-border/50">
-                      <Plus :size="16" :stroke-width="1.5" class="text-amber-500/70" />
-                      <span class="text-[10px] font-medium text-muted-foreground/70">Drop Component</span>
+                  <!-- Hover overlay: quick-add buttons -->
+                  <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-background/90 backdrop-blur-sm shadow-sm border border-border/50">
+                      <button
+                        class="flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 hover:text-amber-500 text-muted-foreground/70 transition-colors"
+                        @click.stop="quickAdd(ri, 'chart')"
+                      >
+                        <BarChart3 :size="14" :stroke-width="1.5" />
+                        <span class="text-[8px] font-mono">Chart</span>
+                      </button>
+                      <div class="w-px h-6 bg-border/40" />
+                      <button
+                        class="flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 hover:text-amber-500 text-muted-foreground/70 transition-colors"
+                        @click.stop="quickAdd(ri, 'table')"
+                      >
+                        <Table2 :size="14" :stroke-width="1.5" />
+                        <span class="text-[8px] font-mono">Table</span>
+                      </button>
+                      <div class="w-px h-6 bg-border/40" />
+                      <button
+                        class="flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 hover:text-amber-500 text-muted-foreground/70 transition-colors"
+                        @click.stop="quickAdd(ri, 'text')"
+                      >
+                        <FileText :size="14" :stroke-width="1.5" />
+                        <span class="text-[8px] font-mono">Text</span>
+                      </button>
                     </div>
                   </div>
                 </div>

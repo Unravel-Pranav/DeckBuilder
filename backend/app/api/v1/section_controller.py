@@ -23,5 +23,5 @@ async def update_section(section_id: int, body: TemplateSectionUpdate, session: 
 
 @router.delete("/{section_id}")
 async def delete_section(section_id: int, session: AsyncSessionDep):
-    deleted = await SectionService(session).delete_section(section_id)
-    return success_response({"deleted": deleted})
+    await SectionService(session).delete_section(section_id)
+    return success_response({"deleted": True, "id": section_id})

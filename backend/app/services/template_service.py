@@ -6,10 +6,11 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.exceptions import NotFoundException, ValidationException
+from app.core.exceptions import ConflictException, NotFoundException, ValidationException
 from app.core.paths import backend_root
 from app.models import TemplateModel, TemplateSectionModel, TemplateSectionElementModel
 from app.repositories.template_repository import TemplateRepository
@@ -48,7 +49,13 @@ class TemplateService:
         logger.info("Creating template: %s", data.name)
         tpl = TemplateModel(name=data.name, base_type=data.base_type, is_default=data.is_default, attended=data.attended, ppt_status="Not Attached")
         self._session.add(tpl)
-        await self._session.flush()
+        try:
+            await self._session.flush()
+        except IntegrityError as err:
+            raise ConflictException(
+                f"Template name '{data.name}' already exists.",
+                details=[str(err.orig) if err.orig else str(err)],
+            ) from err
         for sec_in in data.sections:
             sec = TemplateSectionModel(name=sec_in.name, sectionname_alias=sec_in.sectionname_alias, property_type=sec_in.property_type, property_sub_type=sec_in.property_sub_type, default_prompt=sec_in.default_prompt, slide_layout=sec_in.slide_layout, mode=sec_in.mode)
             sec.templates.append(tpl)
@@ -65,8 +72,10 @@ class TemplateService:
             raise NotFoundException("Template", template_id)
         return await self._repo.update(model, data.model_dump(exclude_none=True))
 
-    async def delete_template(self, template_id: int) -> bool:
-        return await self._repo.delete_by_id(template_id)
+    async def delete_template(self, template_id: int) -> None:
+        deleted = await self._repo.delete_by_id(template_id)
+        if not deleted:
+            raise NotFoundException("Template", template_id)
 
     async def attach_template_ppt(
         self, template_id: int, *, filename: str, content: bytes
@@ -110,6 +119,46 @@ class TemplateService:
         if not path.is_file():
             return None
         return path
+
+    async def get_templates_for_llm(self, presentation_type: str | None = None) -> list[dict[str, Any]]:
+        """Return compact template slot schemas suitable for LLM prompt injection."""
+        templates = await self._repo.get_all_with_sections()
+        result: list[dict[str, Any]] = []
+        for t in templates:
+            slots: list[dict[str, Any]] = []
+            for sec in t.sections:
+                for elem in sorted(sec.elements, key=lambda e: e.display_order):
+                    cfg = elem.config or {}
+                    chart_types = []
+                    if cfg.get("chart_type"):
+                        chart_types = [cfg["chart_type"]]
+                    slots.append({
+                        "display_order": elem.display_order,
+                        "element_type": elem.element_type,
+                        "layout_position": cfg.get("layout_category", ""),
+                        "chart_types": chart_types,
+                        "description": sec.default_prompt or "",
+                    })
+            if not slots:
+                continue
+            slot_summary = self._summarise_slots(slots)
+            result.append({
+                "id": t.id,
+                "name": t.name,
+                "base_type": t.base_type or "",
+                "slots": slots,
+                "layout": slots[0].get("layout_position", "full_width") if slots else "full_width",
+                "best_for": slot_summary,
+            })
+        return result
+
+    @staticmethod
+    def _summarise_slots(slots: list[dict[str, Any]]) -> str:
+        counts: dict[str, int] = {}
+        for s in slots:
+            counts[s["element_type"]] = counts.get(s["element_type"], 0) + 1
+        parts = [f"{v} {k}" for k, v in counts.items()]
+        return ", ".join(parts) if parts else "general"
 
     async def extract_slide_metadata(self, template_id: int) -> list[dict[str, Any]]:
         """Open the stored .pptx and return metadata for each slide."""

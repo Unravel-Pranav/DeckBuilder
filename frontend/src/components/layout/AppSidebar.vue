@@ -2,16 +2,23 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
+import { usePresentationStore } from '@/stores/presentation'
+import { useSlidesStore } from '@/stores/slides'
+import { useAiStore } from '@/stores/ai'
 import { useAutoSave } from '@/composables/useAutoSave'
 import { toast } from 'vue-sonner'
 import type { FlowStep } from '@/types'
+import {
+  buildFlowContext,
+  canNavigateToStep,
+  stepPrerequisiteLabel,
+} from '@/lib/flowAccess'
 import {
   LayoutDashboard,
   Sparkles,
   FileText,
   Layers,
   PenTool,
-  Upload,
   Eye,
   Download,
   ChevronLeft,
@@ -23,28 +30,16 @@ import {
 const router = useRouter()
 const route = useRoute()
 const uiStore = useUiStore()
+const presentationStore = usePresentationStore()
+const slidesStore = useSlidesStore()
+const aiStore = useAiStore()
 const { autoSaveFireAndForget } = useAutoSave()
-
-const FLOW_ORDER: FlowStep[] = [
-  'create', 'recommendations', 'sections', 'builder', 'upload', 'preview', 'output',
-]
-
-const STEP_PREREQUISITES: Record<FlowStep, string> = {
-  create: '',
-  recommendations: 'Define Intent',
-  sections: 'AI Recommendations',
-  builder: 'Manage Sections',
-  upload: 'Build Slides',
-  preview: 'Build Slides',
-  output: 'Preview & Generate',
-}
 
 const stepIcons = {
   create: Sparkles,
   recommendations: FileText,
   sections: Layers,
   builder: PenTool,
-  upload: Upload,
   preview: Eye,
   output: Download,
 } as const
@@ -52,25 +47,29 @@ const stepIcons = {
 const isOnDashboard = computed(() => route.name === 'dashboard')
 const isOnTemplates = computed(() => route.name === 'templates')
 
-function canNavigateToStep(step: typeof uiStore.steps.value[number]): boolean {
-  if (step.isActive || step.isCompleted) return true
-
-  const targetIdx = FLOW_ORDER.indexOf(step.id as FlowStep)
-  const currentIdx = uiStore.currentStepIndex
-
-  if (targetIdx <= currentIdx) return true
-
-  for (let i = 0; i < targetIdx; i++) {
-    const prevStep = FLOW_ORDER[i]
-    if (prevStep === 'upload') continue
-    if (!uiStore.completedSteps.has(prevStep)) return false
-  }
-  return true
+function flowContext() {
+  return buildFlowContext({
+    currentPresentation: presentationStore.currentPresentation,
+    recommendationSectionsLength: aiStore.recommendation?.sections?.length ?? 0,
+    sectionsLength: slidesStore.sections.length,
+    generatedFileId: presentationStore.generatedFileId,
+  })
 }
 
-function navigateToStep(step: typeof uiStore.steps.value[number]) {
-  if (!canNavigateToStep(step)) {
-    const prereq = STEP_PREREQUISITES[step.id as FlowStep]
+type SidebarStep = (typeof uiStore.steps)[number]
+
+function canNavigateToStepUi(step: SidebarStep): boolean {
+  return canNavigateToStep(
+    step.id as FlowStep,
+    uiStore.currentStep,
+    uiStore.completedSteps,
+    flowContext(),
+  )
+}
+
+function navigateToStep(step: SidebarStep) {
+  if (!canNavigateToStepUi(step)) {
+    const prereq = stepPrerequisiteLabel(step.id as FlowStep)
     toast.warning(`Complete "${prereq}" first`, {
       description: `You need to finish the previous step before going to ${step.label}.`,
     })
@@ -92,7 +91,6 @@ function navigateTo(routePath: string) {
     :class="uiStore.sidebarCollapsed ? 'w-16' : 'w-64'"
     :style="{ backgroundColor: 'var(--surface-elevated)' }"
   >
-    <!-- Logo area -->
     <div class="flex items-center gap-3 px-4 h-16 border-b border-border">
       <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
         <Presentation :size="18" class="text-[#09090B]" />
@@ -107,7 +105,6 @@ function navigateTo(routePath: string) {
       </Transition>
     </div>
 
-    <!-- Dashboard link -->
     <div class="px-3 pt-4 pb-2">
       <button
         class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all duration-200"
@@ -125,7 +122,6 @@ function navigateTo(routePath: string) {
       </button>
     </div>
 
-    <!-- Template Library link -->
     <div class="px-3 pb-2">
       <button
         class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all duration-200"
@@ -138,12 +134,11 @@ function navigateTo(routePath: string) {
       >
         <LayoutTemplate :size="18" :stroke-width="1.5" />
         <Transition name="fade">
-          <span v-if="!uiStore.sidebarCollapsed" class="whitespace-nowrap">Templates</span>
+          <span v-if="!uiStore.sidebarCollapsed" class="whitespace-nowrap">Slide library</span>
         </Transition>
       </button>
     </div>
 
-    <!-- Flow steps -->
     <nav class="flex-1 px-3 py-2 overflow-y-auto">
       <Transition name="fade">
         <p
@@ -164,13 +159,12 @@ function navigateTo(routePath: string) {
               ? 'bg-[var(--accent-muted)] text-amber-500'
               : step.isCompleted
                 ? 'text-foreground/80 hover:bg-foreground/5'
-                : canNavigateToStep(step)
+                : canNavigateToStepUi(step)
                   ? 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5'
                   : 'text-muted-foreground/40 cursor-not-allowed',
           ]"
           @click="navigateToStep(step)"
         >
-          <!-- Step number / check -->
           <div
             class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono border transition-all duration-200"
             :class="[
@@ -196,7 +190,6 @@ function navigateTo(routePath: string) {
             </span>
           </Transition>
 
-          <!-- Active indicator dot -->
           <div
             v-if="step.isActive"
             class="absolute right-3 w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"
@@ -206,7 +199,6 @@ function navigateTo(routePath: string) {
       </div>
     </nav>
 
-    <!-- Collapse toggle -->
     <div class="px-3 py-3 border-t border-border">
       <button
         class="flex items-center justify-center w-full py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-all duration-200"

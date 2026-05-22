@@ -12,6 +12,7 @@ uv sync                        # or: pip install -e .
 
 # Configure environment
 cp .env.example .env           # then set NVIDIA_API_KEY
+# Optional: API_KEY=...        # requires X-API-Key header on /api/v1 and /api/v2 (disabled when empty)
 
 # Start the server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

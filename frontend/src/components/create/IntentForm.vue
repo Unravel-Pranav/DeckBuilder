@@ -1,22 +1,16 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import { usePresentationStore } from '@/stores/presentation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   BarChart3,
   Briefcase,
   GraduationCap,
   Sparkles,
-  Upload,
+  X,
 } from 'lucide-vue-next'
-import type { PresentationType, ToneType, FontStyle, ColorScheme } from '@/types'
+import type { PresentationType, ToneType, AudienceExpertise } from '@/types'
 
 const presentationStore = usePresentationStore()
 
@@ -33,18 +27,36 @@ const tones: { id: ToneType; label: string }[] = [
   { id: 'storytelling', label: 'Storytelling' },
 ]
 
-function handleFileDrop(e: DragEvent) {
-  e.preventDefault()
-  const file = e.dataTransfer?.files[0]
-  if (file && (file.name.endsWith('.pptx') || file.name.endsWith('.ppt'))) {
-    presentationStore.setReferenceFile(file)
+const expertiseLevels: { id: AudienceExpertise; label: string; desc: string }[] = [
+  { id: 'executive', label: 'Executive', desc: 'High-level, strategic focus' },
+  { id: 'analyst', label: 'Analyst', desc: 'Detailed, data-heavy' },
+  { id: 'mixed', label: 'Mixed', desc: 'Balanced depth' },
+]
+
+// Key metrics tag input
+const metricInput = ref('')
+
+const keyMetrics = computed(() => presentationStore.intent.keyMetrics ?? [])
+
+function addMetric() {
+  const val = metricInput.value.trim()
+  if (!val) return
+  const current = keyMetrics.value
+  if (!current.includes(val)) {
+    presentationStore.setKeyMetrics([...current, val])
   }
+  metricInput.value = ''
 }
 
-function handleFileSelect(e: Event) {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) presentationStore.setReferenceFile(file)
+function removeMetric(metric: string) {
+  presentationStore.setKeyMetrics(keyMetrics.value.filter(m => m !== metric))
+}
+
+function onMetricKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault()
+    addMetric()
+  }
 }
 </script>
 
@@ -102,6 +114,27 @@ function handleFileSelect(e: Event) {
       />
     </div>
 
+    <!-- Audience Expertise -->
+    <div>
+      <Label class="text-sm font-medium text-foreground/80 mb-3 block">Audience Expertise</Label>
+      <div class="flex gap-2">
+        <button
+          v-for="lvl in expertiseLevels"
+          :key="lvl.id"
+          class="flex-1 py-2.5 px-3 rounded-lg text-sm font-medium border transition-all duration-200 text-left"
+          :class="
+            (presentationStore.intent.audienceExpertise ?? 'mixed') === lvl.id
+              ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+              : 'border-border text-muted-foreground hover:text-foreground/80 hover:border-[color:var(--glass-border-hover)]'
+          "
+          @click="presentationStore.setAudienceExpertise(lvl.id)"
+        >
+          <span class="block">{{ lvl.label }}</span>
+          <span class="text-[10px] opacity-60 mt-0.5 block">{{ lvl.desc }}</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Tone -->
     <div>
       <Label class="text-sm font-medium text-foreground/80 mb-3 block">Tone</Label>
@@ -122,72 +155,48 @@ function handleFileSelect(e: Event) {
       </div>
     </div>
 
-    <!-- Design Preferences -->
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <Label class="text-sm font-medium text-foreground/80 mb-2 block">Font Style</Label>
-        <Select
-          :model-value="presentationStore.intent.designPreferences.fontStyle"
-          @update:model-value="presentationStore.setDesignPreferences({ ...presentationStore.intent.designPreferences, fontStyle: $event as FontStyle })"
-        >
-          <SelectTrigger class="h-11 bg-[var(--glass-bg)] border-border rounded-xl">
-            <SelectValue placeholder="Select style" />
-          </SelectTrigger>
-          <SelectContent class="bg-popover border-border">
-            <SelectItem value="modern">Modern</SelectItem>
-            <SelectItem value="corporate">Corporate</SelectItem>
-            <SelectItem value="minimal">Minimal</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label class="text-sm font-medium text-foreground/80 mb-2 block">Color Scheme</Label>
-        <Select
-          :model-value="presentationStore.intent.designPreferences.colorScheme"
-          @update:model-value="presentationStore.setDesignPreferences({ ...presentationStore.intent.designPreferences, colorScheme: $event as ColorScheme })"
-        >
-          <SelectTrigger class="h-11 bg-[var(--glass-bg)] border-border rounded-xl">
-            <SelectValue placeholder="Select scheme" />
-          </SelectTrigger>
-          <SelectContent class="bg-popover border-border">
-            <SelectItem value="dark">Dark</SelectItem>
-            <SelectItem value="light">Light</SelectItem>
-            <SelectItem value="brand">Brand-based</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <!-- Objective -->
+    <div>
+      <Label for="objective" class="text-sm font-medium text-foreground/80 mb-2 block">
+        Objective
+        <span class="text-muted-foreground/50 font-normal ml-1">(optional)</span>
+      </Label>
+      <textarea
+        id="objective"
+        :value="presentationStore.intent.objective ?? ''"
+        placeholder="What is the single most important thing this presentation should convey?"
+        rows="2"
+        class="w-full bg-[var(--glass-bg)] border border-border rounded-xl px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 resize-none outline-none"
+        @input="presentationStore.setObjective(($event.target as HTMLTextAreaElement).value)"
+      />
     </div>
 
-    <!-- Reference Upload -->
+    <!-- Key Metrics -->
     <div>
       <Label class="text-sm font-medium text-foreground/80 mb-2 block">
-        Reference PPT
-        <span class="text-muted-foreground/70 font-normal">(optional)</span>
+        Key Metrics
+        <span class="text-muted-foreground/50 font-normal ml-1">(optional — press Enter to add)</span>
       </Label>
-      <div
-        class="border border-dashed border-border hover:border-amber-500/30 rounded-xl p-8 text-center transition-all duration-300 cursor-pointer"
-        :class="presentationStore.intent.referenceFile ? 'bg-amber-500/5 border-amber-500/20' : ''"
-        @dragover.prevent
-        @drop="handleFileDrop"
-        @click="($refs.fileInput as HTMLInputElement)?.click()"
-      >
-        <input
-          ref="fileInput"
-          type="file"
-          accept=".ppt,.pptx"
-          class="hidden"
-          @change="handleFileSelect"
-        />
-        <Upload :size="24" :stroke-width="1.5" class="mx-auto mb-3 text-muted-foreground/70" />
-        <p v-if="presentationStore.intent.referenceFile" class="text-sm text-amber-500 font-medium">
-          {{ presentationStore.intent.referenceFile.name }}
-        </p>
-        <template v-else>
-          <p class="text-sm text-muted-foreground">Drop a .pptx file here or click to browse</p>
-          <p class="text-[11px] text-muted-foreground/50 mt-1">AI will analyze the structure and style</p>
-        </template>
+      <!-- Tags -->
+      <div v-if="keyMetrics.length" class="flex flex-wrap gap-1.5 mb-2">
+        <span
+          v-for="m in keyMetrics"
+          :key="m"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-500 border border-amber-500/20"
+        >
+          {{ m }}
+          <button class="hover:text-amber-300 transition-colors" @click="removeMetric(m)">
+            <X :size="11" />
+          </button>
+        </span>
       </div>
+      <Input
+        v-model="metricInput"
+        placeholder="e.g., Revenue, Occupancy Rate, EBITDA..."
+        class="h-11 bg-[var(--glass-bg)] border-border rounded-xl placeholder:text-muted-foreground/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
+        @keydown="onMetricKeydown"
+        @blur="addMetric"
+      />
     </div>
   </div>
 </template>

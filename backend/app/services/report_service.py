@@ -63,5 +63,7 @@ class ReportService:
         result = await self._session.execute(select(ReportModel).options(selectinload(ReportModel.sections).selectinload(ReportSectionModel.elements)).where(ReportModel.id == report.id))
         return result.scalar_one()
 
-    async def delete_report(self, report_id: int) -> bool:
-        return await self._repo.delete_by_id(report_id)
+    async def delete_report(self, report_id: int) -> None:
+        deleted = await self._repo.delete_by_id(report_id)
+        if not deleted:
+            raise NotFoundException("Report", report_id)

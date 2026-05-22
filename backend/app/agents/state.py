@@ -24,3 +24,14 @@ class AgentState(TypedDict, total=False):
     errors: list[str]
     steps_completed: list[str]
     metrics: dict[str, dict[str, Any]]
+
+    # ── Recommendation agent fields ──────────────────────────────────────────
+    objective: str | None
+    key_metrics: list[str]
+    audience_expertise: str | None  # "executive" | "analyst" | "mixed"
+    available_templates: list[dict[str, Any]]
+    recommendation_plan: list[dict[str, Any]]
+    reviewer_score: int
+    reviewer_feedback: str
+    planner_attempts: int
+    bound_sections: list[dict[str, Any]]

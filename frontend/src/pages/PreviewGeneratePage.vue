@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { useUiStore } from '@/stores/ui'
 import { usePresentationStore } from '@/stores/presentation'
@@ -17,7 +17,6 @@ import {
   Edit3,
   Loader2,
   BarChart3,
-  Table2,
   FileText,
   Columns2,
   Rows3,
@@ -25,8 +24,11 @@ import {
 } from 'lucide-vue-next'
 
 import { useAutoSave } from '@/composables/useAutoSave'
+import { getExportReadiness } from '@/lib/presentationValidation'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
+const route = useRoute()
 const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
 const presentationStore = usePresentationStore()
@@ -39,6 +41,18 @@ const generateProgress = ref(0)
 const errorMessage = ref<string | null>(null)
 
 const hasData = computed(() => slidesStore.sections.length > 0)
+
+const exportReadiness = computed(() => getExportReadiness(slidesStore.sections))
+
+const canGenerate = computed(
+  () => hasData.value && exportReadiness.value.ready && !!presentationStore.currentPresentation,
+)
+
+onMounted(() => {
+  if (route.query.needsGenerate === '1') {
+    toast.info('Generate your presentation before opening the download page.')
+  }
+})
 
 const allSlides = computed(() => slidesStore.allSlides)
 const currentSlide = computed(() => allSlides.value[currentSlideIndex.value])
@@ -74,12 +88,12 @@ function openExportDeckFile() {
 
 async function generatePPTAction() {
   if (!presentationStore.currentPresentation) {
-    if (slidesStore.sections.length > 0) {
-        presentationStore.createPresentation("Manual Presentation")
-    } else {
-        errorMessage.value = "No presentation data available."
-        return
-    }
+    errorMessage.value = 'No presentation data available. Start from Create.'
+    return
+  }
+  if (!exportReadiness.value.ready) {
+    errorMessage.value = 'Add chart, table, or text content to at least one slide before generating.'
+    return
   }
 
   isGenerating.value = true
@@ -91,6 +105,7 @@ async function generatePPTAction() {
       presentationStore.currentPresentation!,
       slidesStore.sections,
       deckTemplateStore.selectedTemplateId,
+      presentationStore.heroFieldsPayload(),
     )
     console.log('Sending payload to backend:', payload)
     generateProgress.value = 30
@@ -102,6 +117,7 @@ async function generatePPTAction() {
     downloadFile(result.file_id, result.filename)
     generateProgress.value = 100
     uiStore.completeStep('preview')
+    uiStore.completeStep('output')
     uiStore.setCurrentStep('output')
     autoSaveFireAndForget()
     router.push('/output')
@@ -260,7 +276,7 @@ const structureIcons: Record<string, typeof BarChart3> = {
         <div class="p-4 space-y-4">
           <div class="rounded-lg border border-border p-3 bg-[var(--preview-surface)]">
             <p class="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-              Export base deck
+              Brand export deck (optional)
             </p>
             <template v-if="deckTemplateStore.selectedTemplateId != null">
               <p class="text-xs text-foreground/80 truncate" :title="deckTemplateStore.selectedTemplateName ?? ''">
@@ -279,8 +295,8 @@ const structureIcons: Record<string, typeof BarChart3> = {
               <p class="text-xs text-muted-foreground">
                 Built-in theme only. Upload a deck and it becomes the export base automatically, or pick one under Templates.
               </p>
-              <Button size="sm" variant="outline" class="h-8 text-xs mt-2 w-full" @click="router.push('/templates')">
-                Manage decks
+              <Button size="sm" variant="outline" class="h-8 text-xs mt-2 w-full" @click="router.push('/templates/upload')">
+                Upload brand deck
               </Button>
             </template>
           </div>
@@ -313,6 +329,14 @@ const structureIcons: Record<string, typeof BarChart3> = {
             </div>
           </div>
 
+          <div
+            v-if="hasData && !exportReadiness.ready"
+            class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-muted-foreground"
+          >
+            Add content to at least one slide (chart, table, or text) before generating.
+            {{ exportReadiness.slidesWithComponents }} / {{ exportReadiness.slideCount }} slides ready.
+          </div>
+
           <!-- Edit current -->
           <Button
             variant="outline"
@@ -329,7 +353,7 @@ const structureIcons: Record<string, typeof BarChart3> = {
       <div class="p-4 border-t border-border">
         <Button
           class="w-full bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-12 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-200 active:scale-[0.98] text-sm"
-          :disabled="isGenerating"
+          :disabled="isGenerating || !canGenerate"
           @click="generatePPTAction"
         >
           <template v-if="isGenerating">

@@ -74,7 +74,7 @@ export function piniaSessionPersistence({ store }: PiniaPluginContext): void {
   if (saved) {
     const restored = deserialize(store.$id, saved)
     if (restored) {
-      store.$patch(restored)
+      store.$patch(restored as object)
     }
   }
 

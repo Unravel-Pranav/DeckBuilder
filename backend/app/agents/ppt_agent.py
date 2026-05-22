@@ -536,7 +536,9 @@ def _build_hero_fields(state: AgentState) -> dict[str, Any]:
 
             from app.core.config import settings
 
-            path = Path(settings.upload_dir) / data_source.file_id / data_source.filename
+            from app.core.paths import uploads_dir
+
+            path = uploads_dir() / data_source.file_id / data_source.filename
             if path.exists():
                 df = (
                     pd.read_csv(path) if path.suffix.lower() == ".csv"

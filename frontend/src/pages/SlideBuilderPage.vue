@@ -4,24 +4,20 @@ import { useRouter } from 'vue-router'
 import { useSlidesStore } from '@/stores/slides'
 import { useUiStore } from '@/stores/ui'
 import SlideListPanel from '@/components/builder/SlideListPanel.vue'
-import LayoutSelector from '@/components/builder/LayoutSelector.vue'
-import TemplateSelector from '@/components/builder/TemplateSelector.vue'
 import SlideCanvas from '@/components/builder/SlideCanvas.vue'
+import { mapDataToChartComponent } from '@/lib/schema'
 import DataInputPanel from '@/components/builder/DataInputPanel.vue'
 import CommentaryPanel from '@/components/builder/CommentaryPanel.vue'
+import HeroStatsPanel from '@/components/builder/HeroStatsPanel.vue'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ArrowRight,
   Database,
   MessageSquare,
-  PanelRightOpen,
-  PanelRightClose,
+  Hash,
   Layers,
 } from 'lucide-vue-next'
-
-const rightTab = ref<string>('data')
-const rightPanelOpen = ref(false)
 
 import { useAutoSave } from '@/composables/useAutoSave'
 
@@ -30,7 +26,27 @@ const slidesStore = useSlidesStore()
 const uiStore = useUiStore()
 const { autoSaveFireAndForget } = useAutoSave()
 
+// Right panel always visible; tab auto-switches based on region/slide context
+const rightTab = ref<string>('data')
+const rightPanelOpen = ref(true)
+
 const hasData = computed(() => slidesStore.sections.length > 0)
+
+// Is the currently active slide the first slide (cover slide)?
+const isCoverSlide = computed(() => {
+  const allSlides = slidesStore.allSlides
+  if (!slidesStore.activeSlideId) return false
+  return allSlides.length > 0 && allSlides[0].id === slidesStore.activeSlideId
+})
+
+// Dynamic tab label for the data panel
+const dataTabLabel = computed(() => {
+  const region = slidesStore.activeRegion
+  if (!region?.component) return 'Add Content'
+  if (region.component.type === 'chart') return 'Chart Data'
+  if (region.component.type === 'table') return 'Table Data'
+  return 'Data'
+})
 
 onMounted(() => {
   if (!slidesStore.activeSlideId && slidesStore.allSlides.length > 0) {
@@ -38,29 +54,62 @@ onMounted(() => {
   }
 })
 
-function openPanel(tab: 'data' | 'commentary') {
+function openPanel(tab: 'data' | 'commentary' | 'kpi') {
   rightTab.value = tab
   rightPanelOpen.value = true
 }
 
-watch(() => slidesStore.activeSlideId, () => {
-  rightPanelOpen.value = false
+// Auto-switch to KPI tab when cover slide is selected
+watch(isCoverSlide, (val) => {
+  if (val) openPanel('kpi')
+})
+
+// When region changes, switch panel tab to match content type
+watch(() => slidesStore.activeRegion, (region) => {
+  if (!region?.component) return
+  if (region.component.type === 'text') {
+    rightTab.value = 'commentary'
+  } else {
+    rightTab.value = 'data'
+  }
 })
 
 function onRegionClick(componentType: string | null) {
-  if (!componentType) {
-    rightPanelOpen.value = false
+  if (isCoverSlide.value) {
+    // On cover slide, let user pick between KPI and data panels
+    openPanel(componentType === 'text' ? 'commentary' : 'data')
     return
   }
-  if (componentType === 'chart' || componentType === 'table') {
-    openPanel('data')
-  } else if (componentType === 'text') {
+  if (componentType === 'text') {
     openPanel('commentary')
+  } else {
+    // Empty or chart/table region → always open data panel
+    openPanel('data')
   }
 }
 
 function onCommentaryClick() {
   openPanel('commentary')
+}
+
+const DEFAULT_CHART_DATA = { type: 'bar', x_axis: ['Q1', 'Q2', 'Q3', 'Q4'], y_axis: [120, 150, 180, 210], label: 'Value' }
+const DEFAULT_TABLE_DATA = { headers: ['Metric', 'Value', 'Change'], rows: [['Revenue', '$0', '+0%'], ['Margin', '0%', '+0pp']] }
+
+function onQuickAdd(regionIndex: number, type: 'chart' | 'table' | 'text') {
+  if (!slidesStore.activeSlideId) return
+  slidesStore.setActiveRegion(regionIndex)
+
+  if (type === 'chart') {
+    const data = mapDataToChartComponent(DEFAULT_CHART_DATA as Record<string, unknown>, 'bar')
+    slidesStore.setRegionComponent(slidesStore.activeSlideId, regionIndex, { id: crypto.randomUUID(), type: 'chart', data, config: {} })
+    openPanel('data')
+  } else if (type === 'table') {
+    slidesStore.setRegionComponent(slidesStore.activeSlideId, regionIndex, { id: crypto.randomUUID(), type: 'table', data: DEFAULT_TABLE_DATA, config: {} })
+    openPanel('data')
+  } else {
+    slidesStore.setRegionComponent(slidesStore.activeSlideId, regionIndex, { id: crypto.randomUUID(), type: 'text', data: { content: '' }, config: { format: 'paragraph' } })
+    openPanel('commentary')
+  }
 }
 
 function handleContinue() {
@@ -98,25 +147,13 @@ function handleContinue() {
       <SlideListPanel />
     </div>
 
-    <!-- Center: Canvas (takes remaining space) -->
+    <!-- Center: Canvas -->
     <div class="flex-1 flex flex-col min-w-0">
-      <LayoutSelector />
-      <TemplateSelector />
-      <SlideCanvas @region-click="onRegionClick" @commentary-click="onCommentaryClick" />
+      <!-- Layout selector is now inline inside SlideCanvas title bar -->
+      <SlideCanvas @region-click="onRegionClick" @commentary-click="onCommentaryClick" @quick-add="onQuickAdd" />
 
-      <!-- Continue bar -->
-      <div class="px-6 py-3 border-t border-border flex items-center justify-between">
-        <!-- Right panel toggle -->
-        <button
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200"
-          :class="rightPanelOpen ? 'text-amber-500 bg-amber-500/10' : 'text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5'"
-          @click="rightPanelOpen = !rightPanelOpen"
-        >
-          <PanelRightClose v-if="rightPanelOpen" :size="14" :stroke-width="1.5" />
-          <PanelRightOpen v-else :size="14" :stroke-width="1.5" />
-          {{ rightPanelOpen ? 'Hide Panel' : 'Show Panel' }}
-        </button>
-
+      <!-- Bottom bar -->
+      <div class="px-6 py-3 border-t border-border flex items-center justify-end">
         <Button
           class="bg-amber-500 text-[#09090B] hover:bg-amber-400 font-medium h-9 px-6 rounded-lg shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-200 active:scale-[0.98] text-sm"
           @click="handleContinue"
@@ -127,24 +164,23 @@ function handleContinue() {
       </div>
     </div>
 
-    <!-- Right panel: Data + Commentary (collapsible, auto-opens on object interaction) -->
+    <!-- Right panel: always visible, context-aware tabs -->
     <Transition name="slide-panel">
       <div
         v-if="rightPanelOpen"
         class="w-80 flex-shrink-0 flex flex-col border-l border-border overflow-hidden"
         :style="{ background: 'var(--surface-elevated)' }"
       >
-        <Tabs
-          v-model="rightTab"
-          class="flex flex-col h-full min-h-0"
-        >
-          <TabsList class="w-full grid grid-cols-2 bg-foreground/[0.03] rounded-none border-b border-border h-auto p-0">
+        <Tabs v-model="rightTab" class="flex flex-col h-full min-h-0">
+          <TabsList class="w-full grid bg-foreground/[0.03] rounded-none border-b border-border h-auto p-0"
+            :class="isCoverSlide ? 'grid-cols-3' : 'grid-cols-2'"
+          >
             <TabsTrigger
               value="data"
               class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-muted-foreground"
             >
               <Database :size="12" :stroke-width="1.5" />
-              Data
+              {{ dataTabLabel }}
             </TabsTrigger>
             <TabsTrigger
               value="commentary"
@@ -152,6 +188,14 @@ function handleContinue() {
             >
               <MessageSquare :size="12" :stroke-width="1.5" />
               Text
+            </TabsTrigger>
+            <TabsTrigger
+              v-if="isCoverSlide"
+              value="kpi"
+              class="flex items-center gap-1 py-3 text-[11px] font-medium rounded-none data-[state=active]:bg-transparent data-[state=active]:text-amber-500 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none text-muted-foreground"
+            >
+              <Hash :size="12" :stroke-width="1.5" />
+              KPI Stats
             </TabsTrigger>
           </TabsList>
 
@@ -162,6 +206,9 @@ function handleContinue() {
               </TabsContent>
               <TabsContent value="commentary" class="mt-0">
                 <CommentaryPanel />
+              </TabsContent>
+              <TabsContent v-if="isCoverSlide" value="kpi" class="mt-0">
+                <HeroStatsPanel />
               </TabsContent>
             </div>
           </div>

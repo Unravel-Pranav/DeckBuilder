@@ -1,20 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { FlowStep } from '@/types'
-
-const FLOW_STEPS: FlowStep[] = [
-  'create',
-  'recommendations',
-  'sections',
-  'builder',
-  'upload',
-  'preview',
-  'output',
-]
+import { LINEAR_FLOW_STEPS } from '@/lib/flowAccess'
 
 const STEP_LABELS: Record<FlowStep, string> = {
   create: 'Define Intent',
-  recommendations: 'AI Recommendations',
+  recommendations: 'AI Outline',
   sections: 'Manage Sections',
   builder: 'Build Slides',
   upload: 'Upload Templates',
@@ -40,11 +31,11 @@ export const useUiStore = defineStore('ui', () => {
   const rightPanelTab = ref<'data' | 'commentary'>('data')
 
   const currentStepIndex = computed(() =>
-    FLOW_STEPS.indexOf(currentStep.value),
+    LINEAR_FLOW_STEPS.indexOf(currentStep.value),
   )
 
   const steps = computed(() =>
-    FLOW_STEPS.map((step, index) => ({
+    LINEAR_FLOW_STEPS.map((step, index) => ({
       id: step,
       label: STEP_LABELS[step],
       route: STEP_ROUTES[step],
