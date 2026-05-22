@@ -58,6 +58,7 @@ async def generate_recommendation_plan(body: RecommendationAgentRequest):
                 name=sec.get("name", ""),
                 description=sec.get("description", ""),
                 narrative_role=sec.get("narrative_role", "analysis"),
+                slide_structure=sec.get("slide_structure", "two-col"),
                 template_id=sec.get("template_id"),
                 slot_assignments=slot_objs,
             )

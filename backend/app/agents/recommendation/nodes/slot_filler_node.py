@@ -180,6 +180,7 @@ async def slot_filler_node(state: dict[str, Any]) -> dict[str, Any]:
             "name": name,
             "description": sec.get("description", ""),
             "narrative_role": sec.get("narrative_role", "analysis"),
+            "slide_structure": sec.get("slide_structure", "two-col"),
             "template_id": sec.get("template_id"),
             "sectionname_alias": name,
             "display_order": idx,

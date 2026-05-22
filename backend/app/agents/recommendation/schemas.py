@@ -28,6 +28,7 @@ class RecommendedSection(BaseModel):
     name: str
     description: str = ""
     narrative_role: Literal["hook", "analysis", "detail", "summary"] = "analysis"
+    slide_structure: Literal["blank", "two-col", "two-row", "grid-2x2"] = "two-col"
     template_id: int | None = None
     slot_assignments: list[SlotAssignment] = Field(default_factory=list)
 
